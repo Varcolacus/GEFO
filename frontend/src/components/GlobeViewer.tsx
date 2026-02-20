@@ -59,7 +59,7 @@ function computeArcPositions(
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
   const distMeters = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 6_371_000;
-  const maxHeight = Math.min(distMeters * heightScale, 2_500_000); // cap at 2500km
+  const maxHeight = Math.min(distMeters * heightScale, 4_000_000); // cap at 4000km
 
   const points: number[] = [];
   for (let i = 0; i <= segments; i++) {
@@ -187,9 +187,25 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.scene.skyAtmosphere.saturationShift = -0.1;
     }
 
-    // Initial camera position
+    // ── Fog for atmospheric depth ──
+    viewer.scene.fog.enabled = true;
+    viewer.scene.fog.density = 2.0e-4;
+    viewer.scene.fog.minimumBrightness = 0.03;
+
+    // ── Depth testing so entities occlude properly ──
+    viewer.scene.globe.depthTestAgainstTerrain = false;
+
+    // ── Globe translucency for subtle ocean depth ──
+    viewer.scene.globe.translucency.enabled = false;
+
+    // Initial camera — oblique angle for dramatic 3D perspective
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(20, 20, 20000000),
+      destination: Cartesian3.fromDegrees(15, 30, 18000000),
+      orientation: {
+        heading: CesiumMath.toRadians(5),
+        pitch: CesiumMath.toRadians(-75),
+        roll: 0,
+      },
       duration: 0,
     });
 
@@ -233,8 +249,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       destination: Cartesian3.fromDegrees(
         flyToCountry.centroid_lon,
         flyToCountry.centroid_lat,
-        4000000 // 4,000 km altitude for good country view
+        5000000 // 5,000 km altitude — oblique 3D view
       ),
+      orientation: {
+        heading: CesiumMath.toRadians(345),
+        pitch: CesiumMath.toRadians(-35),
+        roll: 0,
+      },
       duration: 1.5,
     });
   }, [flyToCountry]);
@@ -250,6 +271,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         flyToPosition.lat,
         flyToPosition.altitude
       ),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-45),
+        roll: 0,
+      },
       duration: 1.8,
     });
   }, [flyToPosition]);
@@ -326,8 +352,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         color = Color.fromHsl(hue, 0.8, 0.45 + normalized * 0.2, 0.85);
       }
 
-      const radius = 60000 + normalized * 280000;
-      const extrudeHeight = 30000 + normalized * 600000; // 3D column height
+      const radius = 55000 + normalized * 220000;
+      const extrudeHeight = 80000 + normalized * 2500000; // tall 3D column (up to ~2.5M meters)
 
       const formattedValue =
         indicator === "trade_openness" || indicator === "import_dependency"
@@ -438,7 +464,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const arcPoints = computeArcPositions(
         flow.exporter_lon, flow.exporter_lat,
         flow.importer_lon, flow.importer_lat,
-        30, 0.12 + normalized * 0.08
+        40, 0.15 + normalized * 0.12
       );
 
       // Main directional arrow arc
@@ -499,7 +525,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const arcPoints = computeArcPositions(
         arc.exporter_lon, arc.exporter_lat,
         arc.importer_lon, arc.importer_lat,
-        30, 0.18
+        40, 0.22
       );
 
       // Magenta arc to distinguish from static trade flows
@@ -537,7 +563,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!viewer) return;
 
     const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("port_") || e.name?.startsWith("port_glow_")
+      (e) => e.name?.startsWith("port_") || e.name?.startsWith("port_glow_") || e.name?.startsWith("port_pillar_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
@@ -557,16 +583,32 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const portColor = colorMap[port.port_type || "container"] || "#00ff99";
       const cesiumColor = Color.fromCssColorString(portColor);
 
-      // Inner bright point
+      // 3D elevated port pillar
+      const pillarHeight = 40000 + Math.log10(Math.max(throughput, 1)) * 20000;
+      viewer.entities.add({
+        name: `port_pillar_${port.id}`,
+        position: Cartesian3.fromDegrees(port.lon, port.lat),
+        ellipse: {
+          semiMajorAxis: 8000,
+          semiMinorAxis: 8000,
+          height: 0,
+          extrudedHeight: pillarHeight,
+          material: cesiumColor.withAlpha(0.4),
+          outline: true,
+          outlineColor: cesiumColor.withAlpha(0.7),
+          outlineWidth: 1,
+        },
+      });
+
+      // Bright point on top of pillar
       viewer.entities.add({
         name: `port_${port.id}`,
-        position: Cartesian3.fromDegrees(port.lon, port.lat),
+        position: Cartesian3.fromDegrees(port.lon, port.lat, pillarHeight),
         point: {
           pixelSize: size,
           color: cesiumColor,
           outlineColor: Color.WHITE.withAlpha(0.6),
           outlineWidth: 1.5,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
           scaleByDistance: new NearFarScalar(1e6, 1, 1e7, 0.5),
         },
         label: {
@@ -639,7 +681,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         b = 0;
       }
 
-      const radius = 50000 + normalized * 100000;
+      const radius = 40000 + normalized * 80000;
+      const densityHeight = 15000 + normalized * 250000; // extruded 3D columns
 
       viewer.entities.add({
         name: `density_${index}`,
@@ -648,8 +691,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           semiMajorAxis: radius,
           semiMinorAxis: radius,
           height: 0,
+          extrudedHeight: densityHeight,
           material: Color.fromBytes(r, g, b, Math.round(alpha * 255)),
-          heightReference: HeightReference.CLAMP_TO_GROUND,
+          outline: true,
+          outlineColor: Color.fromBytes(r, g, b, Math.round(alpha * 100)),
+          outlineWidth: 1,
         },
       });
     });
@@ -702,11 +748,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           semiMajorAxis: zone.radius_km * 1000,
           semiMinorAxis: zone.radius_km * 1000,
           height: 0,
+          extrudedHeight: zone.severity === "critical" ? 120000 : zone.severity === "high" ? 80000 : 40000,
           material: fillColor,
           outline: true,
           outlineColor: borderColor,
           outlineWidth: 2,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
         },
         label: {
           text: `${icon} ${zone.name}`,
@@ -752,7 +798,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const arcPoints = computeArcPositions(
         edge.exporter_lon, edge.exporter_lat,
         edge.importer_lon, edge.importer_lat,
-        30, 0.14
+        40, 0.18
       );
 
       // Gold/amber arc
