@@ -17,6 +17,7 @@ import LiveFeed from "@/components/LiveFeed";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import AnalyticsPanel from "@/components/AnalyticsPanel";
 import ImportPanel from "@/components/ImportPanel";
+import CommodityPanel from "@/components/CommodityPanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
@@ -31,6 +32,7 @@ import {
   type PortData,
   type ShippingDensityPoint,
   type ConflictZone,
+  type CommodityFlowEdge,
 } from "@/lib/api";
 
 // Dynamic import for CesiumJS (no SSR)
@@ -191,6 +193,8 @@ export default function Home() {
   const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showCommodities, setShowCommodities] = useState(false);
+  const [commodityFlows, setCommodityFlows] = useState<CommodityFlowEdge[]>([]);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
@@ -281,6 +285,7 @@ export default function Home() {
         shippingDensity={shippingDensity}
         conflictZones={showGeopolitical ? conflictZones : []}
         liveTradeArcs={liveTradeArcs}
+        commodityFlows={commodityFlows}
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => {
@@ -351,6 +356,16 @@ export default function Home() {
           }`}
         >
           📊 Analytics
+        </button>
+        <button
+          onClick={() => setShowCommodities((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showCommodities
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          📦 Commodities
         </button>
         {isAuthenticated && user?.is_admin && (
           <button
@@ -539,6 +554,14 @@ export default function Home() {
 
       {showImport && (
         <ImportPanel onClose={() => setShowImport(false)} />
+      )}
+
+      {showCommodities && (
+        <CommodityPanel
+          year={year}
+          onClose={() => setShowCommodities(false)}
+          onShowCommodityFlows={(flows) => setCommodityFlows(flows)}
+        />
       )}
     </div>
   );

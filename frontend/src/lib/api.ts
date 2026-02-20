@@ -1101,4 +1101,171 @@ export async function fetchImportConnectors(): Promise<ConnectorInfo[]> {
   return response.data;
 }
 
+// ─── Commodity & Supply Chain Types ───
+
+export interface CommodityInfo {
+  id: number;
+  hs_code: string;
+  name: string;
+  category: string;
+  sub_category: string | null;
+  unit: string;
+  is_strategic: boolean;
+  icon: string | null;
+}
+
+export interface CommodityPricePoint {
+  year: number;
+  month: number;
+  price: number;
+  price_change_pct: number | null;
+  yoy_change_pct: number | null;
+  high: number | null;
+  low: number | null;
+}
+
+export interface CommodityPriceSummary {
+  latest_price: number;
+  latest_period: string;
+  unit: string;
+  min_price: number;
+  max_price: number;
+  avg_price: number;
+  volatility: number;
+  yoy_change_pct: number | null;
+  total_periods: number;
+}
+
+export interface CommodityPriceHistory {
+  commodity: CommodityInfo;
+  prices: CommodityPricePoint[];
+  summary: CommodityPriceSummary;
+}
+
+export interface CommodityDashboardItem {
+  commodity_id: number;
+  name: string;
+  hs_code: string;
+  category: string;
+  icon: string | null;
+  unit: string;
+  is_strategic: boolean;
+  price: number;
+  price_change_pct: number | null;
+  yoy_change_pct: number | null;
+  period: string;
+}
+
+export interface CommodityDashboard {
+  year: number;
+  total_commodities: number;
+  tracked_with_prices: number;
+  latest_prices: CommodityDashboardItem[];
+  top_movers: CommodityDashboardItem[];
+  categories: { category: string; count: number; avg_yoy_change: number }[];
+}
+
+export interface CommodityFlowEdge {
+  exporter_iso: string;
+  importer_iso: string;
+  value_usd: number;
+  weight: number;
+  exporter_lat: number;
+  exporter_lon: number;
+  importer_lat: number;
+  importer_lon: number;
+}
+
+export interface CommodityFlowGraph {
+  commodity_code: string;
+  commodity_name: string;
+  icon: string | null;
+  year: number;
+  nodes: { iso: string; name: string; lat: number; lon: number }[];
+  edges: CommodityFlowEdge[];
+  total_value: number;
+}
+
+export interface SupplyDependencyItem {
+  country_iso: string;
+  commodity_id: number;
+  commodity_name: string;
+  year: number;
+  direction: string;
+  value_usd: number;
+  share_pct: number | null;
+  world_share_pct: number | null;
+  top_partner_iso: string | null;
+  concentration_hhi: number | null;
+  risk_score: number | null;
+}
+
+export interface SupplyRiskEntry {
+  commodity_id: number;
+  commodity_name: string;
+  hs_code: string;
+  icon: string | null;
+  category: string;
+  avg_risk_score: number;
+  max_concentration_hhi: number;
+  dependent_countries: number;
+  top_dependencies: {
+    country_iso: string;
+    value_usd: number;
+    share_pct: number | null;
+    risk_score: number | null;
+  }[];
+}
+
+export interface SupplyRiskMatrix {
+  year: number;
+  strategic_commodities: number;
+  risk_matrix: SupplyRiskEntry[];
+}
+
+// ─── Commodity & Supply Chain Functions ───
+
+export async function fetchCommodities(category?: string, strategicOnly?: boolean): Promise<CommodityInfo[]> {
+  const response = await api.get("/api/commodities/", {
+    params: { category, strategic_only: strategicOnly },
+  });
+  return response.data;
+}
+
+export async function fetchCommodityDashboard(year: number = 2023): Promise<CommodityDashboard> {
+  const response = await api.get("/api/commodities/dashboard", { params: { year } });
+  return response.data;
+}
+
+export async function fetchCommodityPrices(commodityId: number, startYear?: number, endYear?: number): Promise<CommodityPriceHistory> {
+  const response = await api.get(`/api/commodities/${commodityId}/prices`, {
+    params: { start_year: startYear, end_year: endYear },
+  });
+  return response.data;
+}
+
+export async function fetchCommodityFlowGraph(commodityCode: string, year: number = 2023, topN: number = 15): Promise<CommodityFlowGraph> {
+  const response = await api.get(`/api/commodities/flows/${commodityCode}`, {
+    params: { year, top_n: topN },
+  });
+  return response.data;
+}
+
+export async function fetchSupplyRiskMatrix(year: number = 2023): Promise<SupplyRiskMatrix> {
+  const response = await api.get("/api/commodities/supply-risk", { params: { year } });
+  return response.data;
+}
+
+export async function fetchSupplyDependencies(countryIso?: string, commodityId?: number, year?: number, direction?: string): Promise<SupplyDependencyItem[]> {
+  const response = await api.get("/api/commodities/dependencies", {
+    params: { country_iso: countryIso, commodity_id: commodityId, year, direction },
+  });
+  return response.data;
+}
+
+export async function fetchCountryCommodityProfile(countryIso: string, year: number = 2023): Promise<Record<string, unknown>> {
+  const response = await api.get(`/api/commodities/country/${countryIso}`, { params: { year } });
+  return response.data;
+}
+
 export default api;

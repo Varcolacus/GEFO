@@ -17,6 +17,7 @@ from app.models.usage_log import APIUsageLog
 from app.models.geopolitical import SanctionedEntity, ConflictZone, CountryRiskScore, SupplyChainRoute
 from app.models.analytics import TradeForecast, TradeAnomaly
 from app.models.import_job import ImportJob, DataSource
+from app.models.commodity import Commodity, CommodityPrice, SupplyDependency
 
 logger = logging.getLogger(__name__)
 

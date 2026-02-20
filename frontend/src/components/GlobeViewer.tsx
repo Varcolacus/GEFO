@@ -37,6 +37,7 @@ import type {
   PortData,
   ShippingDensityPoint,
   ConflictZone,
+  CommodityFlowEdge,
 } from "@/lib/api";
 
 // Disable Cesium Ion — uses OpenStreetMap imagery + flat terrain
@@ -49,6 +50,7 @@ interface GlobeViewerProps {
   shippingDensity: ShippingDensityPoint[];
   conflictZones?: ConflictZone[];
   liveTradeArcs?: TradeFlowAggregated[];
+  commodityFlows?: CommodityFlowEdge[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
@@ -73,6 +75,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   shippingDensity,
   conflictZones = [],
   liveTradeArcs = [],
+  commodityFlows = [],
   layers,
   indicator,
   onCountryClick,
@@ -647,6 +650,56 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       });
     });
   }, [conflictZones]);
+
+  // ─── Render Commodity Flow Arcs (Gold) ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const toRemove = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("commodity_flow_")
+    );
+    toRemove.forEach((e) => viewer.entities.remove(e));
+
+    if (commodityFlows.length === 0) return;
+
+    commodityFlows.forEach((edge, i) => {
+      const width = Math.max(2, edge.weight * 8);
+
+      // Gold/amber arc
+      viewer.entities.add({
+        name: `commodity_flow_${i}`,
+        polyline: {
+          positions: Cartesian3.fromDegreesArray([
+            edge.exporter_lon, edge.exporter_lat,
+            edge.importer_lon, edge.importer_lat,
+          ]),
+          width: width,
+          material: new PolylineArrowMaterialProperty(
+            Color.fromCssColorString("rgba(245, 158, 11, 0.85)")
+          ),
+          arcType: ArcType.GEODESIC,
+        },
+      });
+
+      // Gold glow underlay
+      viewer.entities.add({
+        name: `commodity_flow_glow_${i}`,
+        polyline: {
+          positions: Cartesian3.fromDegreesArray([
+            edge.exporter_lon, edge.exporter_lat,
+            edge.importer_lon, edge.importer_lat,
+          ]),
+          width: width + 6,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.35,
+            color: Color.fromCssColorString("rgba(245, 158, 11, 0.2)"),
+          }),
+          arcType: ArcType.GEODESIC,
+        },
+      });
+    });
+  }, [commodityFlows]);
 
   return (
     <div
