@@ -16,6 +16,7 @@ from app.models.alert import AlertRule, Alert, NotificationChannel
 from app.models.usage_log import APIUsageLog
 from app.models.geopolitical import SanctionedEntity, ConflictZone, CountryRiskScore, SupplyChainRoute
 from app.models.analytics import TradeForecast, TradeAnomaly
+from app.models.import_job import ImportJob, DataSource
 
 logger = logging.getLogger(__name__)
 

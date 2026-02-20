@@ -989,4 +989,116 @@ export async function fetchCountryAnalytics(
   return response.data;
 }
 
+// ─── Data Import Types ───
+
+export interface ImportPreview {
+  filename: string;
+  total_rows: number;
+  file_columns: string[];
+  auto_mapping: Record<string, string>;
+  missing_required: string[];
+  preview_rows: Record<string, unknown>[];
+  schema: Record<string, unknown>;
+  temp_file: string;
+}
+
+export interface ImportJob {
+  id: number;
+  source_name: string;
+  target_table: string;
+  status: string;
+  total_rows: number;
+  imported_rows: number;
+  error_rows: number;
+  import_mode: string;
+  created_at: string;
+}
+
+export interface ImportJobDetail extends ImportJob {
+  user_id: number;
+  source_type: string;
+  progress_pct: number;
+  valid_rows: number;
+  skipped_rows: number;
+  column_mapping: Record<string, string>;
+  year_filter: number | null;
+  error_log: Array<{ row: number; field: string; error: string }>;
+  error_summary: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface ImportSchema {
+  columns: Record<string, { type: string; required: boolean; constraints?: Record<string, unknown> }>;
+  required_columns: string[];
+}
+
+export interface TableStats {
+  row_count: number;
+  year_range: { min: number; max: number } | null;
+}
+
+export interface ConnectorInfo {
+  id: string;
+  name: string;
+  description: string;
+  target_table: string;
+  requires_api_key: boolean;
+  indicators?: [string, string][];
+}
+
+// ─── Data Import Functions ───
+
+export async function uploadImportFile(file: File, targetTable: string): Promise<ImportPreview> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("target_table", targetTable);
+  const response = await api.post("/api/import/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+export async function executeImport(
+  tempFile: string,
+  targetTable: string,
+  columnMapping: Record<string, string>,
+  importMode: string = "append",
+  yearFilter?: number,
+): Promise<Record<string, unknown>> {
+  const response = await api.post("/api/import/execute", {
+    temp_file: tempFile,
+    target_table: targetTable,
+    column_mapping: columnMapping,
+    import_mode: importMode,
+    year_filter: yearFilter,
+  });
+  return response.data;
+}
+
+export async function fetchImportJobs(limit: number = 20): Promise<ImportJob[]> {
+  const response = await api.get("/api/import/jobs", { params: { limit } });
+  return response.data;
+}
+
+export async function fetchImportJobDetail(jobId: number): Promise<ImportJobDetail> {
+  const response = await api.get(`/api/import/jobs/${jobId}`);
+  return response.data;
+}
+
+export async function fetchImportSchemas(): Promise<Record<string, ImportSchema>> {
+  const response = await api.get("/api/import/schemas");
+  return response.data;
+}
+
+export async function fetchImportStats(): Promise<Record<string, TableStats>> {
+  const response = await api.get("/api/import/stats");
+  return response.data;
+}
+
+export async function fetchImportConnectors(): Promise<ConnectorInfo[]> {
+  const response = await api.get("/api/import/connectors");
+  return response.data;
+}
+
 export default api;

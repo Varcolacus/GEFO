@@ -16,6 +16,7 @@ import GeopoliticalPanel from "@/components/GeopoliticalPanel";
 import LiveFeed from "@/components/LiveFeed";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import AnalyticsPanel from "@/components/AnalyticsPanel";
+import ImportPanel from "@/components/ImportPanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
@@ -189,6 +190,7 @@ export default function Home() {
   const [showGeopolitical, setShowGeopolitical] = useState(false);
   const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
@@ -350,6 +352,18 @@ export default function Home() {
         >
           📊 Analytics
         </button>
+        {isAuthenticated && user?.is_admin && (
+          <button
+            onClick={() => setShowImport((v) => !v)}
+            className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+              showImport
+                ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
+                : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+            }`}
+          >
+            📥 Import
+          </button>
+        )}
         <button
           onClick={() => {
             const dataUrl = globeRef.current?.captureScreenshot();
@@ -521,6 +535,10 @@ export default function Home() {
           year={year}
           onClose={() => setShowAnalytics(false)}
         />
+      )}
+
+      {showImport && (
+        <ImportPanel onClose={() => setShowImport(false)} />
       )}
     </div>
   );
