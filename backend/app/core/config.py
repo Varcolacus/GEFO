@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     stripe_pro_price_id: str = ""
     stripe_institutional_price_id: str = ""
 
+    # SMTP for email notifications (optional)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "alerts@gefo.io"
+    smtp_use_tls: bool = True
+
+    # App URL (for links in emails)
+    app_url: str = "http://localhost:3000"
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]

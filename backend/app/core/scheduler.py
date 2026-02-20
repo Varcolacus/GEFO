@@ -81,6 +81,39 @@ def job_health_check():
         logger.error(f"Health check failed: {e}", exc_info=True)
 
 
+def job_alert_check():
+    """Periodic alert rule evaluation — checks all enabled rules."""
+    logger.info("=== SCHEDULED JOB: Alert rule evaluation ===")
+    try:
+        from app.core.database import SessionLocal
+        from app.services.alert_engine import evaluate_rules
+        from app.services.notifications import dispatch_all_new_alerts
+        import asyncio
+
+        db = SessionLocal()
+        try:
+            new_alerts = evaluate_rules(db, year=2023)
+            if new_alerts:
+                logger.info(f"Alert check triggered {len(new_alerts)} new alert(s)")
+                # Dispatch notifications asynchronously
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.ensure_future(dispatch_all_new_alerts(db, new_alerts))
+                    else:
+                        loop.run_until_complete(dispatch_all_new_alerts(db, new_alerts))
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    loop.run_until_complete(dispatch_all_new_alerts(db, new_alerts))
+                    loop.close()
+            else:
+                logger.debug("Alert check: no new alerts")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Alert check job failed: {e}", exc_info=True)
+
+
 def start_scheduler():
     """
     Register and start all scheduled jobs.
@@ -115,6 +148,15 @@ def start_scheduler():
         CronTrigger(day_of_week="mon", hour=6, minute=0),
         id="health_weekly",
         name="Weekly health check",
+        replace_existing=True,
+    )
+
+    # Alert rule evaluation — every 15 minutes
+    scheduler.add_job(
+        job_alert_check,
+        CronTrigger(minute="*/15"),
+        id="alert_check",
+        name="Alert rule evaluation (every 15 min)",
         replace_existing=True,
     )
 

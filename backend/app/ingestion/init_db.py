@@ -12,6 +12,7 @@ from app.models.port import Port
 from app.models.shipping_density import ShippingDensity
 from app.models.chokepoint import Chokepoint
 from app.models.user import User, APIKey
+from app.models.alert import AlertRule, Alert, NotificationChannel
 
 logger = logging.getLogger(__name__)
 

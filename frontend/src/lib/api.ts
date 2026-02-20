@@ -449,4 +449,144 @@ export async function createPortalSession(): Promise<{ portal_url: string }> {
   return response.data;
 }
 
+// ─── Alert Types ───
+
+export interface AlertRuleInfo {
+  id: number;
+  name: string;
+  rule_type: string;
+  is_enabled: boolean;
+  config: Record<string, unknown>;
+  cooldown_minutes: number;
+  created_at: string;
+  alert_count: number;
+}
+
+export interface AlertInfo {
+  id: number;
+  rule_id: number;
+  rule_name: string;
+  severity: "info" | "warning" | "critical";
+  status: "active" | "acknowledged" | "resolved";
+  title: string;
+  message: string;
+  details: Record<string, unknown> | null;
+  triggered_at: string;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+  email_sent: boolean;
+  webhook_sent: boolean;
+}
+
+export interface AlertSummary {
+  total_active: number;
+  critical: number;
+  warning: number;
+  info: number;
+  latest: AlertInfo[];
+}
+
+export interface AlertList {
+  total: number;
+  unread: number;
+  alerts: AlertInfo[];
+}
+
+export interface ChannelInfo {
+  id: number;
+  channel_type: "email" | "webhook";
+  is_enabled: boolean;
+  target: string;
+  label: string | null;
+  created_at: string;
+}
+
+// ─── Alert API ───
+
+export async function fetchAlertSummary(): Promise<AlertSummary> {
+  const response = await api.get("/api/alerts/summary");
+  return response.data;
+}
+
+export async function fetchAlerts(
+  status?: string,
+  severity?: string,
+  limit = 50
+): Promise<AlertList> {
+  const params: Record<string, string | number> = { limit };
+  if (status) params.status = status;
+  if (severity) params.severity = severity;
+  const response = await api.get("/api/alerts/", { params });
+  return response.data;
+}
+
+export async function acknowledgeAlerts(alertIds: number[]): Promise<{ acknowledged: number }> {
+  const response = await api.post("/api/alerts/acknowledge", { alert_ids: alertIds });
+  return response.data;
+}
+
+export async function acknowledgeAllAlerts(): Promise<{ acknowledged: number }> {
+  const response = await api.post("/api/alerts/acknowledge-all");
+  return response.data;
+}
+
+export async function triggerAlertCheck(): Promise<{
+  checked_at: string;
+  new_alerts: number;
+  alerts: AlertInfo[];
+}> {
+  const response = await api.post("/api/alerts/check");
+  return response.data;
+}
+
+// ─── Alert Rules API ───
+
+export async function fetchAlertRules(): Promise<AlertRuleInfo[]> {
+  const response = await api.get("/api/alerts/rules");
+  return response.data;
+}
+
+export async function createAlertRule(rule: {
+  name: string;
+  rule_type: string;
+  config: Record<string, unknown>;
+  cooldown_minutes?: number;
+}): Promise<AlertRuleInfo> {
+  const response = await api.post("/api/alerts/rules", rule);
+  return response.data;
+}
+
+export async function updateAlertRule(
+  ruleId: number,
+  update: { name?: string; is_enabled?: boolean; config?: Record<string, unknown>; cooldown_minutes?: number }
+): Promise<AlertRuleInfo> {
+  const response = await api.patch(`/api/alerts/rules/${ruleId}`, update);
+  return response.data;
+}
+
+export async function deleteAlertRule(ruleId: number): Promise<void> {
+  await api.delete(`/api/alerts/rules/${ruleId}`);
+}
+
+// ─── Notification Channels API ───
+
+export async function fetchChannels(): Promise<ChannelInfo[]> {
+  const response = await api.get("/api/alerts/channels");
+  return response.data;
+}
+
+export async function createChannel(channel: {
+  channel_type: "email" | "webhook";
+  target: string;
+  label?: string;
+  secret?: string;
+}): Promise<ChannelInfo> {
+  const response = await api.post("/api/alerts/channels", channel);
+  return response.data;
+}
+
+export async function deleteChannel(channelId: number): Promise<void> {
+  await api.delete(`/api/alerts/channels/${channelId}`);
+}
+
 export default api;

@@ -10,6 +10,7 @@ import ComparePanel from "@/components/ComparePanel";
 import IntelligencePanel from "@/components/IntelligencePanel";
 import AuthModal from "@/components/AuthModal";
 import AccountPanel from "@/components/AccountPanel";
+import NotificationPanel from "@/components/NotificationPanel";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
@@ -175,8 +176,26 @@ export default function Home() {
   const [showIntelligence, setShowIntelligence] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const { user, isAuthenticated } = useAuth();
+
+  // Poll alert count every 60s for authenticated users
+  useEffect(() => {
+    if (!isAuthenticated) { setAlertCount(0); return; }
+    let cancelled = false;
+    async function poll() {
+      try {
+        const { fetchAlertSummary } = await import("@/lib/api");
+        const s = await fetchAlertSummary();
+        if (!cancelled) setAlertCount(s.total_active);
+      } catch { /* ignore */ }
+    }
+    poll();
+    const iv = setInterval(poll, 60000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     async function loadLiveData() {
@@ -277,13 +296,28 @@ export default function Home() {
         </button>
 
         {isAuthenticated ? (
-          <button
-            onClick={() => setShowAccount(true)}
-            className="text-xs px-3 py-2 rounded-lg border bg-cyan-600/80 text-white
-                       border-cyan-500 hover:bg-cyan-500 transition-colors backdrop-blur-sm flex items-center gap-1"
-          >
-            👤 {user?.full_name || user?.email?.split("@")[0] || "Account"}
-          </button>
+          <>
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="relative text-xs px-3 py-2 rounded-lg border bg-gray-900/80 text-gray-400
+                         border-gray-700 hover:text-white transition-colors backdrop-blur-sm"
+            >
+              🔔 Alerts
+              {alertCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold
+                               w-4 h-4 rounded-full flex items-center justify-center">
+                  {alertCount > 9 ? "9+" : alertCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowAccount(true)}
+              className="text-xs px-3 py-2 rounded-lg border bg-cyan-600/80 text-white
+                         border-cyan-500 hover:bg-cyan-500 transition-colors backdrop-blur-sm flex items-center gap-1"
+            >
+              👤 {user?.full_name || user?.email?.split("@")[0] || "Account"}
+            </button>
+          </>
         ) : (
           <button
             onClick={() => setShowAuthModal(true)}
@@ -370,6 +404,10 @@ export default function Home() {
 
       {showAccount && (
         <AccountPanel onClose={() => setShowAccount(false)} />
+      )}
+
+      {showNotifications && (
+        <NotificationPanel onClose={() => { setShowNotifications(false); setAlertCount(0); }} />
       )}
     </div>
   );
