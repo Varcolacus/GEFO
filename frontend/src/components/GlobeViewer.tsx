@@ -155,13 +155,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       },
       baseLayer: new ImageryLayer(
         new UrlTemplateImageryProvider({
-          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
           subdomains: ["a", "b", "c", "d"],
           credit: "© OpenStreetMap contributors, © CARTO",
           minimumLevel: 0,
           maximumLevel: 20,
-          tileWidth: 512,
-          tileHeight: 512,
         })
       ),
       terrainProvider: new EllipsoidTerrainProvider(),
@@ -178,10 +176,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       }),
       0 // insert beneath CartoDB
     );
-    osmDetail.brightness = 0.35;
-    osmDetail.contrast = 1.4;
-    osmDetail.saturation = 0.15;
-    osmDetail.gamma = 0.6;
+    osmDetail.brightness = 0.45;
+    osmDetail.contrast = 1.2;
+    osmDetail.saturation = 0.2;
+    osmDetail.gamma = 0.7;
 
     // Deep-space background + dark globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
@@ -196,11 +194,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     // ── Bloom post-processing for glowing arcs & markers ──
     viewer.scene.postProcessStages.bloom.enabled = true;
     viewer.scene.postProcessStages.bloom.uniforms.glowOnly = false;
-    viewer.scene.postProcessStages.bloom.uniforms.contrast = 128;
-    viewer.scene.postProcessStages.bloom.uniforms.brightness = -0.2;
-    viewer.scene.postProcessStages.bloom.uniforms.delta = 1.0;
-    viewer.scene.postProcessStages.bloom.uniforms.sigma = 3.8;
-    viewer.scene.postProcessStages.bloom.uniforms.stepSize = 5.0;
+    viewer.scene.postProcessStages.bloom.uniforms.contrast = 119;
+    viewer.scene.postProcessStages.bloom.uniforms.brightness = -0.15;
+    viewer.scene.postProcessStages.bloom.uniforms.delta = 0.8;
+    viewer.scene.postProcessStages.bloom.uniforms.sigma = 2.5;
+    viewer.scene.postProcessStages.bloom.uniforms.stepSize = 3.0;
 
     // ── Atmosphere tuning ──
     if (viewer.scene.skyAtmosphere) {
@@ -211,8 +209,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     // ── Fog for atmospheric depth (subtle — doesn't obscure close zoom) ──
     viewer.scene.fog.enabled = true;
-    viewer.scene.fog.density = 1.0e-4;
-    viewer.scene.fog.minimumBrightness = 0.02;
+    viewer.scene.fog.density = 5.0e-5;
+    viewer.scene.fog.minimumBrightness = 0.03;
 
     // ── Depth testing so entities occlude properly ──
     viewer.scene.globe.depthTestAgainstTerrain = false;
