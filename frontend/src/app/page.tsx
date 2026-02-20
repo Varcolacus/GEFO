@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import LayerControl from "@/components/LayerControl";
 import InfoPanel from "@/components/InfoPanel";
 import CountryDetailPanel from "@/components/CountryDetailPanel";
+import TimeSlider from "@/components/TimeSlider";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -161,9 +162,11 @@ export default function Home() {
   const [shippingDensity, setShippingDensity] = useState<ShippingDensityPoint[]>(DEMO_SHIPPING);
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
   const [selectedCountry, setSelectedCountry] = useState<CountryMacro | null>(null);
+  const [isLoadingYear, setIsLoadingYear] = useState(false);
 
   useEffect(() => {
     async function loadLiveData() {
+      setIsLoadingYear(true);
       try {
         const [countriesData, flowsData, portsData, densityData] = await Promise.all([
           fetchCountries(),
@@ -180,6 +183,8 @@ export default function Home() {
       } catch {
         console.log("Backend not available, using demo data");
         setDataSource("demo");
+      } finally {
+        setIsLoadingYear(false);
       }
     }
 
@@ -210,8 +215,12 @@ export default function Home() {
         onToggle={toggleLayer}
         indicator={indicator}
         onIndicatorChange={setIndicator}
+      />
+
+      <TimeSlider
         year={year}
         onYearChange={setYear}
+        isLoading={isLoadingYear}
       />
 
       <div className="absolute bottom-4 right-4 z-50">

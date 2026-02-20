@@ -10,8 +10,6 @@ interface LayerControlProps {
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
   indicator: string;
   onIndicatorChange: (indicator: string) => void;
-  year: number;
-  onYearChange: (year: number) => void;
 }
 
 const INDICATORS = [
@@ -21,15 +19,11 @@ const INDICATORS = [
   { value: "export_value", label: "Export Intensity" },
 ];
 
-const YEARS = [2018, 2019, 2020, 2021, 2022, 2023];
-
 export default function LayerControl({
   layers,
   onToggle,
   indicator,
   onIndicatorChange,
-  year,
-  onYearChange,
 }: LayerControlProps) {
   return (
     <div className="absolute top-4 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72">
@@ -101,24 +95,6 @@ export default function LayerControl({
           </select>
         </div>
       )}
-
-      {/* Year Selector */}
-      <div className="px-4 pb-4">
-        <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
-          Year
-        </h3>
-        <select
-          value={year}
-          onChange={(e) => onYearChange(parseInt(e.target.value))}
-          className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-        >
-          {YEARS.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* Legend */}
       <div className="px-4 pb-4 border-t border-gray-700 pt-3">

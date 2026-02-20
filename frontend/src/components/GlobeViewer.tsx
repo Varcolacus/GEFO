@@ -81,7 +81,7 @@ export default function GlobeViewer({
       fullscreenButton: false,
       geocoder: false,
       homeButton: false,
-      infoBox: true,
+      infoBox: false,
       sceneModePicker: false,
       selectionIndicator: true,
       timeline: false,
