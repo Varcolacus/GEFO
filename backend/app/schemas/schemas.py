@@ -97,6 +97,7 @@ class ShippingDensityResponse(BaseModel):
     year: int
     month: int
     vessel_type: Optional[str] = None
+    region_name: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -38,6 +38,7 @@ def get_shipping_density(
             year=d.year,
             month=d.month,
             vessel_type=d.vessel_type,
+            region_name=d.region_name,
         ) for d in data],
         min_density=min(density_values),
         max_density=max(density_values),
