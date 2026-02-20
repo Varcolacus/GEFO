@@ -139,4 +139,158 @@ export async function fetchCountryProfile(
   return response.data;
 }
 
+// ─── Intelligence API (Phase 2) ───
+
+export interface ChokepointStatus {
+  name: string;
+  lat: number;
+  lon: number;
+  description: string;
+  current_density: number;
+  baseline_mean: number;
+  baseline_std: number;
+  z_score: number;
+  stress_level: string;
+  oil_share_pct: number;
+  lng_share_pct: number;
+  capacity_daily_transits: number;
+  quarterly: { quarter: number; density: number; z_score: number }[];
+}
+
+export interface PortStressEntry {
+  port_id: number;
+  port_name: string;
+  country_iso: string;
+  lat: number;
+  lon: number;
+  port_type: string;
+  throughput_teu: number;
+  region: string;
+  psi: number;
+  stress_level: string;
+  components: {
+    throughput_ratio: number;
+    density_factor: number;
+    utilization: number;
+  };
+  nearby_density: number;
+  regional_avg_teu: number;
+}
+
+export interface TFIICorridor {
+  exporter_iso: string;
+  importer_iso: string;
+  trade_value_usd: number;
+  avg_lane_density: number;
+  tfii: number;
+  lanes: string[];
+  interpretation: string;
+}
+
+export interface EnergyExposureEntry {
+  iso_code: string;
+  ecei: number;
+  risk_level: string;
+  total_trade_usd: number;
+  chokepoint_exposure: {
+    chokepoint: string;
+    trade_share: number;
+    energy_weight: number;
+    contribution: number;
+  }[];
+}
+
+export interface BaselineMetric {
+  metric: string;
+  current_year: number;
+  current_value: number;
+  baseline_mean: number;
+  baseline_std: number;
+  z_score: number;
+  classification: string;
+  trend: string;
+  yoy_growth?: number;
+  yearly_data?: Record<string, unknown>[];
+}
+
+export interface IntelligenceDashboard {
+  year: number;
+  chokepoint_monitor: {
+    total: number;
+    stressed_count: number;
+    stressed: ChokepointStatus[];
+    all: ChokepointStatus[];
+  };
+  port_stress: {
+    total_ports: number;
+    mean_psi: number;
+    max_psi: number;
+    min_psi: number;
+    by_level: Record<string, number>;
+    most_stressed: PortStressEntry[];
+    least_stressed: PortStressEntry[];
+  };
+  top_tfii_corridors: TFIICorridor[];
+  energy_exposure: {
+    most_exposed: EnergyExposureEntry[];
+    total_countries: number;
+  };
+  baselines: {
+    reference_year: number;
+    metrics: BaselineMetric[];
+    summary: { total_metrics: number; anomalies: number };
+  };
+  alerts: {
+    severity: string;
+    type: string;
+    message: string;
+  }[];
+}
+
+export async function fetchIntelligenceDashboard(
+  year: number = 2023
+): Promise<IntelligenceDashboard> {
+  const response = await api.get("/api/intelligence/dashboard", {
+    params: { year },
+  });
+  return response.data;
+}
+
+export async function fetchChokepoints(
+  year: number = 2023
+): Promise<ChokepointStatus[]> {
+  const response = await api.get("/api/intelligence/chokepoints", {
+    params: { year },
+  });
+  return response.data.chokepoints;
+}
+
+export async function fetchPortStress(
+  year: number = 2023
+): Promise<PortStressEntry[]> {
+  const response = await api.get("/api/intelligence/port-stress", {
+    params: { year },
+  });
+  return response.data.ports;
+}
+
+export async function fetchTFIICorridors(
+  year: number = 2023,
+  topN: number = 50
+): Promise<TFIICorridor[]> {
+  const response = await api.get("/api/intelligence/tfii/corridors", {
+    params: { year, top_n: topN },
+  });
+  return response.data.corridors;
+}
+
+export async function fetchEnergyExposure(
+  year: number = 2023
+): Promise<EnergyExposureEntry[]> {
+  const response = await api.get("/api/intelligence/energy/exposure", {
+    params: { year },
+  });
+  return response.data.countries;
+}
+
 export default api;

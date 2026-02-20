@@ -7,6 +7,7 @@ import CountryDetailPanel from "@/components/CountryDetailPanel";
 import TimeSlider from "@/components/TimeSlider";
 import SearchBar from "@/components/SearchBar";
 import ComparePanel from "@/components/ComparePanel";
+import IntelligencePanel from "@/components/IntelligencePanel";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
@@ -168,6 +169,7 @@ export default function Home() {
   const [flyToPosition, setFlyToPosition] = useState<{ lon: number; lat: number; altitude: number } | null>(null);
   const [isLoadingYear, setIsLoadingYear] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(false);
   const globeRef = useRef<GlobeViewerHandle>(null);
 
   useEffect(() => {
@@ -244,6 +246,16 @@ export default function Home() {
           ⚖️ Compare
         </button>
         <button
+          onClick={() => setShowIntelligence((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showIntelligence
+              ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          🧠 Intelligence
+        </button>
+        <button
           onClick={() => {
             const dataUrl = globeRef.current?.captureScreenshot();
             if (!dataUrl) return;
@@ -313,6 +325,13 @@ export default function Home() {
           {dataSource === "live" ? "● Live Data" : "● Demo Data"}
         </div>
       </div>
+
+      {showIntelligence && (
+        <IntelligencePanel
+          year={year}
+          onClose={() => setShowIntelligence(false)}
+        />
+      )}
 
       {selectedCountry && (
         <CountryDetailPanel

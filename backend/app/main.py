@@ -5,7 +5,7 @@ import logging
 
 from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
-from app.api import countries, trade_flows, ports, shipping_density, indicators
+from app.api import countries, trade_flows, ports, shipping_density, indicators, intelligence
 
 # ─── Logging ───
 logging.basicConfig(
@@ -52,20 +52,22 @@ app.include_router(trade_flows.router)
 app.include_router(ports.router)
 app.include_router(shipping_density.router)
 app.include_router(indicators.router)
+app.include_router(intelligence.router)
 
 
 @app.get("/")
 def root():
     return {
         "name": "GEFO API",
-        "version": "0.1.0",
-        "description": "Global Economic Flow Observatory",
+        "version": "0.2.0",
+        "description": "Global Economic Flow Observatory — Intelligence Platform",
         "endpoints": {
             "countries": "/api/countries",
             "trade_flows": "/api/trade_flows",
             "ports": "/api/ports",
             "shipping_density": "/api/shipping_density",
             "indicators": "/api/indicators",
+            "intelligence": "/api/intelligence",
             "docs": "/docs",
         },
     }

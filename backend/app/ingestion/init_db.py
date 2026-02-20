@@ -10,6 +10,7 @@ from app.models.country import Country
 from app.models.trade_flow import TradeFlow
 from app.models.port import Port
 from app.models.shipping_density import ShippingDensity
+from app.models.chokepoint import Chokepoint
 
 logger = logging.getLogger(__name__)
 
