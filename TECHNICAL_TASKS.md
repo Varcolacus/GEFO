@@ -118,12 +118,29 @@ For each:
 
 ---
 
+# PHASE 4 — ALERTING & NOTIFICATIONS
+
+- [x] Alert models (AlertRule, Alert, NotificationChannel)
+- [x] Alert engine with 5 evaluators (chokepoint stress, port stress, trade anomaly, TFII, energy exposure)
+- [x] Cooldown-aware rule evaluation with severity auto-mapping
+- [x] Email notifications via SMTP with HTML templates
+- [x] Webhook notifications with HMAC-SHA256 signatures
+- [x] Alert API (CRUD rules, list/acknowledge alerts, manage channels)
+- [x] On-demand alert check endpoint
+- [x] Background scheduler (APScheduler every 15 min)
+- [x] Tier-based limits (Free: 3 rules/1 channel, Pro: 20/5, Institutional: 100/20)
+- [x] Frontend NotificationPanel (Alerts, Rules, Channels tabs)
+- [x] Notification bell with live badge counter (60s polling)
+
+---
+
 ## Project Status
 
-**Current Phase:** Phase 3 Complete  
+**Current Phase:** Phase 4 Complete  
 **Start Date:** February 20, 2026  
 **Phase 1 Completed:** Commit `128f860`  
 **Phase 2 Completed:** Commit `9573943`  
-**Phase 3 Completed:** Commit `7ddbfae`
+**Phase 3 Completed:** Commit `7ddbfae`  
+**Phase 4 Completed:** Commit `a95c791`
 
 ---
