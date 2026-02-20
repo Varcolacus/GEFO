@@ -16,6 +16,7 @@ import {
   HeightReference,
   Math as CesiumMath,
   PolylineGlowMaterialProperty,
+  PolylineArrowMaterialProperty,
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
@@ -53,6 +54,7 @@ interface GlobeViewerProps {
   };
   indicator: string;
   onCountryClick?: (country: CountryMacro) => void;
+  flyToCountry?: CountryMacro | null;
 }
 
 export default function GlobeViewer({
@@ -63,6 +65,7 @@ export default function GlobeViewer({
   layers,
   indicator,
   onCountryClick,
+  flyToCountry,
 }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -140,6 +143,21 @@ export default function GlobeViewer({
 
     return () => handler.destroy();
   }, [countries, onCountryClick]);
+
+  // ─── Fly to country when requested ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !flyToCountry || !flyToCountry.centroid_lat || !flyToCountry.centroid_lon) return;
+
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(
+        flyToCountry.centroid_lon,
+        flyToCountry.centroid_lat,
+        4000000 // 4,000 km altitude for good country view
+      ),
+      duration: 1.5,
+    });
+  }, [flyToCountry]);
 
   // ─── Render Country Points (with macro indicator coloring) ───
   useEffect(() => {
@@ -260,7 +278,7 @@ export default function GlobeViewer({
     if (!viewer) return;
 
     const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("flow_")
+      (e) => e.name?.startsWith("flow_") || e.name?.startsWith("flow_glow_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
@@ -278,9 +296,10 @@ export default function GlobeViewer({
         return;
 
       const normalized = flow.total_value_usd / maxValue;
-      const width = 1 + normalized * 6;
-      const alpha = 0.3 + normalized * 0.5;
+      const width = 2 + normalized * 8;
+      const alpha = 0.4 + normalized * 0.5;
 
+      // Directional arrow polyline (export → import)
       viewer.entities.add({
         name: `flow_${index}`,
         polyline: {
@@ -291,12 +310,9 @@ export default function GlobeViewer({
             flow.importer_lat,
           ]),
           width: width,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.2,
-            color: Color.fromCssColorString(
-              `rgba(0, 180, 255, ${alpha})`
-            ),
-          }),
+          material: new PolylineArrowMaterialProperty(
+            Color.fromCssColorString(`rgba(0, 200, 255, ${alpha})`)
+          ),
           arcType: ArcType.GEODESIC,
         },
         description: `
@@ -305,6 +321,27 @@ export default function GlobeViewer({
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
       });
+
+      // Glow underlay for top flows
+      if (normalized > 0.3) {
+        viewer.entities.add({
+          name: `flow_glow_${index}`,
+          polyline: {
+            positions: Cartesian3.fromDegreesArray([
+              flow.exporter_lon,
+              flow.exporter_lat,
+              flow.importer_lon,
+              flow.importer_lat,
+            ]),
+            width: width + 4,
+            material: new PolylineGlowMaterialProperty({
+              glowPower: 0.3,
+              color: Color.fromCssColorString(`rgba(0, 140, 255, ${alpha * 0.3})`),
+            }),
+            arcType: ArcType.GEODESIC,
+          },
+        });
+      }
     });
   }, [tradeFlows, layers.tradeFlows]);
 

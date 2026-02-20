@@ -6,6 +6,7 @@ import LayerControl from "@/components/LayerControl";
 import InfoPanel from "@/components/InfoPanel";
 import CountryDetailPanel from "@/components/CountryDetailPanel";
 import TimeSlider from "@/components/TimeSlider";
+import SearchBar from "@/components/SearchBar";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -162,6 +163,7 @@ export default function Home() {
   const [shippingDensity, setShippingDensity] = useState<ShippingDensityPoint[]>(DEMO_SHIPPING);
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
   const [selectedCountry, setSelectedCountry] = useState<CountryMacro | null>(null);
+  const [flyToCountry, setFlyToCountry] = useState<CountryMacro | null>(null);
   const [isLoadingYear, setIsLoadingYear] = useState(false);
 
   useEffect(() => {
@@ -208,6 +210,15 @@ export default function Home() {
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => setSelectedCountry(country)}
+        flyToCountry={flyToCountry}
+      />
+
+      <SearchBar
+        countries={countries}
+        onSelect={(country) => {
+          setFlyToCountry(country);
+          setSelectedCountry(country);
+        }}
       />
 
       <LayerControl
