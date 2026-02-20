@@ -589,4 +589,130 @@ export async function deleteChannel(channelId: number): Promise<void> {
   await api.delete(`/api/alerts/channels/${channelId}`);
 }
 
+// ─── Admin API ───
+
+export interface PlatformStats {
+  total_users: number;
+  active_users: number;
+  users_by_tier: Record<string, number>;
+  total_api_keys: number;
+  total_alert_rules: number;
+  total_alerts_triggered: number;
+  total_notification_channels: number;
+  db_counts: Record<string, number>;
+  scheduler_status: Record<string, unknown>;
+}
+
+export interface AdminUserSummary {
+  id: number;
+  email: string;
+  full_name?: string;
+  organisation?: string;
+  tier: string;
+  subscription_status: string;
+  is_active: boolean;
+  is_admin: boolean;
+  api_key_count: number;
+  alert_rule_count: number;
+  created_at: string;
+}
+
+export interface AdminUserUpdate {
+  tier?: string;
+  is_active?: boolean;
+  is_admin?: boolean;
+}
+
+export interface EndpointUsage {
+  endpoint: string;
+  method: string;
+  count: number;
+  avg_response_ms: number | null;
+}
+
+export interface DailyUsage {
+  date: string;
+  request_count: number;
+}
+
+export interface UserUsage {
+  user_id: number;
+  email: string;
+  tier: string;
+  request_count: number;
+  last_request?: string;
+}
+
+export interface UsageAnalytics {
+  total_requests: number;
+  requests_today: number;
+  requests_this_week: number;
+  top_endpoints: EndpointUsage[];
+  daily_trend: DailyUsage[];
+  top_users: UserUsage[];
+  error_rate: number;
+}
+
+export interface SystemHealth {
+  status: string;
+  database: Record<string, unknown>;
+  scheduler: Record<string, unknown>;
+  uptime_seconds: number;
+  api_version: string;
+  python_version: string;
+}
+
+export interface ActivityEntry {
+  id: number;
+  user_email: string;
+  endpoint: string;
+  method: string;
+  status_code: number;
+  response_time_ms: number | null;
+  ip_address: string;
+  timestamp: string | null;
+}
+
+export async function fetchPlatformStats(): Promise<PlatformStats> {
+  const response = await api.get("/api/admin/stats");
+  return response.data;
+}
+
+export async function fetchAdminUsers(tier?: string, search?: string): Promise<AdminUserSummary[]> {
+  const params: Record<string, string> = {};
+  if (tier) params.tier = tier;
+  if (search) params.search = search;
+  const response = await api.get("/api/admin/users", { params });
+  return response.data;
+}
+
+export async function updateAdminUser(userId: number, update: AdminUserUpdate): Promise<AdminUserSummary> {
+  const response = await api.patch(`/api/admin/users/${userId}`, update);
+  return response.data;
+}
+
+export async function deleteAdminUser(userId: number): Promise<void> {
+  await api.delete(`/api/admin/users/${userId}`);
+}
+
+export async function fetchUsageAnalytics(days?: number): Promise<UsageAnalytics> {
+  const response = await api.get("/api/admin/usage", { params: days ? { days } : {} });
+  return response.data;
+}
+
+export async function fetchSystemHealth(): Promise<SystemHealth> {
+  const response = await api.get("/api/admin/health");
+  return response.data;
+}
+
+export async function fetchRecentActivity(limit?: number): Promise<ActivityEntry[]> {
+  const response = await api.get("/api/admin/activity", { params: limit ? { limit } : {} });
+  return response.data.activity;
+}
+
+export async function bootstrapAdmin(): Promise<{ message: string; user_id: number }> {
+  const response = await api.post("/api/admin/bootstrap");
+  return response.data;
+}
+
 export default api;

@@ -11,6 +11,7 @@ import IntelligencePanel from "@/components/IntelligencePanel";
 import AuthModal from "@/components/AuthModal";
 import AccountPanel from "@/components/AccountPanel";
 import NotificationPanel from "@/components/NotificationPanel";
+import AdminPanel from "@/components/AdminPanel";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
@@ -177,6 +178,7 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const { user, isAuthenticated } = useAuth();
@@ -317,6 +319,15 @@ export default function Home() {
             >
               👤 {user?.full_name || user?.email?.split("@")[0] || "Account"}
             </button>
+            {user?.is_admin && (
+              <button
+                onClick={() => setShowAdmin(true)}
+                className="text-xs px-3 py-2 rounded-lg border bg-yellow-600/80 text-white
+                           border-yellow-500 hover:bg-yellow-500 transition-colors backdrop-blur-sm"
+              >
+                🛡️ Admin
+              </button>
+            )}
           </>
         ) : (
           <button
@@ -408,6 +419,10 @@ export default function Home() {
 
       {showNotifications && (
         <NotificationPanel onClose={() => { setShowNotifications(false); setAlertCount(0); }} />
+      )}
+
+      {showAdmin && (
+        <AdminPanel onClose={() => setShowAdmin(false)} />
       )}
     </div>
   );

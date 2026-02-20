@@ -7,7 +7,8 @@ from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from app.core.rate_limit import setup_rate_limiting
 from app.api import countries, trade_flows, ports, shipping_density, indicators, intelligence
-from app.api import auth, keys, billing, export, alerts
+from app.api import auth, keys, billing, export, alerts, admin
+from app.core.usage_middleware import UsageTrackingMiddleware
 
 # ─── Logging ───
 logging.basicConfig(
@@ -33,7 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="GEFO API",
     description="Global Economic Flow Observatory — Geoeconomic Intelligence Platform",
-    version="0.4.0",
+    version="0.5.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -48,7 +49,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Usage tracking middleware (before rate limiter so it captures all requests)
+app.add_middleware(UsageTrackingMiddleware)
+
 # Register routers
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(keys.router)
 app.include_router(billing.router)
@@ -69,9 +74,10 @@ setup_rate_limiting(app)
 def root():
     return {
         "name": "GEFO API",
-        "version": "0.4.0",
-        "description": "Global Economic Flow Observatory — Intelligence, Alerts & Subscription Platform",
+        "version": "0.5.0",
+        "description": "Global Economic Flow Observatory — Intelligence, Alerts & Admin Platform",
         "endpoints": {
+            "admin": "/api/admin",
             "auth": "/api/auth",
             "keys": "/api/keys",
             "billing": "/api/billing",
