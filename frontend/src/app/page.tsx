@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import LayerControl from "@/components/LayerControl";
 import CountryDetailPanel from "@/components/CountryDetailPanel";
 import TimeSlider from "@/components/TimeSlider";
 import SearchBar from "@/components/SearchBar";
+import ComparePanel from "@/components/ComparePanel";
+import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -165,6 +167,8 @@ export default function Home() {
   const [flyToCountry, setFlyToCountry] = useState<CountryMacro | null>(null);
   const [flyToPosition, setFlyToPosition] = useState<{ lon: number; lat: number; altitude: number } | null>(null);
   const [isLoadingYear, setIsLoadingYear] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const globeRef = useRef<GlobeViewerHandle>(null);
 
   useEffect(() => {
     async function loadLiveData() {
@@ -203,6 +207,7 @@ export default function Home() {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-950">
       <GlobeViewer
+        ref={globeRef}
         countries={countries}
         tradeFlows={tradeFlows}
         ports={ports}
@@ -215,6 +220,7 @@ export default function Home() {
         }}
         flyToCountry={flyToCountry}
         flyToPosition={flyToPosition}
+        highlightCountryIso={selectedCountry?.iso_code ?? null}
       />
 
       <SearchBar
@@ -224,6 +230,41 @@ export default function Home() {
           setSelectedCountry(country);
         }}
       />
+
+      {/* Toolbar: Compare & Screenshot */}
+      <div className="absolute top-4 left-[22rem] z-50 flex gap-2">
+        <button
+          onClick={() => setShowCompare((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showCompare
+              ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          ⚖️ Compare
+        </button>
+        <button
+          onClick={() => {
+            const dataUrl = globeRef.current?.captureScreenshot();
+            if (!dataUrl) return;
+            const link = document.createElement("a");
+            link.download = `GEFO_${year}_${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = dataUrl;
+            link.click();
+          }}
+          className="text-xs px-3 py-2 rounded-lg border bg-gray-900/80 text-gray-400
+                     border-gray-700 hover:text-white transition-colors backdrop-blur-sm"
+        >
+          📷 Screenshot
+        </button>
+      </div>
+
+      {showCompare && (
+        <ComparePanel
+          countries={countries}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
 
       <LayerControl
         layers={layers}

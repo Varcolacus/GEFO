@@ -6,7 +6,7 @@ if (typeof window !== "undefined") {
   (window as any).CESIUM_BASE_URL = "/cesium";
 }
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import {
   Viewer,
   Cartesian3,
@@ -56,9 +56,14 @@ interface GlobeViewerProps {
   onCountryClick?: (country: CountryMacro) => void;
   flyToCountry?: CountryMacro | null;
   flyToPosition?: { lon: number; lat: number; altitude: number } | null;
+  highlightCountryIso?: string | null;
 }
 
-export default function GlobeViewer({
+export interface GlobeViewerHandle {
+  captureScreenshot: () => string | null;
+}
+
+const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function GlobeViewer({
   countries,
   tradeFlows,
   ports,
@@ -68,9 +73,20 @@ export default function GlobeViewer({
   onCountryClick,
   flyToCountry,
   flyToPosition,
-}: GlobeViewerProps) {
+  highlightCountryIso,
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+
+  // Expose screenshot method to parent
+  useImperativeHandle(ref, () => ({
+    captureScreenshot: () => {
+      const viewer = viewerRef.current;
+      if (!viewer) return null;
+      viewer.render();
+      return viewer.canvas.toDataURL("image/png");
+    },
+  }));
 
   // Initialize Cesium viewer
   useEffect(() => {
@@ -95,6 +111,11 @@ export default function GlobeViewer({
       skyBox: false,
       skyAtmosphere: undefined,
       creditContainer,
+      contextOptions: {
+        webgl: {
+          preserveDrawingBuffer: true, // needed for screenshots
+        },
+      },
       baseLayer: new ImageryLayer(
         new OpenStreetMapImageryProvider({
           url: "https://tile.openstreetmap.org/",
@@ -103,11 +124,11 @@ export default function GlobeViewer({
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // Set dark background
-    viewer.scene.backgroundColor = Color.fromCssColorString("#0a0a1a");
-    viewer.scene.globe.baseColor = Color.fromCssColorString("#1a1a2e");
+    // Set dark background  
+    viewer.scene.backgroundColor = Color.fromCssColorString("#050510");
+    viewer.scene.globe.baseColor = Color.fromCssColorString("#0d1117");
     viewer.scene.globe.showGroundAtmosphere = true;
-    viewer.scene.globe.enableLighting = false;
+    viewer.scene.globe.enableLighting = true;
 
     // Initial camera position
     viewer.camera.flyTo({
@@ -319,9 +340,26 @@ export default function GlobeViewer({
       )
         return;
 
+      // If a country is highlighted, only show flows involving that country
+      const isHighlighted = highlightCountryIso
+        ? flow.exporter_iso === highlightCountryIso || flow.importer_iso === highlightCountryIso
+        : true;
+
+      if (highlightCountryIso && !isHighlighted) return;
+
       const normalized = flow.total_value_usd / maxValue;
       const width = 2 + normalized * 8;
       const alpha = 0.4 + normalized * 0.5;
+
+      // Color: exports from highlighted = cyan, imports to highlighted = orange
+      let lineColor: string;
+      if (highlightCountryIso) {
+        lineColor = flow.exporter_iso === highlightCountryIso
+          ? `rgba(0, 220, 255, ${alpha})`
+          : `rgba(255, 160, 0, ${alpha})`;
+      } else {
+        lineColor = `rgba(0, 200, 255, ${alpha})`;
+      }
 
       // Directional arrow polyline (export → import)
       viewer.entities.add({
@@ -335,7 +373,7 @@ export default function GlobeViewer({
           ]),
           width: width,
           material: new PolylineArrowMaterialProperty(
-            Color.fromCssColorString(`rgba(0, 200, 255, ${alpha})`)
+            Color.fromCssColorString(lineColor)
           ),
           arcType: ArcType.GEODESIC,
         },
@@ -367,7 +405,7 @@ export default function GlobeViewer({
         });
       }
     });
-  }, [tradeFlows, layers.tradeFlows]);
+  }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
   // ─── Render Port Markers ───
   useEffect(() => {
@@ -481,4 +519,6 @@ export default function GlobeViewer({
       style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
     />
   );
-}
+});
+
+export default GlobeViewer;
