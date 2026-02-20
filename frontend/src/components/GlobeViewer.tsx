@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Viewer,
-  Ion,
   Cartesian3,
   Color,
   ArcType,
@@ -14,6 +13,8 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
+  OpenStreetMapImageryProvider,
+  ImageryLayer,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
@@ -24,9 +25,10 @@ import type {
   ShippingDensityPoint,
 } from "@/lib/api";
 
-// Set Cesium Ion token (free tier)
-Ion.defaultAccessToken =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkYzYwMjBkOS0yZGIwLTRkNjAtOGRlYy05MzRmNzA0MTk4MjgiLCJpZCI6MjU5LCJpYXQiOjE3NDAzNjg1ODd9.FakeTokenReplaceWithYours";
+// No Cesium Ion token needed — uses OpenStreetMap imagery
+// To use Cesium Ion instead, uncomment the next two lines and add your token:
+// import { Ion } from "cesium";
+// Ion.defaultAccessToken = "YOUR_CESIUM_ION_TOKEN";
 
 interface GlobeViewerProps {
   countries: CountryMacro[];
@@ -71,6 +73,11 @@ export default function GlobeViewer({
       scene3DOnly: true,
       skyBox: false,
       skyAtmosphere: undefined,
+      baseLayer: new ImageryLayer(
+        new OpenStreetMapImageryProvider({
+          url: "https://tile.openstreetmap.org/",
+        })
+      ),
     });
 
     // Set dark background
