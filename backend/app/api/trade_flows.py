@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, List
+import logging
 
 from app.core.database import get_db
+
+logger = logging.getLogger("gefo.api.trade_flows")
 from app.models.trade_flow import TradeFlow
 from app.models.country import Country
 from app.schemas.schemas import TradeFlowResponse, TradeFlowAggregated
@@ -32,6 +35,7 @@ def get_trade_flows(
 
     query = query.order_by(TradeFlow.trade_value_usd.desc()).limit(limit)
     flows = query.all()
+    logger.info(f"Trade flows fetched: {len(flows)} (year={year}, exporter={exporter}, importer={importer})")
 
     # Enrich with country centroids
     countries = {c.iso_code: c for c in db.query(Country).all()}

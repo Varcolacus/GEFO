@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, List
+import logging
 
 from app.core.database import get_db
+
+logger = logging.getLogger("gefo.api.countries")
 from app.models.country import Country
 from app.models.trade_flow import TradeFlow
 from app.models.port import Port
@@ -22,6 +25,7 @@ def get_countries(
     if region:
         query = query.filter(Country.region == region)
     countries = query.all()
+    logger.info(f"Countries fetched: {len(countries)} (region={region})")
     return countries
 
 
@@ -66,9 +70,11 @@ def get_country_profile(iso_code: str, db: Session = Depends(get_db)):
     country = db.query(Country).filter(Country.iso_code == iso_code.upper()).first()
     if not country:
         from fastapi import HTTPException
+        logger.warning(f"Country profile not found: {iso_code}")
         raise HTTPException(status_code=404, detail=f"Country {iso_code} not found")
 
     iso = iso_code.upper()
+    logger.info(f"Fetching profile for {iso}")
 
     # Top export partners (aggregated across all years)
     export_partners_raw = (

@@ -1,8 +1,32 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import logging
 
 from app.core.config import settings
+from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from app.api import countries, trade_flows, ports, shipping_density, indicators
+
+# ─── Logging ───
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(name)-20s | %(levelname)-7s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("gefo.main")
+
+
+# ─── Lifecycle ───
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown lifecycle."""
+    logger.info("GEFO API starting up…")
+    start_scheduler()
+    yield
+    logger.info("GEFO API shutting down…")
+    stop_scheduler()
+
 
 app = FastAPI(
     title="GEFO API",
@@ -10,6 +34,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS
@@ -48,4 +73,4 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "scheduler": get_scheduler_status()}

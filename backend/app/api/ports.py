@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
+import logging
 
 from app.core.database import get_db
+
+logger = logging.getLogger("gefo.api.ports")
 from app.models.port import Port
 from app.schemas.schemas import PortResponse
 
@@ -28,6 +31,7 @@ def get_ports(
         query = query.filter(Port.throughput_teu >= min_throughput)
 
     ports = query.order_by(Port.throughput_teu.desc().nullslast()).limit(limit).all()
+    logger.info(f"Ports fetched: {len(ports)} (country={country}, type={port_type})")
     return ports
 
 

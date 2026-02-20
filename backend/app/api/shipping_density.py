@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
+import logging
 
 from app.core.database import get_db
+
+logger = logging.getLogger("gefo.api.shipping")
 from app.models.shipping_density import ShippingDensity
 from app.schemas.schemas import ShippingDensityResponse, ShippingDensityGrid
 
@@ -25,6 +28,7 @@ def get_shipping_density(
         query = query.filter(ShippingDensity.vessel_type == vessel_type)
 
     data = query.all()
+    logger.info(f"Shipping density fetched: {len(data)} points (year={year}, month={month})")
 
     if not data:
         return ShippingDensityGrid(data=[], min_density=0, max_density=0)

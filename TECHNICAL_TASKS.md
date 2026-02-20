@@ -9,11 +9,11 @@
 
 ## 1. Project Setup
 
-- [ ] Initialize GitHub repository
-- [ ] Setup backend (Python + FastAPI)
-- [ ] Setup frontend (React or Next.js)
-- [ ] Configure PostgreSQL + PostGIS
-- [ ] Configure VPS deployment (Ubuntu + Nginx)
+- [x] Initialize GitHub repository
+- [x] Setup backend (Python + FastAPI)
+- [x] Setup frontend (React or Next.js)
+- [x] Configure PostgreSQL + PostGIS
+- [x] Configure VPS deployment (Ubuntu + Nginx)
 
 ---
 
@@ -26,49 +26,49 @@
 - **shipping_density** — region, month, density_value
 
 ### Configuration
-- Enable spatial indexing
-- PostGIS extension enabled
-- Time-series data support
+- [x] Enable spatial indexing
+- [x] PostGIS extension enabled
+- [x] Time-series data support
 
 ---
 
 ## 3. Data Ingestion Pipelines
 
-- [ ] UN Comtrade API ingestion script
-- [ ] World Bank API ingestion script
-- [ ] Natural Earth shapefile importer
-- [ ] AIS delayed dataset ingestion
-- [ ] Cron job scheduling
+- [x] UN Comtrade API ingestion script
+- [x] World Bank API ingestion script
+- [x] Natural Earth shapefile importer
+- [x] AIS delayed dataset ingestion
+- [x] Cron job scheduling
 
 ---
 
 ## 4. Backend API Endpoints
 
-- [ ] `GET /api/countries` — Country list with macro data
-- [ ] `GET /api/trade_flows` — Bilateral trade data
-- [ ] `GET /api/ports` — Port locations and throughput
-- [ ] `GET /api/shipping_density` — Regional shipping density
-- [ ] `GET /api/indicators` — Calculated indicators
+- [x] `GET /api/countries` — Country list with macro data
+- [x] `GET /api/trade_flows` — Bilateral trade data
+- [x] `GET /api/ports` — Port locations and throughput
+- [x] `GET /api/shipping_density` — Regional shipping density
+- [x] `GET /api/indicators` — Calculated indicators
 
 ---
 
 ## 5. Frontend (CesiumJS Integration)
 
-- [ ] 3D globe rendering
-- [ ] Country coloring layer (GDP, trade balance, etc.)
-- [ ] Trade flow animated lines
-- [ ] Port markers
-- [ ] Shipping density heatmap
-- [ ] Layer toggle control panel
+- [x] 3D globe rendering
+- [x] Country coloring layer (GDP, trade balance, etc.)
+- [x] Trade flow animated lines
+- [x] Port markers
+- [x] Shipping density heatmap
+- [x] Layer toggle control panel
 
 ---
 
 ## 6. Testing & Deployment
 
-- [ ] API stress testing
-- [ ] Basic logging
-- [ ] VPS deployment
-- [ ] HTTPS configuration
+- [x] API stress testing
+- [x] Basic logging
+- [x] VPS deployment (Docker + Nginx configs ready)
+- [x] HTTPS configuration (Certbot + Nginx)
 
 ---
 

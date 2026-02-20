@@ -120,6 +120,15 @@ class IndicatorResponse(BaseModel):
     metadata: Optional[dict] = None
 
 
+class CountryIndicator(BaseModel):
+    iso_code: str
+    indicator_name: str
+    value: Optional[float] = None
+    unit: str
+    year: int
+    description: Optional[str] = None
+
+
 # ─── Country Profile Schemas ───
 
 class TradePartner(BaseModel):
