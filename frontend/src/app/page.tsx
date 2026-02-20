@@ -12,6 +12,7 @@ import AuthModal from "@/components/AuthModal";
 import AccountPanel from "@/components/AccountPanel";
 import NotificationPanel from "@/components/NotificationPanel";
 import AdminPanel from "@/components/AdminPanel";
+import GeopoliticalPanel from "@/components/GeopoliticalPanel";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
@@ -19,10 +20,12 @@ import {
   fetchTradeFlows,
   fetchPorts,
   fetchShippingDensity,
+  fetchConflictZones,
   type CountryMacro,
   type TradeFlowAggregated,
   type PortData,
   type ShippingDensityPoint,
+  type ConflictZone,
 } from "@/lib/api";
 
 // Dynamic import for CesiumJS (no SSR)
@@ -179,6 +182,8 @@ export default function Home() {
   const [showAccount, setShowAccount] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showGeopolitical, setShowGeopolitical] = useState(false);
+  const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const { user, isAuthenticated } = useAuth();
@@ -209,6 +214,9 @@ export default function Home() {
           fetchPorts(),
           fetchShippingDensity(year),
         ]);
+
+        // Fetch conflict zones separately (non-blocking)
+        fetchConflictZones().then(setConflictZones).catch(() => {});
 
         if (countriesData.length > 0) setCountries(countriesData);
         if (flowsData.length > 0) setTradeFlows(flowsData);
@@ -241,6 +249,7 @@ export default function Home() {
         tradeFlows={tradeFlows}
         ports={ports}
         shippingDensity={shippingDensity}
+        conflictZones={showGeopolitical ? conflictZones : []}
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => {
@@ -281,6 +290,16 @@ export default function Home() {
           }`}
         >
           🧠 Intelligence
+        </button>
+        <button
+          onClick={() => setShowGeopolitical((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showGeopolitical
+              ? "bg-red-500/20 text-red-300 border-red-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          ⚠️ Geopolitical
         </button>
         <button
           onClick={() => {
@@ -423,6 +442,14 @@ export default function Home() {
 
       {showAdmin && (
         <AdminPanel onClose={() => setShowAdmin(false)} />
+      )}
+
+      {showGeopolitical && (
+        <GeopoliticalPanel
+          year={year}
+          onClose={() => setShowGeopolitical(false)}
+          onFlyTo={(lat, lon) => setFlyToPosition({ lon, lat, altitude: 3000000 })}
+        />
       )}
     </div>
   );

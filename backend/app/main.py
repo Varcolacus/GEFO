@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from app.core.rate_limit import setup_rate_limiting
 from app.api import countries, trade_flows, ports, shipping_density, indicators, intelligence
-from app.api import auth, keys, billing, export, alerts, admin
+from app.api import auth, keys, billing, export, alerts, admin, geopolitical
 from app.core.usage_middleware import UsageTrackingMiddleware
 
 # ─── Logging ───
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="GEFO API",
     description="Global Economic Flow Observatory — Geoeconomic Intelligence Platform",
-    version="0.5.0",
+    version="0.6.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -65,6 +65,7 @@ app.include_router(ports.router)
 app.include_router(shipping_density.router)
 app.include_router(indicators.router)
 app.include_router(intelligence.router)
+app.include_router(geopolitical.router)
 
 # Rate limiting
 setup_rate_limiting(app)
@@ -74,8 +75,8 @@ setup_rate_limiting(app)
 def root():
     return {
         "name": "GEFO API",
-        "version": "0.5.0",
-        "description": "Global Economic Flow Observatory — Intelligence, Alerts & Admin Platform",
+        "version": "0.6.0",
+        "description": "Global Economic Flow Observatory — Geoeconomic Intelligence Platform",
         "endpoints": {
             "admin": "/api/admin",
             "auth": "/api/auth",
@@ -89,6 +90,7 @@ def root():
             "shipping_density": "/api/shipping_density",
             "indicators": "/api/indicators",
             "intelligence": "/api/intelligence",
+            "geopolitical": "/api/geopolitical",
             "docs": "/docs",
         },
     }

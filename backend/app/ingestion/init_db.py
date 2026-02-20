@@ -14,6 +14,7 @@ from app.models.chokepoint import Chokepoint
 from app.models.user import User, APIKey
 from app.models.alert import AlertRule, Alert, NotificationChannel
 from app.models.usage_log import APIUsageLog
+from app.models.geopolitical import SanctionedEntity, ConflictZone, CountryRiskScore, SupplyChainRoute
 
 logger = logging.getLogger(__name__)
 

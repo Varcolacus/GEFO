@@ -715,4 +715,148 @@ export async function bootstrapAdmin(): Promise<{ message: string; user_id: numb
   return response.data;
 }
 
+// ─── Geopolitical Risk & Sanctions ───
+
+export interface RiskScoreComponents {
+  sanctions: number;
+  conflict: number;
+  trade_dependency: number;
+  chokepoint_vulnerability: number;
+  energy_risk: number;
+}
+
+export interface CountryRiskEntry {
+  iso_code: string;
+  name: string;
+  lat: number;
+  lon: number;
+  scores: RiskScoreComponents;
+  composite_risk: number;
+  risk_level: string;
+}
+
+export interface RiskScoresResponse {
+  indicator: string;
+  year: number;
+  count: number;
+  countries: CountryRiskEntry[];
+}
+
+export interface SanctionedEntity {
+  id: number;
+  entity_type: string;
+  name: string;
+  country_iso: string | null;
+  sanctioning_body: string;
+  programme: string | null;
+  reason: string | null;
+  date_listed: string | null;
+  date_delisted: string | null;
+  is_active: boolean;
+  identifiers: string | null;
+}
+
+export interface ConflictZone {
+  id: number;
+  name: string;
+  zone_type: string;
+  severity: string;
+  lat: number;
+  lon: number;
+  radius_km: number;
+  affected_countries: string[];
+  affected_chokepoints: string[];
+  description: string | null;
+  start_date: string | null;
+  is_active: boolean;
+}
+
+export interface SanctionsSummary {
+  total_active: number;
+  by_sanctioning_body: Record<string, number>;
+  by_entity_type: Record<string, number>;
+  most_sanctioned_countries: { iso_code: string; count: number }[];
+}
+
+export interface SupplyChainRoute {
+  id: number;
+  name: string;
+  origin_iso: string;
+  destination_iso: string;
+  commodity: string;
+  chokepoints_transit: string[];
+  annual_value_usd: number;
+  vulnerability_score: number;
+  risk_factors: string[];
+  alternative_routes: string | null;
+  is_active: boolean;
+}
+
+export interface GeoDashboard {
+  risk_overview: {
+    total_countries: number;
+    critical: number;
+    high: number;
+    elevated: number;
+    moderate: number;
+    low: number;
+    avg_composite: number;
+    top_risk: CountryRiskEntry[];
+  };
+  sanctions: SanctionsSummary;
+  conflict_zones: {
+    total_active: number;
+    by_severity: Record<string, number>;
+    zones: ConflictZone[];
+  };
+  supply_chain: {
+    total_routes: number;
+    avg_vulnerability: number;
+    most_vulnerable: SupplyChainRoute[];
+  };
+}
+
+export async function fetchRiskScores(year?: number, topN?: number): Promise<RiskScoresResponse> {
+  const params: Record<string, string | number> = {};
+  if (year) params.year = year;
+  if (topN) params.top_n = topN;
+  const response = await api.get("/api/geopolitical/risk-scores", { params });
+  return response.data;
+}
+
+export async function fetchCountryRisk(isoCode: string, year?: number): Promise<Record<string, unknown>> {
+  const params: Record<string, number> = {};
+  if (year) params.year = year;
+  const response = await api.get(`/api/geopolitical/risk-scores/${isoCode}`, { params });
+  return response.data;
+}
+
+export async function fetchSanctionsSummary(): Promise<SanctionsSummary> {
+  const response = await api.get("/api/geopolitical/sanctions");
+  return response.data;
+}
+
+export async function fetchSanctionedEntities(body?: string, entityType?: string): Promise<SanctionedEntity[]> {
+  const params: Record<string, string> = {};
+  if (body) params.sanctioning_body = body;
+  if (entityType) params.entity_type = entityType;
+  const response = await api.get("/api/geopolitical/sanctions/entities", { params });
+  return response.data;
+}
+
+export async function fetchConflictZones(): Promise<ConflictZone[]> {
+  const response = await api.get("/api/geopolitical/conflict-zones");
+  return response.data;
+}
+
+export async function fetchSupplyChains(): Promise<SupplyChainRoute[]> {
+  const response = await api.get("/api/geopolitical/supply-chains");
+  return response.data;
+}
+
+export async function fetchGeoDashboard(): Promise<GeoDashboard> {
+  const response = await api.get("/api/geopolitical/dashboard");
+  return response.data;
+}
+
 export default api;
