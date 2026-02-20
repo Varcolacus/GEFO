@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import LayerControl from "@/components/LayerControl";
 import CountryDetailPanel from "@/components/CountryDetailPanel";
@@ -13,6 +13,9 @@ import AccountPanel from "@/components/AccountPanel";
 import NotificationPanel from "@/components/NotificationPanel";
 import AdminPanel from "@/components/AdminPanel";
 import GeopoliticalPanel from "@/components/GeopoliticalPanel";
+import LiveFeed from "@/components/LiveFeed";
+import ConnectionStatus from "@/components/ConnectionStatus";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
@@ -183,10 +186,33 @@ export default function Home() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showGeopolitical, setShowGeopolitical] = useState(false);
+  const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const { user, isAuthenticated } = useAuth();
+
+  // ─── WebSocket live feed ───
+  const { connectionState, events: liveEvents, clientId, clearEvents } = useWebSocket({
+    channels: ["trade", "ports", "alerts", "geopolitical"],
+    enabled: true,
+  });
+
+  // Derive live trade arcs from recent WS trade events
+  const liveTradeArcs = useMemo(() => {
+    return liveEvents
+      .filter((e) => e.type === "trade" && e.event === "trade_flow")
+      .slice(0, 8)
+      .map((e) => ({
+        exporter_iso: e.exporter_iso as string,
+        importer_iso: e.importer_iso as string,
+        total_value_usd: e.value_usd as number,
+        exporter_lat: e.exporter_lat as number,
+        exporter_lon: e.exporter_lon as number,
+        importer_lat: e.importer_lat as number,
+        importer_lon: e.importer_lon as number,
+      }));
+  }, [liveEvents]);
 
   // Poll alert count every 60s for authenticated users
   useEffect(() => {
@@ -250,6 +276,7 @@ export default function Home() {
         ports={ports}
         shippingDensity={shippingDensity}
         conflictZones={showGeopolitical ? conflictZones : []}
+        liveTradeArcs={liveTradeArcs}
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => {
@@ -300,6 +327,16 @@ export default function Home() {
           }`}
         >
           ⚠️ Geopolitical
+        </button>
+        <button
+          onClick={() => setShowLiveFeed((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showLiveFeed
+              ? "bg-green-500/20 text-green-300 border-green-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          📡 Live Feed
         </button>
         <button
           onClick={() => {
@@ -402,7 +439,12 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="absolute bottom-4 right-4 z-50">
+      <div className="absolute bottom-4 right-4 z-50 flex items-center gap-2">
+        <ConnectionStatus
+          state={connectionState}
+          eventCount={liveEvents.length}
+          clientId={clientId}
+        />
         <div
           className={`text-xs px-3 py-1 rounded-full ${
             dataSource === "live"
@@ -449,6 +491,16 @@ export default function Home() {
           year={year}
           onClose={() => setShowGeopolitical(false)}
           onFlyTo={(lat, lon) => setFlyToPosition({ lon, lat, altitude: 3000000 })}
+        />
+      )}
+
+      {showLiveFeed && (
+        <LiveFeed
+          events={liveEvents}
+          connectionState={connectionState}
+          onClose={() => setShowLiveFeed(false)}
+          onClearEvents={clearEvents}
+          onFlyTo={(lat, lon) => setFlyToPosition({ lon, lat, altitude: 4000000 })}
         />
       )}
     </div>

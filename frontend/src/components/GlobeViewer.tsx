@@ -48,6 +48,7 @@ interface GlobeViewerProps {
   ports: PortData[];
   shippingDensity: ShippingDensityPoint[];
   conflictZones?: ConflictZone[];
+  liveTradeArcs?: TradeFlowAggregated[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
@@ -71,6 +72,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   ports,
   shippingDensity,
   conflictZones = [],
+  liveTradeArcs = [],
   layers,
   indicator,
   onCountryClick,
@@ -409,6 +411,59 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       }
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
+
+  // ─── Render Live Trade Arcs (from WebSocket) ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const toRemove = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("live_arc_")
+    );
+    toRemove.forEach((e) => viewer.entities.remove(e));
+
+    if (!layers.tradeFlows || liveTradeArcs.length === 0) return;
+
+    liveTradeArcs.forEach((arc, i) => {
+      if (!arc.exporter_lat || !arc.exporter_lon || !arc.importer_lat || !arc.importer_lon) return;
+
+      const value = arc.total_value_usd || 100_000_000;
+      const width = Math.min(3 + (value / 500_000_000) * 4, 8);
+
+      // Magenta pulsing arc to distinguish from static trade flows
+      viewer.entities.add({
+        name: `live_arc_${i}`,
+        polyline: {
+          positions: Cartesian3.fromDegreesArray([
+            arc.exporter_lon, arc.exporter_lat,
+            arc.importer_lon, arc.importer_lat,
+          ]),
+          width: width,
+          material: new PolylineArrowMaterialProperty(
+            Color.fromCssColorString("rgba(255, 50, 200, 0.8)")
+          ),
+          arcType: ArcType.GEODESIC,
+        },
+      });
+
+      // Glow underlay
+      viewer.entities.add({
+        name: `live_arc_glow_${i}`,
+        polyline: {
+          positions: Cartesian3.fromDegreesArray([
+            arc.exporter_lon, arc.exporter_lat,
+            arc.importer_lon, arc.importer_lat,
+          ]),
+          width: width + 6,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.4,
+            color: Color.fromCssColorString("rgba(255, 50, 200, 0.2)"),
+          }),
+          arcType: ArcType.GEODESIC,
+        },
+      });
+    });
+  }, [liveTradeArcs, layers.tradeFlows]);
 
   // ─── Render Port Markers ───
   useEffect(() => {
