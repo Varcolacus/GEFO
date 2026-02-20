@@ -1,5 +1,10 @@
 "use client";
 
+// Set CESIUM_BASE_URL before any Cesium imports resolve assets
+if (typeof window !== "undefined") {
+  (window as Record<string, unknown>).CESIUM_BASE_URL = "/cesium";
+}
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Viewer,
@@ -15,6 +20,8 @@ import {
   LabelStyle,
   OpenStreetMapImageryProvider,
   ImageryLayer,
+  EllipsoidTerrainProvider,
+  Ion,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
@@ -25,10 +32,8 @@ import type {
   ShippingDensityPoint,
 } from "@/lib/api";
 
-// No Cesium Ion token needed — uses OpenStreetMap imagery
-// To use Cesium Ion instead, uncomment the next two lines and add your token:
-// import { Ion } from "cesium";
-// Ion.defaultAccessToken = "YOUR_CESIUM_ION_TOKEN";
+// Disable Cesium Ion — uses OpenStreetMap imagery + flat terrain
+Ion.defaultAccessToken = "";
 
 interface GlobeViewerProps {
   countries: CountryMacro[];
@@ -59,6 +64,10 @@ export default function GlobeViewer({
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return;
 
+    // Create a hidden credit container to prevent Ion credit image loading
+    const creditContainer = document.createElement("div");
+    creditContainer.style.display = "none";
+
     const viewer = new Viewer(containerRef.current, {
       animation: false,
       baseLayerPicker: false,
@@ -73,11 +82,13 @@ export default function GlobeViewer({
       scene3DOnly: true,
       skyBox: false,
       skyAtmosphere: undefined,
+      creditContainer,
       baseLayer: new ImageryLayer(
         new OpenStreetMapImageryProvider({
           url: "https://tile.openstreetmap.org/",
         })
       ),
+      terrainProvider: new EllipsoidTerrainProvider(),
     });
 
     // Set dark background
@@ -187,6 +198,7 @@ export default function GlobeViewer({
         ellipse: {
           semiMajorAxis: radius,
           semiMinorAxis: radius,
+          height: 0,
           material: color,
           heightReference: HeightReference.CLAMP_TO_GROUND,
         },
@@ -365,6 +377,7 @@ export default function GlobeViewer({
         ellipse: {
           semiMajorAxis: radius,
           semiMinorAxis: radius,
+          height: 0,
           material: Color.fromBytes(r, g, b, Math.round(alpha * 255)),
           heightReference: HeightReference.CLAMP_TO_GROUND,
         },

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import CopyPlugin from "copy-webpack-plugin";
+import webpack from "webpack";
 import path from "path";
 
 const cesiumSource = "node_modules/cesium/Build/Cesium";
@@ -27,6 +28,10 @@ const nextConfig: NextConfig = {
               to: "../public/cesium/Widgets",
             },
           ],
+        }),
+        // Define CESIUM_BASE_URL as a global so CesiumJS resolves assets to /cesium/
+        new webpack.DefinePlugin({
+          CESIUM_BASE_URL: JSON.stringify("/cesium"),
         })
       );
       config.resolve.fallback = {
