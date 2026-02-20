@@ -40,7 +40,7 @@ import type {
   CommodityFlowEdge,
 } from "@/lib/api";
 
-// Disable Cesium Ion — uses ESRI World Imagery + CartoDB labels
+// Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
 
 /**
@@ -155,25 +155,33 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       },
       baseLayer: new ImageryLayer(
         new UrlTemplateImageryProvider({
-          url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          credit: "Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          subdomains: ["a", "b", "c", "d"],
+          credit: "© OpenStreetMap contributors, © CARTO",
           minimumLevel: 0,
-          maximumLevel: 23,
+          maximumLevel: 20,
+          tileWidth: 512,
+          tileHeight: 512,
         })
       ),
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // ── Dark labels overlay on top of satellite imagery ──
-    viewer.imageryLayers.addImageryProvider(
+    // ── OpenStreetMap detail layer underneath for close-zoom fallback ──
+    // Darkened so it blends with the dark theme; visible when CartoDB runs out of zoom
+    const osmDetail = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
-        url: "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png",
-        subdomains: ["a", "b", "c", "d"],
-        credit: "CartoDB Labels",
+        url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        credit: "© OpenStreetMap contributors",
         minimumLevel: 0,
-        maximumLevel: 18,
-      })
+        maximumLevel: 19,
+      }),
+      0 // insert beneath CartoDB
     );
+    osmDetail.brightness = 0.35;
+    osmDetail.contrast = 1.4;
+    osmDetail.saturation = 0.15;
+    osmDetail.gamma = 0.6;
 
     // Deep-space background + dark globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
@@ -182,7 +190,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.scene.globe.enableLighting = true;
 
     // ── Allow ultra-close zoom (street/building level) ──
-    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;    // 50m from ground
+    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 25;    // 25m from ground
     viewer.scene.screenSpaceCameraController.maximumZoomDistance = 50000000; // 50,000km max
 
     // ── Bloom post-processing for glowing arcs & markers ──
