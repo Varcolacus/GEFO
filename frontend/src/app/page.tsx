@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import LayerControl from "@/components/LayerControl";
 import InfoPanel from "@/components/InfoPanel";
+import CountryDetailPanel from "@/components/CountryDetailPanel";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -159,6 +160,7 @@ export default function Home() {
   const [ports, setPorts] = useState<PortData[]>(DEMO_PORTS);
   const [shippingDensity, setShippingDensity] = useState<ShippingDensityPoint[]>(DEMO_SHIPPING);
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
+  const [selectedCountry, setSelectedCountry] = useState<CountryMacro | null>(null);
 
   useEffect(() => {
     async function loadLiveData() {
@@ -200,6 +202,7 @@ export default function Home() {
         shippingDensity={shippingDensity}
         layers={layers}
         indicator={indicator}
+        onCountryClick={(country) => setSelectedCountry(country)}
       />
 
       <LayerControl
@@ -224,6 +227,13 @@ export default function Home() {
       </div>
 
       <InfoPanel />
+
+      {selectedCountry && (
+        <CountryDetailPanel
+          selectedCountry={selectedCountry}
+          onClose={() => setSelectedCountry(null)}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 // Set CESIUM_BASE_URL before any Cesium imports resolve assets
 if (typeof window !== "undefined") {
-  (window as Record<string, unknown>).CESIUM_BASE_URL = "/cesium";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).CESIUM_BASE_URL = "/cesium";
 }
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -22,6 +23,10 @@ import {
   ImageryLayer,
   EllipsoidTerrainProvider,
   Ion,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
+  defined,
+  Cartesian2,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
@@ -47,6 +52,7 @@ interface GlobeViewerProps {
     shippingDensity: boolean;
   };
   indicator: string;
+  onCountryClick?: (country: CountryMacro) => void;
 }
 
 export default function GlobeViewer({
@@ -56,6 +62,7 @@ export default function GlobeViewer({
   shippingDensity,
   layers,
   indicator,
+  onCountryClick,
 }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -112,6 +119,27 @@ export default function GlobeViewer({
       }
     };
   }, []);
+
+  // ─── Click handler for country entities ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !onCountryClick) return;
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction((click: { position: Cartesian2 }) => {
+      const picked = viewer.scene.pick(click.position);
+      if (defined(picked) && picked.id && picked.id.name) {
+        const entityName = picked.id.name as string;
+        if (entityName.startsWith("country_")) {
+          const iso = entityName.replace("country_", "");
+          const country = countries.find((c) => c.iso_code === iso);
+          if (country) onCountryClick(country);
+        }
+      }
+    }, ScreenSpaceEventType.LEFT_CLICK);
+
+    return () => handler.destroy();
+  }, [countries, onCountryClick]);
 
   // ─── Render Country Points (with macro indicator coloring) ───
   useEffect(() => {

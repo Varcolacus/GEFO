@@ -118,3 +118,27 @@ class IndicatorResponse(BaseModel):
     unit: str
     reference_period: str
     metadata: Optional[dict] = None
+
+
+# ─── Country Profile Schemas ───
+
+class TradePartner(BaseModel):
+    iso_code: str
+    name: str
+    total_value_usd: float
+    direction: str  # "export" or "import"
+
+class TradeYearSummary(BaseModel):
+    year: int
+    total_exports: float
+    total_imports: float
+    trade_balance: float
+    top_export_partner: Optional[str] = None
+    top_import_partner: Optional[str] = None
+
+class CountryProfile(BaseModel):
+    country: CountryMacro
+    top_export_partners: List[TradePartner]
+    top_import_partners: List[TradePartner]
+    trade_history: List[TradeYearSummary]
+    ports: List[PortResponse]

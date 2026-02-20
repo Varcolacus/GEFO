@@ -63,6 +63,30 @@ export interface ShippingDensityGrid {
   max_density: number;
 }
 
+export interface TradePartner {
+  iso_code: string;
+  name: string;
+  total_value_usd: number;
+  direction: string;
+}
+
+export interface TradeYearSummary {
+  year: number;
+  total_exports: number;
+  total_imports: number;
+  trade_balance: number;
+  top_export_partner?: string;
+  top_import_partner?: string;
+}
+
+export interface CountryProfile {
+  country: CountryMacro;
+  top_export_partners: TradePartner[];
+  top_import_partners: TradePartner[];
+  trade_history: TradeYearSummary[];
+  ports: PortData[];
+}
+
 // ─── API Calls ───
 
 export async function fetchCountries(region?: string): Promise<CountryMacro[]> {
@@ -105,6 +129,13 @@ export async function fetchShippingDensity(
   const params: Record<string, number> = { year };
   if (month) params.month = month;
   const response = await api.get("/api/shipping_density", { params });
+  return response.data;
+}
+
+export async function fetchCountryProfile(
+  isoCode: string
+): Promise<CountryProfile> {
+  const response = await api.get(`/api/countries/${isoCode}/profile`);
   return response.data;
 }
 
