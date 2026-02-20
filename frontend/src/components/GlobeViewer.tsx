@@ -165,40 +165,33 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // ── OpenStreetMap detail layer underneath for close-zoom fallback ──
-    // Darkened so it blends with the dark theme; visible when CartoDB runs out of zoom
+    // ── OpenStreetMap detail layer ON TOP for close-zoom street detail ──
     const osmDetail = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         credit: "© OpenStreetMap contributors",
-        minimumLevel: 0,
+        minimumLevel: 17, // only appears at close zoom (street level)
         maximumLevel: 19,
-      }),
-      0 // insert beneath CartoDB
+      })
     );
-    osmDetail.brightness = 0.45;
-    osmDetail.contrast = 1.2;
-    osmDetail.saturation = 0.2;
+    osmDetail.alpha = 0.85;
+    osmDetail.brightness = 0.5;
+    osmDetail.contrast = 1.3;
+    osmDetail.saturation = 0.1;
     osmDetail.gamma = 0.7;
 
     // Deep-space background + dark globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
     viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
     viewer.scene.globe.showGroundAtmosphere = true;
-    viewer.scene.globe.enableLighting = true;
+    viewer.scene.globe.enableLighting = false; // disabled — lighting darkens tiles making detail invisible
 
     // ── Allow ultra-close zoom (street/building level) ──
     viewer.scene.screenSpaceCameraController.minimumZoomDistance = 25;    // 25m from ground
     viewer.scene.screenSpaceCameraController.maximumZoomDistance = 50000000; // 50,000km max
 
-    // ── Bloom post-processing for glowing arcs & markers ──
-    viewer.scene.postProcessStages.bloom.enabled = true;
-    viewer.scene.postProcessStages.bloom.uniforms.glowOnly = false;
-    viewer.scene.postProcessStages.bloom.uniforms.contrast = 119;
-    viewer.scene.postProcessStages.bloom.uniforms.brightness = -0.15;
-    viewer.scene.postProcessStages.bloom.uniforms.delta = 0.8;
-    viewer.scene.postProcessStages.bloom.uniforms.sigma = 2.5;
-    viewer.scene.postProcessStages.bloom.uniforms.stepSize = 3.0;
+    // ── Bloom OFF — it blurs map labels/streets making tiles unreadable at close zoom ──
+    viewer.scene.postProcessStages.bloom.enabled = false;
 
     // ── Atmosphere tuning ──
     if (viewer.scene.skyAtmosphere) {
