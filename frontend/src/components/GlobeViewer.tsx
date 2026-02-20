@@ -55,6 +55,7 @@ interface GlobeViewerProps {
   indicator: string;
   onCountryClick?: (country: CountryMacro) => void;
   flyToCountry?: CountryMacro | null;
+  flyToPosition?: { lon: number; lat: number; altitude: number } | null;
 }
 
 export default function GlobeViewer({
@@ -66,6 +67,7 @@ export default function GlobeViewer({
   indicator,
   onCountryClick,
   flyToCountry,
+  flyToPosition,
 }: GlobeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -159,6 +161,21 @@ export default function GlobeViewer({
     });
   }, [flyToCountry]);
 
+  // ─── Fly to position (region nav) ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !flyToPosition) return;
+
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(
+        flyToPosition.lon,
+        flyToPosition.lat,
+        flyToPosition.altitude
+      ),
+      duration: 1.8,
+    });
+  }, [flyToPosition]);
+
   // ─── Render Country Points (with macro indicator coloring) ───
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -173,16 +190,28 @@ export default function GlobeViewer({
     if (!layers.countries || countries.length === 0) return;
 
     // Calculate value range for color mapping
-    const values = countries
-      .map((c) => {
-        switch (indicator) {
-          case "gdp": return c.gdp;
-          case "trade_balance": return c.trade_balance;
-          case "current_account": return c.current_account;
-          case "export_value": return c.export_value;
-          default: return c.gdp;
+    const computeValue = (c: CountryMacro): number | null | undefined => {
+      switch (indicator) {
+        case "gdp": return c.gdp;
+        case "trade_balance": return c.trade_balance;
+        case "current_account": return c.current_account;
+        case "export_value": return c.export_value;
+        case "trade_openness": {
+          if (c.gdp && c.export_value != null && c.import_value != null && c.gdp > 0)
+            return ((c.export_value + c.import_value) / c.gdp) * 100;
+          return null;
         }
-      })
+        case "import_dependency": {
+          if (c.gdp && c.import_value != null && c.gdp > 0)
+            return (c.import_value / c.gdp) * 100;
+          return null;
+        }
+        default: return c.gdp;
+      }
+    };
+
+    const values = countries
+      .map((c) => computeValue(c))
       .filter((v): v is number => v != null && v !== 0);
 
     const maxVal = Math.max(...values);
@@ -191,21 +220,14 @@ export default function GlobeViewer({
     countries.forEach((country) => {
       if (!country.centroid_lat || !country.centroid_lon) return;
 
-      const rawValue = (() => {
-        switch (indicator) {
-          case "gdp": return country.gdp;
-          case "trade_balance": return country.trade_balance;
-          case "current_account": return country.current_account;
-          case "export_value": return country.export_value;
-          default: return country.gdp;
-        }
-      })();
+      const rawValue = computeValue(country);
 
       if (rawValue == null) return;
 
       // Normalize to 0-1
+      const isDiverging = indicator === "trade_balance" || indicator === "current_account";
       let normalized: number;
-      if (indicator === "trade_balance" || indicator === "current_account") {
+      if (isDiverging) {
         // Diverging: red for negative, green for positive
         const absMax = Math.max(Math.abs(minVal), Math.abs(maxVal));
         normalized = (rawValue + absMax) / (2 * absMax);
@@ -215,7 +237,7 @@ export default function GlobeViewer({
 
       // Color interpolation
       let color: Color;
-      if (indicator === "trade_balance" || indicator === "current_account") {
+      if (isDiverging) {
         color = Color.fromCssColorString(
           normalized < 0.5
             ? `rgba(${Math.round(220 - normalized * 200)}, ${Math.round(50 + normalized * 150)}, 50, 0.8)`
@@ -229,7 +251,9 @@ export default function GlobeViewer({
       const radius = 80000 + normalized * 350000;
 
       const formattedValue =
-        Math.abs(rawValue) >= 1e9
+        indicator === "trade_openness" || indicator === "import_dependency"
+          ? `${rawValue.toFixed(1)}%`
+          : Math.abs(rawValue) >= 1e9
           ? `$${(rawValue / 1e9).toFixed(1)}B`
           : Math.abs(rawValue) >= 1e6
           ? `$${(rawValue / 1e6).toFixed(1)}M`

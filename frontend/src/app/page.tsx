@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import LayerControl from "@/components/LayerControl";
-import InfoPanel from "@/components/InfoPanel";
 import CountryDetailPanel from "@/components/CountryDetailPanel";
 import TimeSlider from "@/components/TimeSlider";
 import SearchBar from "@/components/SearchBar";
@@ -164,6 +163,7 @@ export default function Home() {
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
   const [selectedCountry, setSelectedCountry] = useState<CountryMacro | null>(null);
   const [flyToCountry, setFlyToCountry] = useState<CountryMacro | null>(null);
+  const [flyToPosition, setFlyToPosition] = useState<{ lon: number; lat: number; altitude: number } | null>(null);
   const [isLoadingYear, setIsLoadingYear] = useState(false);
 
   useEffect(() => {
@@ -209,8 +209,12 @@ export default function Home() {
         shippingDensity={shippingDensity}
         layers={layers}
         indicator={indicator}
-        onCountryClick={(country) => setSelectedCountry(country)}
+        onCountryClick={(country) => {
+          setSelectedCountry(country);
+          setFlyToCountry(country);
+        }}
         flyToCountry={flyToCountry}
+        flyToPosition={flyToPosition}
       />
 
       <SearchBar
@@ -226,6 +230,9 @@ export default function Home() {
         onToggle={toggleLayer}
         indicator={indicator}
         onIndicatorChange={setIndicator}
+        onRegionClick={(lon, lat, altitude) =>
+          setFlyToPosition({ lon, lat, altitude })
+        }
       />
 
       <TimeSlider
@@ -233,6 +240,26 @@ export default function Home() {
         onYearChange={setYear}
         isLoading={isLoadingYear}
       />
+
+      {/* Global Stats Summary */}
+      <div className="absolute bottom-20 left-4 z-50 bg-gray-900/80 backdrop-blur-sm
+                      text-white rounded-lg border border-gray-700 px-4 py-3 w-64">
+        <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
+          Global Overview
+        </h3>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <span className="text-gray-400">Countries</span>
+          <span className="text-right font-medium">{countries.length}</span>
+          <span className="text-gray-400">Trade Flows</span>
+          <span className="text-right font-medium">{tradeFlows.length}</span>
+          <span className="text-gray-400">Ports</span>
+          <span className="text-right font-medium">{ports.length}</span>
+          <span className="text-gray-400">Total Trade</span>
+          <span className="text-right font-medium text-cyan-400">
+            ${(tradeFlows.reduce((s, f) => s + f.total_value_usd, 0) / 1e12).toFixed(1)}T
+          </span>
+        </div>
+      </div>
 
       <div className="absolute bottom-4 right-4 z-50">
         <div
@@ -245,8 +272,6 @@ export default function Home() {
           {dataSource === "live" ? "● Live Data" : "● Demo Data"}
         </div>
       </div>
-
-      <InfoPanel />
 
       {selectedCountry && (
         <CountryDetailPanel
