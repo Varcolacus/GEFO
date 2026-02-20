@@ -40,7 +40,7 @@ import type {
   CommodityFlowEdge,
 } from "@/lib/api";
 
-// Disable Cesium Ion — uses CartoDB Dark Matter imagery + flat terrain
+// Disable Cesium Ion — uses ESRI World Imagery + CartoDB labels
 Ion.defaultAccessToken = "";
 
 /**
@@ -155,21 +155,35 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       },
       baseLayer: new ImageryLayer(
         new UrlTemplateImageryProvider({
-          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          subdomains: ["a", "b", "c", "d"],
-          credit: "CartoDB Dark Matter",
+          url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          credit: "Esri, Maxar, Earthstar Geographics, and the GIS User Community",
           minimumLevel: 0,
-          maximumLevel: 18,
+          maximumLevel: 23,
         })
       ),
       terrainProvider: new EllipsoidTerrainProvider(),
     });
+
+    // ── Dark labels overlay on top of satellite imagery ──
+    viewer.imageryLayers.addImageryProvider(
+      new UrlTemplateImageryProvider({
+        url: "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png",
+        subdomains: ["a", "b", "c", "d"],
+        credit: "CartoDB Labels",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      })
+    );
 
     // Deep-space background + dark globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
     viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
     viewer.scene.globe.showGroundAtmosphere = true;
     viewer.scene.globe.enableLighting = true;
+
+    // ── Allow ultra-close zoom (street/building level) ──
+    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;    // 50m from ground
+    viewer.scene.screenSpaceCameraController.maximumZoomDistance = 50000000; // 50,000km max
 
     // ── Bloom post-processing for glowing arcs & markers ──
     viewer.scene.postProcessStages.bloom.enabled = true;
@@ -187,10 +201,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.scene.skyAtmosphere.saturationShift = -0.1;
     }
 
-    // ── Fog for atmospheric depth ──
+    // ── Fog for atmospheric depth (subtle — doesn't obscure close zoom) ──
     viewer.scene.fog.enabled = true;
-    viewer.scene.fog.density = 2.0e-4;
-    viewer.scene.fog.minimumBrightness = 0.03;
+    viewer.scene.fog.density = 1.0e-4;
+    viewer.scene.fog.minimumBrightness = 0.02;
 
     // ── Depth testing so entities occlude properly ──
     viewer.scene.globe.depthTestAgainstTerrain = false;
