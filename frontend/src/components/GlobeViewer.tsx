@@ -20,7 +20,7 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
-  OpenStreetMapImageryProvider,
+  UrlTemplateImageryProvider,
   ImageryLayer,
   EllipsoidTerrainProvider,
   Ion,
@@ -40,8 +40,37 @@ import type {
   CommodityFlowEdge,
 } from "@/lib/api";
 
-// Disable Cesium Ion — uses OpenStreetMap imagery + flat terrain
+// Disable Cesium Ion — uses CartoDB Dark Matter imagery + flat terrain
 Ion.defaultAccessToken = "";
+
+/**
+ * Compute 3D arc positions above the globe surface.
+ * Creates a smooth parabolic arc between two geographic points.
+ */
+function computeArcPositions(
+  lon1: number, lat1: number,
+  lon2: number, lat2: number,
+  segments: number = 40,
+  heightScale: number = 0.15
+): number[] {
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
+  const distMeters = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 6_371_000;
+  const maxHeight = Math.min(distMeters * heightScale, 2_500_000); // cap at 2500km
+
+  const points: number[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const lon = lon1 + (lon2 - lon1) * t;
+    const lat = lat1 + (lat2 - lat1) * t;
+    const height = maxHeight * 4 * t * (1 - t); // parabolic
+    points.push(lon, lat, height);
+  }
+  return points;
+}
 
 interface GlobeViewerProps {
   countries: CountryMacro[];
@@ -116,8 +145,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       timeline: false,
       navigationHelpButton: false,
       scene3DOnly: true,
-      skyBox: false,
-      skyAtmosphere: undefined,
+      // skyBox: default — renders built-in star field
+      // skyAtmosphere: default — renders blue atmospheric glow
       creditContainer,
       contextOptions: {
         webgl: {
@@ -125,18 +154,38 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         },
       },
       baseLayer: new ImageryLayer(
-        new OpenStreetMapImageryProvider({
-          url: "https://tile.openstreetmap.org/",
+        new UrlTemplateImageryProvider({
+          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          subdomains: ["a", "b", "c", "d"],
+          credit: "CartoDB Dark Matter",
+          minimumLevel: 0,
+          maximumLevel: 18,
         })
       ),
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // Set dark background  
-    viewer.scene.backgroundColor = Color.fromCssColorString("#050510");
-    viewer.scene.globe.baseColor = Color.fromCssColorString("#0d1117");
+    // Deep-space background + dark globe base
+    viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
+    viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
     viewer.scene.globe.showGroundAtmosphere = true;
     viewer.scene.globe.enableLighting = true;
+
+    // ── Bloom post-processing for glowing arcs & markers ──
+    viewer.scene.postProcessStages.bloom.enabled = true;
+    viewer.scene.postProcessStages.bloom.uniforms.glowOnly = false;
+    viewer.scene.postProcessStages.bloom.uniforms.contrast = 128;
+    viewer.scene.postProcessStages.bloom.uniforms.brightness = -0.2;
+    viewer.scene.postProcessStages.bloom.uniforms.delta = 1.0;
+    viewer.scene.postProcessStages.bloom.uniforms.sigma = 3.8;
+    viewer.scene.postProcessStages.bloom.uniforms.stepSize = 5.0;
+
+    // ── Atmosphere tuning ──
+    if (viewer.scene.skyAtmosphere) {
+      viewer.scene.skyAtmosphere.brightnessShift = 0.0;
+      viewer.scene.skyAtmosphere.hueShift = 0.0;
+      viewer.scene.skyAtmosphere.saturationShift = -0.1;
+    }
 
     // Initial camera position
     viewer.camera.flyTo({
@@ -277,7 +326,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         color = Color.fromHsl(hue, 0.8, 0.45 + normalized * 0.2, 0.85);
       }
 
-      const radius = 80000 + normalized * 350000;
+      const radius = 60000 + normalized * 280000;
+      const extrudeHeight = 30000 + normalized * 600000; // 3D column height
 
       const formattedValue =
         indicator === "trade_openness" || indicator === "import_dependency"
@@ -287,6 +337,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           : Math.abs(rawValue) >= 1e6
           ? `$${(rawValue / 1e6).toFixed(1)}M`
           : `$${rawValue.toFixed(0)}`;
+
+      // Brighter outline for glow effect
+      const outlineColor = Color.fromHsl(
+        isDiverging ? (normalized < 0.5 ? 0.0 : 0.33) : normalized * 0.35,
+        1.0, 0.65, 0.9
+      );
 
       viewer.entities.add({
         name: `country_${country.iso_code}`,
@@ -298,18 +354,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           semiMajorAxis: radius,
           semiMinorAxis: radius,
           height: 0,
+          extrudedHeight: extrudeHeight,
           material: color,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
+          outline: true,
+          outlineColor: outlineColor,
+          outlineWidth: 1,
         },
         label: {
           text: country.iso_code,
-          font: "12px sans-serif",
+          font: "bold 13px 'Segoe UI', sans-serif",
           fillColor: Color.WHITE,
-          outlineColor: Color.BLACK,
-          outlineWidth: 2,
+          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+          outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
-          pixelOffset: new Cartesian3(0, -15, 0) as any,
+          pixelOffset: new Cartesian3(0, -20, 0) as any,
           scaleByDistance: new NearFarScalar(1e6, 1, 1e7, 0.4),
           translucencyByDistance: new NearFarScalar(1e6, 1, 2e7, 0),
         },
@@ -357,33 +416,41 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       const normalized = flow.total_value_usd / maxValue;
       const width = 2 + normalized * 8;
-      const alpha = 0.4 + normalized * 0.5;
+      const alpha = 0.5 + normalized * 0.45;
 
-      // Color: exports from highlighted = cyan, imports to highlighted = orange
+      // Color: exports from highlighted = cyan, imports to highlighted = amber
       let lineColor: string;
+      let glowColor: string;
       if (highlightCountryIso) {
-        lineColor = flow.exporter_iso === highlightCountryIso
-          ? `rgba(0, 220, 255, ${alpha})`
-          : `rgba(255, 160, 0, ${alpha})`;
+        if (flow.exporter_iso === highlightCountryIso) {
+          lineColor = `rgba(0, 230, 255, ${alpha})`;
+          glowColor = `rgba(0, 180, 255, ${alpha * 0.35})`;
+        } else {
+          lineColor = `rgba(255, 170, 30, ${alpha})`;
+          glowColor = `rgba(255, 120, 0, ${alpha * 0.35})`;
+        }
       } else {
-        lineColor = `rgba(0, 200, 255, ${alpha})`;
+        lineColor = `rgba(0, 210, 255, ${alpha})`;
+        glowColor = `rgba(0, 150, 255, ${alpha * 0.35})`;
       }
 
-      // Directional arrow polyline (export → import)
+      // 3D elevated arc positions
+      const arcPoints = computeArcPositions(
+        flow.exporter_lon, flow.exporter_lat,
+        flow.importer_lon, flow.importer_lat,
+        30, 0.12 + normalized * 0.08
+      );
+
+      // Main directional arrow arc
       viewer.entities.add({
         name: `flow_${index}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArray([
-            flow.exporter_lon,
-            flow.exporter_lat,
-            flow.importer_lon,
-            flow.importer_lat,
-          ]),
+          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
           width: width,
           material: new PolylineArrowMaterialProperty(
             Color.fromCssColorString(lineColor)
           ),
-          arcType: ArcType.GEODESIC,
+          arcType: ArcType.NONE,
         },
         description: `
           <h3>Trade Flow</h3>
@@ -392,23 +459,18 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
 
-      // Glow underlay for top flows
-      if (normalized > 0.3) {
+      // Glow underlay for all visible flows
+      if (normalized > 0.15) {
         viewer.entities.add({
           name: `flow_glow_${index}`,
           polyline: {
-            positions: Cartesian3.fromDegreesArray([
-              flow.exporter_lon,
-              flow.exporter_lat,
-              flow.importer_lon,
-              flow.importer_lat,
-            ]),
-            width: width + 4,
+            positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
+            width: width + 6,
             material: new PolylineGlowMaterialProperty({
-              glowPower: 0.3,
-              color: Color.fromCssColorString(`rgba(0, 140, 255, ${alpha * 0.3})`),
+              glowPower: 0.25 + normalized * 0.2,
+              color: Color.fromCssColorString(glowColor),
             }),
-            arcType: ArcType.GEODESIC,
+            arcType: ArcType.NONE,
           },
         });
       }
@@ -433,36 +495,37 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const value = arc.total_value_usd || 100_000_000;
       const width = Math.min(3 + (value / 500_000_000) * 4, 8);
 
-      // Magenta pulsing arc to distinguish from static trade flows
+      // 3D elevated arc
+      const arcPoints = computeArcPositions(
+        arc.exporter_lon, arc.exporter_lat,
+        arc.importer_lon, arc.importer_lat,
+        30, 0.18
+      );
+
+      // Magenta arc to distinguish from static trade flows
       viewer.entities.add({
         name: `live_arc_${i}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArray([
-            arc.exporter_lon, arc.exporter_lat,
-            arc.importer_lon, arc.importer_lat,
-          ]),
+          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
           width: width,
           material: new PolylineArrowMaterialProperty(
-            Color.fromCssColorString("rgba(255, 50, 200, 0.8)")
+            Color.fromCssColorString("rgba(255, 60, 210, 0.85)")
           ),
-          arcType: ArcType.GEODESIC,
+          arcType: ArcType.NONE,
         },
       });
 
-      // Glow underlay
+      // Bright glow underlay
       viewer.entities.add({
         name: `live_arc_glow_${i}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArray([
-            arc.exporter_lon, arc.exporter_lat,
-            arc.importer_lon, arc.importer_lat,
-          ]),
-          width: width + 6,
+          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
+          width: width + 8,
           material: new PolylineGlowMaterialProperty({
-            glowPower: 0.4,
-            color: Color.fromCssColorString("rgba(255, 50, 200, 0.2)"),
+            glowPower: 0.45,
+            color: Color.fromCssColorString("rgba(255, 60, 210, 0.25)"),
           }),
-          arcType: ArcType.GEODESIC,
+          arcType: ArcType.NONE,
         },
       });
     });
@@ -474,7 +537,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!viewer) return;
 
     const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("port_")
+      (e) => e.name?.startsWith("port_") || e.name?.startsWith("port_glow_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
@@ -482,33 +545,36 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     ports.forEach((port) => {
       const throughput = port.throughput_teu || port.throughput_tons || 0;
-      const size = Math.min(12 + Math.log10(Math.max(throughput, 1)) * 3, 30);
+      const size = Math.min(10 + Math.log10(Math.max(throughput, 1)) * 2.5, 24);
+      const glowRadius = 25000 + Math.log10(Math.max(throughput, 1)) * 8000;
 
       const colorMap: Record<string, string> = {
-        container: "#00ff88",
-        oil: "#ff6600",
-        bulk: "#ffcc00",
-        transit: "#cc66ff",
+        container: "#00ff99",
+        oil: "#ff7722",
+        bulk: "#ffdd33",
+        transit: "#dd77ff",
       };
-      const color = colorMap[port.port_type || "container"] || "#00ff88";
+      const portColor = colorMap[port.port_type || "container"] || "#00ff99";
+      const cesiumColor = Color.fromCssColorString(portColor);
 
+      // Inner bright point
       viewer.entities.add({
         name: `port_${port.id}`,
         position: Cartesian3.fromDegrees(port.lon, port.lat),
         point: {
           pixelSize: size,
-          color: Color.fromCssColorString(color),
-          outlineColor: Color.WHITE,
-          outlineWidth: 1,
+          color: cesiumColor,
+          outlineColor: Color.WHITE.withAlpha(0.6),
+          outlineWidth: 1.5,
           heightReference: HeightReference.CLAMP_TO_GROUND,
           scaleByDistance: new NearFarScalar(1e6, 1, 1e7, 0.5),
         },
         label: {
           text: port.name,
-          font: "11px sans-serif",
-          fillColor: Color.WHITE,
-          outlineColor: Color.BLACK,
-          outlineWidth: 1,
+          font: "11px 'Segoe UI', sans-serif",
+          fillColor: Color.WHITE.withAlpha(0.9),
+          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.6)"),
+          outlineWidth: 2,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           horizontalOrigin: HorizontalOrigin.LEFT,
@@ -523,6 +589,22 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           ${port.throughput_teu ? `<p>Throughput: ${(port.throughput_teu / 1e6).toFixed(1)}M TEU</p>` : ""}
           ${port.throughput_tons ? `<p>Throughput: ${(port.throughput_tons / 1e6).toFixed(0)}M tons</p>` : ""}
         `,
+      });
+
+      // Outer glow ring
+      viewer.entities.add({
+        name: `port_glow_${port.id}`,
+        position: Cartesian3.fromDegrees(port.lon, port.lat),
+        ellipse: {
+          semiMajorAxis: glowRadius,
+          semiMinorAxis: glowRadius,
+          height: 0,
+          material: cesiumColor.withAlpha(0.12),
+          outline: true,
+          outlineColor: cesiumColor.withAlpha(0.35),
+          outlineWidth: 1,
+          heightReference: HeightReference.CLAMP_TO_GROUND,
+        },
       });
     });
   }, [ports, layers.ports]);
@@ -666,19 +748,23 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     commodityFlows.forEach((edge, i) => {
       const width = Math.max(2, edge.weight * 8);
 
+      // 3D elevated arc
+      const arcPoints = computeArcPositions(
+        edge.exporter_lon, edge.exporter_lat,
+        edge.importer_lon, edge.importer_lat,
+        30, 0.14
+      );
+
       // Gold/amber arc
       viewer.entities.add({
         name: `commodity_flow_${i}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArray([
-            edge.exporter_lon, edge.exporter_lat,
-            edge.importer_lon, edge.importer_lat,
-          ]),
+          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
           width: width,
           material: new PolylineArrowMaterialProperty(
-            Color.fromCssColorString("rgba(245, 158, 11, 0.85)")
+            Color.fromCssColorString("rgba(255, 180, 20, 0.9)")
           ),
-          arcType: ArcType.GEODESIC,
+          arcType: ArcType.NONE,
         },
       });
 
@@ -686,16 +772,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.entities.add({
         name: `commodity_flow_glow_${i}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArray([
-            edge.exporter_lon, edge.exporter_lat,
-            edge.importer_lon, edge.importer_lat,
-          ]),
-          width: width + 6,
+          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
+          width: width + 8,
           material: new PolylineGlowMaterialProperty({
-            glowPower: 0.35,
-            color: Color.fromCssColorString("rgba(245, 158, 11, 0.2)"),
+            glowPower: 0.4,
+            color: Color.fromCssColorString("rgba(255, 160, 10, 0.25)"),
           }),
-          arcType: ArcType.GEODESIC,
+          arcType: ArcType.NONE,
         },
       });
     });
