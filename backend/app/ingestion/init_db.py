@@ -15,6 +15,7 @@ from app.models.user import User, APIKey
 from app.models.alert import AlertRule, Alert, NotificationChannel
 from app.models.usage_log import APIUsageLog
 from app.models.geopolitical import SanctionedEntity, ConflictZone, CountryRiskScore, SupplyChainRoute
+from app.models.analytics import TradeForecast, TradeAnomaly
 
 logger = logging.getLogger(__name__)
 

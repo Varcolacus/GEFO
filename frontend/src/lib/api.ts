@@ -859,4 +859,134 @@ export async function fetchGeoDashboard(): Promise<GeoDashboard> {
   return response.data;
 }
 
+// ─── Analytics & Forecasting Types (Phase 8) ───
+
+export interface ForecastPoint {
+  predicted: number;
+  lower: number;
+  upper: number;
+  model: string;
+}
+
+export interface AnomalyEntry {
+  index: number;
+  label: string;
+  value: number;
+  expected: number;
+  z_score: number;
+  type: string;
+  severity: string;
+  method?: string;
+  if_score?: number;
+}
+
+export interface TrendInfo {
+  slope: number;
+  intercept: number;
+  r_squared: number;
+  direction: string;
+}
+
+export interface YoYGrowthEntry {
+  iso_code: string;
+  name: string;
+  current_value: number;
+  previous_value: number;
+  change_usd: number;
+  growth_pct: number;
+  year: number;
+}
+
+export interface TopMovers {
+  gainers: YoYGrowthEntry[];
+  losers: YoYGrowthEntry[];
+  year: number;
+}
+
+export interface GlobalTrend {
+  labels: string[];
+  values: number[];
+  flow_counts: number[];
+  trend: TrendInfo;
+  forecast: { labels: string[]; predictions: ForecastPoint[] };
+  summary: {
+    total_years: number;
+    min: number;
+    max: number;
+    latest: number;
+    cagr: number | null;
+  };
+}
+
+export interface CountryAnalyticsResult {
+  iso_code: string;
+  direction: string;
+  data_points: number;
+  historical: { labels: string[]; values: number[] };
+  trend: TrendInfo;
+  forecast: { labels: string[]; predictions: ForecastPoint[] };
+  anomalies: AnomalyEntry[];
+  summary: {
+    min: number;
+    max: number;
+    mean: number;
+    std: number;
+    latest: number;
+    cagr: number | null;
+  };
+  error?: string;
+}
+
+export interface AnomalyCountrySummary {
+  iso_code: string;
+  count: number;
+  critical: number;
+  worst_z: number;
+}
+
+export interface AnalyticsDashboard {
+  global_trend: GlobalTrend;
+  top_movers: TopMovers;
+  anomaly_summary: {
+    countries_scanned: number;
+    total_anomalies: number;
+    critical_anomalies: number;
+    by_country: AnomalyCountrySummary[];
+  };
+  year: number;
+}
+
+// ─── Analytics & Forecasting Fetchers ───
+
+export async function fetchAnalyticsDashboard(year: number = 2023): Promise<AnalyticsDashboard> {
+  const response = await api.get("/api/analytics/dashboard", { params: { year } });
+  return response.data;
+}
+
+export async function fetchGlobalTrend(): Promise<GlobalTrend> {
+  const response = await api.get("/api/analytics/global-trend");
+  return response.data;
+}
+
+export async function fetchYoYGrowth(year: number = 2023, limit: number = 30): Promise<YoYGrowthEntry[]> {
+  const response = await api.get("/api/analytics/yoy-growth", { params: { year, limit } });
+  return response.data;
+}
+
+export async function fetchTopMovers(year: number = 2023, limit: number = 10): Promise<TopMovers> {
+  const response = await api.get("/api/analytics/top-movers", { params: { year, limit } });
+  return response.data;
+}
+
+export async function fetchCountryAnalytics(
+  isoCode: string,
+  direction: string = "export",
+  horizon: number = 3,
+): Promise<CountryAnalyticsResult> {
+  const response = await api.get(`/api/analytics/country/${isoCode}`, {
+    params: { direction, horizon },
+  });
+  return response.data;
+}
+
 export default api;

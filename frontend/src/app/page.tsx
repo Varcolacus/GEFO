@@ -15,6 +15,7 @@ import AdminPanel from "@/components/AdminPanel";
 import GeopoliticalPanel from "@/components/GeopoliticalPanel";
 import LiveFeed from "@/components/LiveFeed";
 import ConnectionStatus from "@/components/ConnectionStatus";
+import AnalyticsPanel from "@/components/AnalyticsPanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
@@ -187,6 +188,7 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showGeopolitical, setShowGeopolitical] = useState(false);
   const [showLiveFeed, setShowLiveFeed] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
@@ -337,6 +339,16 @@ export default function Home() {
           }`}
         >
           📡 Live Feed
+        </button>
+        <button
+          onClick={() => setShowAnalytics((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showAnalytics
+              ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          📊 Analytics
         </button>
         <button
           onClick={() => {
@@ -501,6 +513,13 @@ export default function Home() {
           onClose={() => setShowLiveFeed(false)}
           onClearEvents={clearEvents}
           onFlyTo={(lat, lon) => setFlyToPosition({ lon, lat, altitude: 4000000 })}
+        />
+      )}
+
+      {showAnalytics && (
+        <AnalyticsPanel
+          year={year}
+          onClose={() => setShowAnalytics(false)}
         />
       )}
     </div>
