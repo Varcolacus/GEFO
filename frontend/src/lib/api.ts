@@ -1268,4 +1268,84 @@ export async function fetchCountryCommodityProfile(countryIso: string, year: num
   return response.data;
 }
 
+// ─── Phase 11: Data Sources & Economic Groups Types ───
+
+export interface NationalDataSourceInfo {
+  id: number;
+  country_iso: string;
+  iso2?: string;
+  institution: string;
+  api_url?: string;
+  docs_url?: string;
+  auth_required: boolean;
+  quality: string;
+  coverage: string;
+  update_frequency: string;
+  data_format?: string;
+  tier: string;
+  is_active: boolean;
+  last_fetch_at?: string;
+  last_fetch_status?: string;
+  fetch_error_count: number;
+  circuit_breaker_until?: string;
+}
+
+export interface DataSourceStats {
+  total: number;
+  by_tier: Record<string, number>;
+  by_format: Record<string, number>;
+  by_status: Record<string, number>;
+}
+
+export interface EconomicGroupInfo {
+  code: string;
+  name: string;
+  category: string;
+  member_count: number;
+}
+
+export interface EconomicGroupDetail extends EconomicGroupInfo {
+  members: {
+    iso_code: string;
+    name: string;
+    flag_emoji?: string;
+    capital?: string;
+    income_group?: string;
+    centroid_lat?: number;
+    centroid_lon?: number;
+  }[];
+}
+
+// ─── Phase 11: Data Sources & Economic Groups Functions ───
+
+export async function fetchDataSources(tier?: string): Promise<{ count: number; sources: NationalDataSourceInfo[] }> {
+  const response = await api.get("/api/data-sources/", { params: { tier } });
+  return response.data;
+}
+
+export async function fetchDataSourcesByCountry(countryIso: string): Promise<{ country_iso: string; count: number; sources: NationalDataSourceInfo[] }> {
+  const response = await api.get(`/api/data-sources/by-country/${countryIso}`);
+  return response.data;
+}
+
+export async function fetchDataSourceStats(): Promise<DataSourceStats> {
+  const response = await api.get("/api/data-sources/stats");
+  return response.data;
+}
+
+export async function fetchEconomicGroups(category?: string): Promise<{ count: number; groups: EconomicGroupInfo[] }> {
+  const response = await api.get("/api/economic-groups/", { params: { category } });
+  return response.data;
+}
+
+export async function fetchEconomicGroup(code: string): Promise<EconomicGroupDetail> {
+  const response = await api.get(`/api/economic-groups/${code}`);
+  return response.data;
+}
+
+export async function fetchCountryGroups(countryIso: string): Promise<{ country_iso: string; groups: EconomicGroupInfo[] }> {
+  const response = await api.get(`/api/economic-groups/by-country/${countryIso}`);
+  return response.data;
+}
+
 export default api;

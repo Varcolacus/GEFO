@@ -18,6 +18,7 @@ import ConnectionStatus from "@/components/ConnectionStatus";
 import AnalyticsPanel from "@/components/AnalyticsPanel";
 import ImportPanel from "@/components/ImportPanel";
 import CommodityPanel from "@/components/CommodityPanel";
+import DataSourcePanel from "@/components/DataSourcePanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
@@ -194,6 +195,7 @@ export default function Home() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showCommodities, setShowCommodities] = useState(false);
+  const [showDataSources, setShowDataSources] = useState(false);
   const [commodityFlows, setCommodityFlows] = useState<CommodityFlowEdge[]>([]);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
@@ -366,6 +368,16 @@ export default function Home() {
           }`}
         >
           📦 Commodities
+        </button>
+        <button
+          onClick={() => setShowDataSources((v) => !v)}
+          className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
+            showDataSources
+              ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
+              : "bg-gray-900/80 text-gray-400 border-gray-700 hover:text-white"
+          }`}
+        >
+          🏛️ Sources
         </button>
         {isAuthenticated && user?.is_admin && (
           <button
@@ -562,6 +574,10 @@ export default function Home() {
           onClose={() => setShowCommodities(false)}
           onShowCommodityFlows={(flows) => setCommodityFlows(flows)}
         />
+      )}
+
+      {showDataSources && (
+        <DataSourcePanel onClose={() => setShowDataSources(false)} />
       )}
     </div>
   );
