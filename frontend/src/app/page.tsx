@@ -8,6 +8,9 @@ import TimeSlider from "@/components/TimeSlider";
 import SearchBar from "@/components/SearchBar";
 import ComparePanel from "@/components/ComparePanel";
 import IntelligencePanel from "@/components/IntelligencePanel";
+import AuthModal from "@/components/AuthModal";
+import AccountPanel from "@/components/AccountPanel";
+import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
@@ -170,7 +173,10 @@ export default function Home() {
   const [isLoadingYear, setIsLoadingYear] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showIntelligence, setShowIntelligence] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const globeRef = useRef<GlobeViewerHandle>(null);
+  const { user, isAuthenticated } = useAuth();
 
   useEffect(() => {
     async function loadLiveData() {
@@ -269,6 +275,24 @@ export default function Home() {
         >
           📷 Screenshot
         </button>
+
+        {isAuthenticated ? (
+          <button
+            onClick={() => setShowAccount(true)}
+            className="text-xs px-3 py-2 rounded-lg border bg-cyan-600/80 text-white
+                       border-cyan-500 hover:bg-cyan-500 transition-colors backdrop-blur-sm flex items-center gap-1"
+          >
+            👤 {user?.full_name || user?.email?.split("@")[0] || "Account"}
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="text-xs px-3 py-2 rounded-lg border bg-gray-900/80 text-cyan-400
+                       border-cyan-700 hover:text-white hover:border-cyan-500 transition-colors backdrop-blur-sm"
+          >
+            🔑 Sign In
+          </button>
+        )}
       </div>
 
       {showCompare && (
@@ -338,6 +362,14 @@ export default function Home() {
           selectedCountry={selectedCountry}
           onClose={() => setSelectedCountry(null)}
         />
+      )}
+
+      {showAuthModal && (
+        <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {showAccount && (
+        <AccountPanel onClose={() => setShowAccount(false)} />
       )}
     </div>
   );

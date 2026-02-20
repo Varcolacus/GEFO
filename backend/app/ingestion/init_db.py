@@ -11,6 +11,7 @@ from app.models.trade_flow import TradeFlow
 from app.models.port import Port
 from app.models.shipping_density import ShippingDensity
 from app.models.chokepoint import Chokepoint
+from app.models.user import User, APIKey
 
 logger = logging.getLogger(__name__)
 

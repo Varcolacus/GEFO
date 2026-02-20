@@ -7,6 +7,17 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// Attach JWT token to requests if available
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("gefo_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 // ─── Types ───
 
 export interface CountryMacro {
@@ -291,6 +302,151 @@ export async function fetchEnergyExposure(
     params: { year },
   });
   return response.data.countries;
+}
+
+
+// ─── Auth Types ───
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  full_name: string | null;
+  organisation: string | null;
+  tier: "free" | "pro" | "institutional";
+  subscription_status: string;
+  is_active: boolean;
+  is_admin: boolean;
+  created_at: string;
+  api_key_count: number;
+}
+
+export interface AuthToken {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: UserProfile;
+}
+
+export interface APIKeyInfo {
+  id: number;
+  key_prefix: string;
+  label: string | null;
+  is_active: boolean;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  request_count: number;
+}
+
+export interface APIKeyCreated {
+  id: number;
+  key: string;
+  key_prefix: string;
+  label: string | null;
+}
+
+export interface SubscriptionInfo {
+  tier: string;
+  status: string;
+  limits: {
+    requests_per_minute: number;
+    requests_per_day: number;
+    max_api_keys: number;
+    csv_export: boolean;
+    intelligence_access: boolean;
+  };
+}
+
+// ─── Auth Functions ───
+
+export async function registerUser(
+  email: string,
+  password: string,
+  fullName?: string,
+  organisation?: string
+): Promise<AuthToken> {
+  const response = await api.post("/api/auth/register", {
+    email,
+    password,
+    full_name: fullName,
+    organisation,
+  });
+  return response.data;
+}
+
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<AuthToken> {
+  const params = new URLSearchParams();
+  params.append("username", email);
+  params.append("password", password);
+  const response = await api.post("/api/auth/login", params, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  return response.data;
+}
+
+export async function fetchProfile(): Promise<UserProfile> {
+  const response = await api.get("/api/auth/me");
+  return response.data;
+}
+
+export async function updateProfile(data: {
+  full_name?: string;
+  organisation?: string;
+}): Promise<UserProfile> {
+  const response = await api.patch("/api/auth/me", data);
+  return response.data;
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await api.post("/api/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}
+
+export async function fetchSubscription(): Promise<SubscriptionInfo> {
+  const response = await api.get("/api/auth/subscription");
+  return response.data;
+}
+
+// ─── API Key Functions ───
+
+export async function createAPIKey(label?: string): Promise<APIKeyCreated> {
+  const response = await api.post("/api/keys/", { label });
+  return response.data;
+}
+
+export async function fetchAPIKeys(): Promise<APIKeyInfo[]> {
+  const response = await api.get("/api/keys/");
+  return response.data;
+}
+
+export async function revokeAPIKey(keyId: number): Promise<void> {
+  await api.delete(`/api/keys/${keyId}`);
+}
+
+// ─── Billing ───
+
+export async function createCheckoutSession(
+  tier: "pro" | "institutional"
+): Promise<{ checkout_url: string; session_id: string }> {
+  const response = await api.post("/api/billing/checkout", {
+    tier,
+    success_url: `${window.location.origin}/account?status=success`,
+    cancel_url: `${window.location.origin}/account?status=cancel`,
+  });
+  return response.data;
+}
+
+export async function createPortalSession(): Promise<{ portal_url: string }> {
+  const response = await api.post("/api/billing/portal");
+  return response.data;
 }
 
 export default api;

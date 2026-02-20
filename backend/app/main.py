@@ -5,7 +5,9 @@ import logging
 
 from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
+from app.core.rate_limit import setup_rate_limiting
 from app.api import countries, trade_flows, ports, shipping_density, indicators, intelligence
+from app.api import auth, keys, billing, export
 
 # ─── Logging ───
 logging.basicConfig(
@@ -47,6 +49,10 @@ app.add_middleware(
 )
 
 # Register routers
+app.include_router(auth.router)
+app.include_router(keys.router)
+app.include_router(billing.router)
+app.include_router(export.router)
 app.include_router(countries.router)
 app.include_router(trade_flows.router)
 app.include_router(ports.router)
@@ -54,14 +60,21 @@ app.include_router(shipping_density.router)
 app.include_router(indicators.router)
 app.include_router(intelligence.router)
 
+# Rate limiting
+setup_rate_limiting(app)
+
 
 @app.get("/")
 def root():
     return {
         "name": "GEFO API",
-        "version": "0.2.0",
-        "description": "Global Economic Flow Observatory — Intelligence Platform",
+        "version": "0.3.0",
+        "description": "Global Economic Flow Observatory — Intelligence & Subscription Platform",
         "endpoints": {
+            "auth": "/api/auth",
+            "keys": "/api/keys",
+            "billing": "/api/billing",
+            "export": "/api/export",
             "countries": "/api/countries",
             "trade_flows": "/api/trade_flows",
             "ports": "/api/ports",

@@ -10,6 +10,17 @@ class Settings(BaseSettings):
     un_comtrade_api_key: str = ""
     world_bank_base_url: str = "https://api.worldbank.org/v2"
 
+    # Auth
+    jwt_secret_key: str = "CHANGE-ME-in-production-use-openssl-rand-hex-32"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1440  # 24 hours
+
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_pro_price_id: str = ""
+    stripe_institutional_price_id: str = ""
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]
