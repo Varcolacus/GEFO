@@ -76,9 +76,9 @@
 
 ## 1. Indicator Engine
 
-- [ ] Trade Flow Intensity Index (TFII)
-- [ ] Port Stress Indicator
-- [ ] Energy Corridor Exposure Index
+- [x] Trade Flow Intensity Index (TFII)
+- [x] Port Stress Indicator
+- [x] Energy Corridor Exposure Index
 
 ---
 
@@ -92,34 +92,38 @@ Monitor these strategic chokepoints:
 - Bab el-Mandeb
 
 For each:
-- Measure traffic density
-- Compare vs historical average
-- Output stress score
+- [x] Measure traffic density
+- [x] Compare vs historical average
+- [x] Output stress score
 
 ---
 
 ## 3. Historical Baseline Calculations
 
-- [ ] 5-year averages
-- [ ] Deviation scoring
-- [ ] Z-score normalization
+- [x] 5-year averages
+- [x] Deviation scoring
+- [x] Z-score normalization
 
 ---
 
 # PHASE 3 — MONETIZATION
 
-- [ ] Authentication system
-- [ ] User tier system (Public, Pro, Institutional)
-- [ ] API key generation
-- [ ] CSV export functionality
-- [ ] Payment integration (Stripe or similar)
+- [x] Authentication system (JWT + API key dual auth)
+- [x] User tier system (Free, Pro, Institutional)
+- [x] API key generation (with tier-based limits)
+- [x] CSV export functionality (Pro+ gated)
+- [x] Payment integration (Stripe checkout, portal, webhooks)
+- [x] Rate limiting middleware (tier-aware via SlowAPI)
+- [x] Frontend auth UI (AuthModal, AccountPanel, toolbar integration)
 
 ---
 
 ## Project Status
 
-**Current Phase:** Setup & Planning  
+**Current Phase:** Phase 3 Complete  
 **Start Date:** February 20, 2026  
-**Target Phase 1 Completion:** May-June 2026
+**Phase 1 Completed:** Commit `128f860`  
+**Phase 2 Completed:** Commit `9573943`  
+**Phase 3 Completed:** Commit `7ddbfae`
 
 ---
