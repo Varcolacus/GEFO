@@ -574,16 +574,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         ? 0.35 + curve * 0.55
         : 0.2 + curve * 0.5;
 
-      // Country mode: cyan exports / amber imports. Global mode: soft teal.
-      let arcColor: Color;
-      if (isCountryMode) {
-        const isExport = flow.exporter_iso === highlightCountryIso;
-        arcColor = isExport
-          ? Color.fromCssColorString(`rgba(80, 220, 255, ${alpha})`)
-          : Color.fromCssColorString(`rgba(255, 180, 60, ${alpha})`);
-      } else {
-        arcColor = Color.fromCssColorString(`rgba(100, 210, 230, ${alpha})`);
-      }
+      // Green = export end, Red = import end, transition at midway
+      const greenColor = Color.fromCssColorString(`rgba(30, 200, 80, ${alpha})`);
+      const redColor = Color.fromCssColorString(`rgba(220, 50, 50, ${alpha})`);
 
       // 3D elevated arc positions — height also scales with magnitude
       const arcPoints = computeArcPositions(
@@ -597,21 +590,39 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       // Only the moving arrow is visible — no static underlying line
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const pulseLen = Math.max(5, Math.floor(arcCartesian.length * 0.2));
+      const pulseLen = Math.max(6, Math.floor(arcCartesian.length * 0.2));
+      const halfPulse = Math.ceil(pulseLen / 2);
       const animSpeed = 6000;
       const stagger = index * 317;
 
+      // First half — GREEN (export origin side), flat line
       viewer.entities.add({
-        name: `flow_${index}`,
+        name: `flow_g_${index}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
             const maxStart = Math.max(0, arcCartesian.length - pulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + pulseLen);
+            return arcCartesian.slice(startIdx, startIdx + halfPulse + 1);
           }, false),
           width: width,
-          material: new PolylineArrowMaterialProperty(arcColor),
+          material: greenColor,
+          arcType: ArcType.NONE,
+        },
+      });
+
+      // Second half — RED (import destination side), arrow head
+      viewer.entities.add({
+        name: `flow_r_${index}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            return arcCartesian.slice(startIdx + halfPulse, startIdx + pulseLen);
+          }, false),
+          width: width,
+          material: new PolylineArrowMaterialProperty(redColor),
           arcType: ArcType.NONE,
         },
         description: `
