@@ -202,7 +202,7 @@ export default function Home() {
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const [mapStyle, setMapStyle] = useState<MapStyle>("satellite");
-  const [tradeFlowCount, setTradeFlowCount] = useState(500);
+  const [tradeFlowCount, setTradeFlowCount] = useState(1000);
   const { user, isAuthenticated } = useAuth();
 
   // ─── WebSocket live feed ───
@@ -504,18 +504,18 @@ export default function Home() {
           </div>
           <input
             type="range"
-            min={25}
-            max={2000}
-            step={25}
+            min={50}
+            max={10000}
+            step={50}
             value={tradeFlowCount}
             onChange={(e) => setTradeFlowCount(Number(e.target.value))}
             className="w-full h-1 rounded-full appearance-none cursor-pointer
                        bg-gray-700 accent-cyan-500"
           />
           <div className="flex justify-between text-[9px] text-gray-500 mt-0.5">
-            <span>25</span>
-            <span>500</span>
-            <span>2000</span>
+            <span>50</span>
+            <span>5000</span>
+            <span>10000</span>
           </div>
         </div>
       </div>
