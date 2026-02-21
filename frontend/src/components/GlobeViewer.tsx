@@ -17,6 +17,7 @@ import {
   Math as CesiumMath,
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
+  CallbackProperty,
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
@@ -614,6 +615,30 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           },
         });
       }
+
+      // ── Animated directional pulse traveling from exporter → importer ──
+      const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+      const pulseLen = Math.max(4, Math.floor(arcCartesian.length * 0.18));
+      const animSpeed = 2200 + (1 - normalized) * 2800; // larger trades = faster pulse
+      const stagger = index * 317; // stagger animations to avoid sync
+
+      viewer.entities.add({
+        name: `flow_anim_${index}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            return arcCartesian.slice(startIdx, startIdx + pulseLen);
+          }, false),
+          width: width + 2,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.7,
+            color: Color.WHITE.withAlpha(0.85),
+          }),
+          arcType: ArcType.NONE,
+        },
+      });
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
@@ -664,6 +689,30 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           material: new PolylineGlowMaterialProperty({
             glowPower: 0.45,
             color: Color.fromCssColorString("rgba(255, 60, 210, 0.25)"),
+          }),
+          arcType: ArcType.NONE,
+        },
+      });
+
+      // ── Animated directional pulse for live arc ──
+      const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+      const livePulseLen = Math.max(4, Math.floor(liveArcCartesian.length * 0.2));
+      const liveSpeed = 1500; // faster for live events
+      const liveStagger = i * 293;
+
+      viewer.entities.add({
+        name: `live_arc_anim_${i}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
+            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            return liveArcCartesian.slice(startIdx, startIdx + livePulseLen);
+          }, false),
+          width: width + 3,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.8,
+            color: Color.WHITE.withAlpha(0.9),
           }),
           arcType: ArcType.NONE,
         },
