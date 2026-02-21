@@ -774,7 +774,8 @@ class VesselTracker:
                 vessels = self.get_vessels()
                 if vessels:
                     await manager.broadcast("vessels", {
-                        "type": "vessel_positions",
+                        "type": "vessels",
+                        "event": "vessel_positions",
                         "timestamp": time.time(),
                         "count": len(vessels),
                         "vessels": vessels,
