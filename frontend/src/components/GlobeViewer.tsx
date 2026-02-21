@@ -17,6 +17,7 @@ import {
   Math as CesiumMath,
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
+  ColorMaterialProperty,
   CallbackProperty,
   VerticalOrigin,
   HorizontalOrigin,
@@ -591,24 +592,27 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const isExportLabel =
         isCountryMode && flow.exporter_iso === highlightCountryIso;
 
-      // Only the moving arrow is visible — no static underlying line
+      // Tapered ribbon: wide body + thin sharp tip
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const pulseLen = Math.max(6, Math.floor(arcCartesian.length * 0.2));
+      const totalPulseLen = Math.max(10, Math.floor(arcCartesian.length * 0.35));
+      const bodyLen = Math.floor(totalPulseLen * 0.6);
+      const tipWidth = Math.max(1, width * 0.2);
       const animSpeed = 12000;
       const stagger = index * 317;
+      const lerpScratch2 = new Color();
 
-      // Single arrow that transitions green → red based on journey progress
+      // Body — wide back portion of the ribbon
       viewer.entities.add({
-        name: `flow_${index}`,
+        name: `flow_body_${index}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+            const maxStart = Math.max(0, arcCartesian.length - totalPulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + pulseLen);
+            return arcCartesian.slice(startIdx, startIdx + bodyLen);
           }, false),
           width: width,
-          material: new PolylineArrowMaterialProperty(
+          material: new ColorMaterialProperty(
             new CallbackProperty(() => {
               const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
               return Color.lerp(greenBase, redBase, t, lerpScratch);
@@ -622,6 +626,28 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
       });
+
+      // Tip — thin sharp point extending ahead
+      viewer.entities.add({
+        name: `flow_tip_${index}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+            const maxStart = Math.max(0, arcCartesian.length - totalPulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            const tipStart = Math.max(0, startIdx + bodyLen - 2);
+            return arcCartesian.slice(tipStart, startIdx + totalPulseLen);
+          }, false),
+          width: tipWidth,
+          material: new ColorMaterialProperty(
+            new CallbackProperty(() => {
+              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+              return Color.lerp(greenBase, redBase, t, lerpScratch2);
+            }, false)
+          ),
+          arcType: ArcType.NONE,
+        },
+      });
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
@@ -631,7 +657,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!viewer) return;
 
     const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("live_arc_")
+      (e) => e.name?.startsWith("live_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
@@ -652,30 +678,56 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         40, 0.22
       );
 
-      // Single arrow that transitions green → red based on journey progress
+      // Tapered ribbon for live trade arcs
       const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const livePulseLen = Math.max(6, Math.floor(liveArcCartesian.length * 0.2));
+      const livePulseLen = Math.max(10, Math.floor(liveArcCartesian.length * 0.35));
+      const liveBodyLen = Math.floor(livePulseLen * 0.6);
+      const liveTipWidth = Math.max(1, width * 0.2);
       const liveSpeed = 6000;
       const liveStagger = i * 293;
 
       const greenBase = new Color(30/255, 200/255, 80/255, 0.75);
       const redBase = new Color(220/255, 50/255, 50/255, 0.75);
       const lerpScratch = new Color();
+      const lerpScratch2 = new Color();
 
+      // Body — wide back portion
       viewer.entities.add({
-        name: `live_arc_${i}`,
+        name: `live_body_${i}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
             const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return liveArcCartesian.slice(startIdx, startIdx + livePulseLen);
+            return liveArcCartesian.slice(startIdx, startIdx + liveBodyLen);
           }, false),
           width: width,
-          material: new PolylineArrowMaterialProperty(
+          material: new ColorMaterialProperty(
             new CallbackProperty(() => {
               const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
               return Color.lerp(greenBase, redBase, t, lerpScratch);
+            }, false)
+          ),
+          arcType: ArcType.NONE,
+        },
+      });
+
+      // Tip — thin sharp point
+      viewer.entities.add({
+        name: `live_tip_${i}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
+            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            const tipStart = Math.max(0, startIdx + liveBodyLen - 2);
+            return liveArcCartesian.slice(tipStart, startIdx + livePulseLen);
+          }, false),
+          width: liveTipWidth,
+          material: new ColorMaterialProperty(
+            new CallbackProperty(() => {
+              const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
+              return Color.lerp(greenBase, redBase, t, lerpScratch2);
             }, false)
           ),
           arcType: ArcType.NONE,
