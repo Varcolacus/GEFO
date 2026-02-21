@@ -4,6 +4,7 @@ interface LayerControlProps {
   layers: {
     countries: boolean;
     tradeFlows: boolean;
+    liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
   };
@@ -65,11 +66,19 @@ export default function LayerControl({
         />
 
         <ToggleSwitch
-          label="Trade Flows"
-          description="Bilateral trade lines"
+          label="Annual Trade"
+          description="Historical bilateral flows"
           active={layers.tradeFlows}
           color="bg-cyan-500"
           onToggle={() => onToggle("tradeFlows")}
+        />
+
+        <ToggleSwitch
+          label="Live Trade"
+          description="Real-time trade events"
+          active={layers.liveTrade}
+          color="bg-rose-500"
+          onToggle={() => onToggle("liveTrade")}
         />
 
         <ToggleSwitch

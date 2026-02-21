@@ -126,6 +126,7 @@ interface GlobeViewerProps {
   layers: {
     countries: boolean;
     tradeFlows: boolean;
+    liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
   };
@@ -633,7 +634,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.tradeFlows || liveTradeArcs.length === 0) return;
+    if (!layers.liveTrade || liveTradeArcs.length === 0) return;
 
     liveTradeArcs.forEach((arc, i) => {
       if (!arc.exporter_lat || !arc.exporter_lon || !arc.importer_lat || !arc.importer_lon) return;
@@ -678,7 +679,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         },
       });
     });
-  }, [liveTradeArcs, layers.tradeFlows]);
+  }, [liveTradeArcs, layers.liveTrade]);
 
   // ─── Render Port Markers ───
   useEffect(() => {

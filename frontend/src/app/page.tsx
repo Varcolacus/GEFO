@@ -169,6 +169,7 @@ export default function Home() {
   const [layers, setLayers] = useState({
     countries: true,
     tradeFlows: true,
+    liveTrade: true,
     ports: true,
     shippingDensity: false,
   });
