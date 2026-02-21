@@ -165,20 +165,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // ── OpenStreetMap detail layer ON TOP for close-zoom street detail ──
-    const osmDetail = viewer.imageryLayers.addImageryProvider(
-      new UrlTemplateImageryProvider({
-        url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-        credit: "© OpenStreetMap contributors",
-        minimumLevel: 17, // only appears at close zoom (street level)
-        maximumLevel: 19,
-      })
-    );
-    osmDetail.alpha = 0.85;
-    osmDetail.brightness = 0.5;
-    osmDetail.contrast = 1.3;
-    osmDetail.saturation = 0.1;
-    osmDetail.gamma = 0.7;
+    // CartoDB dark_all provides full street/building/port detail through zoom 20
+    // No additional imagery layers needed
 
     // Deep-space background + dark globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
