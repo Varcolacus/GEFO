@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     un_comtrade_api_key: str = ""
     world_bank_base_url: str = "https://api.worldbank.org/v2"
 
+    # AIS vessel tracking (AISstream.io — free, register at https://aisstream.io)
+    aisstream_api_key: str = ""
+
     # Auth
     jwt_secret_key: str = "CHANGE-ME-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"

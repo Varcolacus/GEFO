@@ -1348,4 +1348,46 @@ export async function fetchCountryGroups(countryIso: string): Promise<{ country_
   return response.data;
 }
 
+// ─── Vessel Tracking API ───
+
+export type VesselType = "cargo" | "tanker" | "container" | "bulk" | "lng" | "passenger" | "fishing" | "military" | "other";
+
+export interface VesselPosition {
+  mmsi: string;
+  name: string;
+  vessel_type: VesselType;
+  lat: number;
+  lon: number;
+  speed_knots: number;
+  heading: number;
+  destination: string;
+  flag_iso: string;
+  length_m: number;
+  draught_m: number;
+  last_update: number;
+}
+
+export interface VesselSnapshot {
+  mode: "live" | "simulation";
+  count: number;
+  vessels: VesselPosition[];
+}
+
+export interface VesselStats {
+  mode: "live" | "simulation";
+  total_vessels: number;
+  by_type: Record<string, number>;
+  routes_active: number;
+}
+
+export async function fetchVessels(): Promise<VesselSnapshot> {
+  const response = await api.get("/api/vessels/");
+  return response.data;
+}
+
+export async function fetchVesselStats(): Promise<VesselStats> {
+  const response = await api.get("/api/vessels/stats");
+  return response.data;
+}
+
 export default api;

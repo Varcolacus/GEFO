@@ -28,12 +28,14 @@ import {
   fetchPorts,
   fetchShippingDensity,
   fetchConflictZones,
+  fetchVessels,
   type CountryMacro,
   type TradeFlowAggregated,
   type PortData,
   type ShippingDensityPoint,
   type ConflictZone,
   type CommodityFlowEdge,
+  type VesselPosition,
 } from "@/lib/api";
 
 // Dynamic import for CesiumJS (no SSR)
@@ -172,6 +174,7 @@ export default function Home() {
     liveTrade: true,
     ports: true,
     shippingDensity: false,
+    vessels: true,
   });
   const [indicator, setIndicator] = useState("gdp");
   const [year, setYear] = useState(2023);
@@ -197,6 +200,8 @@ export default function Home() {
   const [showImport, setShowImport] = useState(false);
   const [showCommodities, setShowCommodities] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
+  const [vessels, setVessels] = useState<VesselPosition[]>([]);
+  const [vesselMode, setVesselMode] = useState<"live" | "simulation">("simulation");
   const [commodityFlows, setCommodityFlows] = useState<CommodityFlowEdge[]>([]);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
@@ -207,7 +212,7 @@ export default function Home() {
 
   // ─── WebSocket live feed ───
   const { connectionState, events: liveEvents, clientId, clearEvents } = useWebSocket({
-    channels: ["trade", "ports", "alerts", "geopolitical"],
+    channels: ["trade", "ports", "alerts", "geopolitical", "vessels"],
     enabled: true,
   });
 
@@ -225,6 +230,16 @@ export default function Home() {
         importer_lat: e.importer_lat as number,
         importer_lon: e.importer_lon as number,
       }));
+  }, [liveEvents]);
+
+  // Update vessel positions from WebSocket broadcasts
+  useEffect(() => {
+    const vesselEvent = liveEvents.find(
+      (e) => e.type === "vessels" && e.event === "vessel_positions"
+    );
+    if (vesselEvent && Array.isArray(vesselEvent.vessels)) {
+      setVessels(vesselEvent.vessels as VesselPosition[]);
+    }
   }, [liveEvents]);
 
   // Poll alert count every 60s for authenticated users
@@ -254,8 +269,12 @@ export default function Home() {
           fetchShippingDensity(year),
         ]);
 
-        // Fetch conflict zones separately (non-blocking)
+        // Fetch conflict zones and vessels separately (non-blocking)
         fetchConflictZones().then(setConflictZones).catch(() => {});
+        fetchVessels().then((snap) => {
+          setVessels(snap.vessels);
+          setVesselMode(snap.mode);
+        }).catch(() => {});
 
         if (countriesData.length > 0) setCountries(countriesData);
         setTradeFlows(flowsData); // Always update — empty array clears stale year data
@@ -291,6 +310,7 @@ export default function Home() {
         conflictZones={showGeopolitical ? conflictZones : []}
         liveTradeArcs={liveTradeArcs}
         commodityFlows={commodityFlows}
+        vessels={vessels}
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => {
@@ -494,6 +514,10 @@ export default function Home() {
           <span className="text-gray-400">Total Trade</span>
           <span className="text-right font-medium text-cyan-400">
             ${(tradeFlows.reduce((s, f) => s + f.total_value_usd, 0) / 1e12).toFixed(1)}T
+          </span>
+          <span className="text-gray-400">Vessels</span>
+          <span className="text-right font-medium text-sky-400">
+            {vessels.length} <span className="text-[9px] text-gray-500">({vesselMode})</span>
           </span>
         </div>
 

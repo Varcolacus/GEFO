@@ -39,7 +39,7 @@ class ClientInfo:
 class ConnectionManager:
     """Manages WebSocket connections, channels, and broadcasting."""
 
-    ALL_CHANNELS = {"trade", "ports", "alerts", "geopolitical", "system"}
+    ALL_CHANNELS = {"trade", "ports", "alerts", "geopolitical", "vessels", "system"}
 
     def __init__(self) -> None:
         # client_id → ClientInfo

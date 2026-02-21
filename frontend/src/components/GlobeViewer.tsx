@@ -40,6 +40,7 @@ import type {
   ShippingDensityPoint,
   ConflictZone,
   CommodityFlowEdge,
+  VesselPosition,
 } from "@/lib/api";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
@@ -124,12 +125,14 @@ interface GlobeViewerProps {
   conflictZones?: ConflictZone[];
   liveTradeArcs?: TradeFlowAggregated[];
   commodityFlows?: CommodityFlowEdge[];
+  vessels?: VesselPosition[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
     liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
+    vessels: boolean;
   };
   indicator: string;
   mapStyle?: MapStyle;
@@ -152,6 +155,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   conflictZones = [],
   liveTradeArcs = [],
   commodityFlows = [],
+  vessels = [],
   layers,
   indicator,
   mapStyle = "satellite",
@@ -957,6 +961,108 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       });
     });
   }, [conflictZones]);
+
+  // ─── Render Vessel Markers ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    // Remove existing vessel entities
+    const toRemove2 = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("vessel_")
+    );
+    toRemove2.forEach((e) => viewer.entities.remove(e));
+
+    if (!layers.vessels || vessels.length === 0) return;
+
+    // Vessel type → color mapping
+    const typeColors: Record<string, string> = {
+      cargo:     "#22d3ee",
+      tanker:    "#f97316",
+      container: "#10b981",
+      bulk:      "#a78bfa",
+      lng:       "#38bdf8",
+      passenger: "#f472b6",
+      fishing:   "#84cc16",
+      military:  "#ef4444",
+      other:     "#94a3b8",
+    };
+
+    const typeIcons: Record<string, string> = {
+      cargo: "🚢", tanker: "🛢", container: "📦", bulk: "⛴",
+      lng: "❄", passenger: "🚤", fishing: "🎣", military: "⚓", other: "🔹",
+    };
+
+    vessels.forEach((v, i) => {
+      if (!v.lat || !v.lon) return;
+
+      const color = typeColors[v.vessel_type] || typeColors.other;
+      const cesiumColor = Color.fromCssColorString(color);
+      const icon = typeIcons[v.vessel_type] || "🚢";
+
+      // Vessel point marker
+      viewer.entities.add({
+        name: `vessel_${i}`,
+        position: Cartesian3.fromDegrees(v.lon, v.lat, 50),
+        point: {
+          pixelSize: 6,
+          color: cesiumColor,
+          outlineColor: Color.fromCssColorString(color).withAlpha(0.4),
+          outlineWidth: 3,
+          scaleByDistance: new NearFarScalar(1e5, 1.5, 1.2e7, 0.4),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        label: {
+          text: v.name,
+          font: "11px sans-serif",
+          fillColor: Color.WHITE,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.LEFT,
+          pixelOffset: new Cartesian2(8, -4),
+          scaleByDistance: new NearFarScalar(5e4, 1.0, 5e6, 0.0),
+          translucencyByDistance: new NearFarScalar(5e4, 1.0, 8e6, 0.0),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        description: `
+          <h3>${icon} ${v.name}</h3>
+          <table style="width:100%">
+            <tr><td>MMSI</td><td>${v.mmsi}</td></tr>
+            <tr><td>Type</td><td>${v.vessel_type.charAt(0).toUpperCase() + v.vessel_type.slice(1)}</td></tr>
+            <tr><td>Flag</td><td>${v.flag_iso || "—"}</td></tr>
+            <tr><td>Speed</td><td>${v.speed_knots.toFixed(1)} kn</td></tr>
+            <tr><td>Heading</td><td>${v.heading.toFixed(0)}°</td></tr>
+            <tr><td>Destination</td><td>${v.destination || "—"}</td></tr>
+            ${v.length_m ? `<tr><td>Length</td><td>${v.length_m}m</td></tr>` : ""}
+            ${v.draught_m ? `<tr><td>Draught</td><td>${v.draught_m}m</td></tr>` : ""}
+          </table>
+        `,
+      });
+
+      // Heading indicator — short line showing vessel direction
+      if (v.speed_knots > 0.5) {
+        const headingRad = (v.heading * Math.PI) / 180;
+        const offsetDeg = 0.15; // length of heading line in degrees
+        const endLat = v.lat + Math.cos(headingRad) * offsetDeg;
+        const endLon = v.lon + Math.sin(headingRad) * offsetDeg / Math.cos(v.lat * Math.PI / 180);
+
+        viewer.entities.add({
+          name: `vessel_hdg_${i}`,
+          polyline: {
+            positions: Cartesian3.fromDegreesArrayHeights([
+              v.lon, v.lat, 50,
+              endLon, endLat, 50,
+            ]),
+            width: 2,
+            material: cesiumColor.withAlpha(0.7),
+            arcType: ArcType.NONE,
+          },
+        });
+      }
+    });
+  }, [vessels, layers.vessels]);
 
   // ─── Render Commodity Flow Arcs (Gold) ───
   useEffect(() => {

@@ -7,6 +7,7 @@ interface LayerControlProps {
     liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
+    vessels: boolean;
   };
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
   indicator: string;
@@ -95,6 +96,14 @@ export default function LayerControl({
           active={layers.shippingDensity}
           color="bg-orange-500"
           onToggle={() => onToggle("shippingDensity")}
+        />
+
+        <ToggleSwitch
+          label="Vessels"
+          description="Real-time ship tracking"
+          active={layers.vessels}
+          color="bg-sky-400"
+          onToggle={() => onToggle("vessels")}
         />
       </div>
 

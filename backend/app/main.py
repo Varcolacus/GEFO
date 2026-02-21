@@ -14,8 +14,10 @@ from app.api import commodities as commodities_router
 from app.api import websocket as ws_router
 from app.api import data_sources as data_sources_router
 from app.api import economic_groups as economic_groups_router
+from app.api import vessels as vessels_router
 from app.core.usage_middleware import UsageTrackingMiddleware
 from app.services.live_feed import simulator as live_feed_simulator
+from app.services.vessel_tracker import vessel_tracker
 
 # ─── Logging ───
 logging.basicConfig(
@@ -34,8 +36,10 @@ async def lifespan(app: FastAPI):
     logger.info("GEFO API starting up…")
     start_scheduler()
     live_feed_simulator.start()
+    vessel_tracker.start()
     yield
     logger.info("GEFO API shutting down…")
+    vessel_tracker.stop()
     live_feed_simulator.stop()
     stop_scheduler()
 
@@ -43,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="GEFO API",
     description="Global Economic Flow Observatory — Geoeconomic Intelligence Platform",
-    version="0.11.0",
+    version="0.12.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -81,6 +85,7 @@ app.include_router(commodities_router.router)
 app.include_router(ws_router.router)
 app.include_router(data_sources_router.router)
 app.include_router(economic_groups_router.router)
+app.include_router(vessels_router.router)
 
 # Rate limiting
 setup_rate_limiting(app)
@@ -90,7 +95,7 @@ setup_rate_limiting(app)
 def root():
     return {
         "name": "GEFO API",
-        "version": "0.11.0",
+        "version": "0.12.0",
         "description": "Global Economic Flow Observatory — Geoeconomic Intelligence Platform",
         "endpoints": {
             "admin": "/api/admin",
@@ -113,6 +118,7 @@ def root():
             "ws_stats": "/api/ws/stats",
             "data_sources": "/api/data-sources",
             "economic_groups": "/api/economic-groups",
+            "vessels": "/api/vessels",
             "proxy": "/api/data-sources/proxy",
             "docs": "/docs",
         },
