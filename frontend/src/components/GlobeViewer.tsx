@@ -364,11 +364,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       destination: Cartesian3.fromDegrees(
         flyToCountry.centroid_lon,
         flyToCountry.centroid_lat,
-        5000000 // 5,000 km altitude — oblique 3D view
+        4000000 // 4,000 km altitude — top-down view
       ),
       orientation: {
-        heading: CesiumMath.toRadians(345),
-        pitch: CesiumMath.toRadians(-35),
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-90), // straight down
         roll: 0,
       },
       duration: 1.5,
