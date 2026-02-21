@@ -201,6 +201,7 @@ export default function Home() {
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
   const [mapStyle, setMapStyle] = useState<MapStyle>("satellite");
+  const [tradeFlowCount, setTradeFlowCount] = useState(500);
   const { user, isAuthenticated } = useAuth();
 
   // ─── WebSocket live feed ───
@@ -247,7 +248,7 @@ export default function Home() {
       try {
         const [countriesData, flowsData, portsData, densityData] = await Promise.all([
           fetchCountries(),
-          fetchTradeFlows(year),
+          fetchTradeFlows(year, tradeFlowCount),
           fetchPorts(),
           fetchShippingDensity(year),
         ]);
@@ -269,7 +270,7 @@ export default function Home() {
     }
 
     loadLiveData();
-  }, [year]);
+  }, [year, tradeFlowCount]);
 
   const toggleLayer = useCallback(
     (layer: keyof typeof layers) => {
@@ -492,6 +493,29 @@ export default function Home() {
           <span className="text-right font-medium text-cyan-400">
             ${(tradeFlows.reduce((s, f) => s + f.total_value_usd, 0) / 1e12).toFixed(1)}T
           </span>
+        </div>
+
+        {/* Trade Density Slider */}
+        <div className="mt-3 pt-2 border-t border-gray-700">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider">Trade Density</span>
+            <span className="text-[10px] text-cyan-400 font-medium">{tradeFlowCount} flows</span>
+          </div>
+          <input
+            type="range"
+            min={25}
+            max={2000}
+            step={25}
+            value={tradeFlowCount}
+            onChange={(e) => setTradeFlowCount(Number(e.target.value))}
+            className="w-full h-1 rounded-full appearance-none cursor-pointer
+                       bg-gray-700 accent-cyan-500"
+          />
+          <div className="flex justify-between text-[9px] text-gray-500 mt-0.5">
+            <span>25</span>
+            <span>500</span>
+            <span>2000</span>
+          </div>
         </div>
       </div>
 

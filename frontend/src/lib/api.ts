@@ -117,7 +117,7 @@ export async function fetchCountriesGeoJSON(
 
 export async function fetchTradeFlows(
   year: number,
-  topN: number = 100
+  topN: number = 500
 ): Promise<TradeFlowAggregated[]> {
   const response = await api.get("/api/trade_flows/aggregated", {
     params: { year, top_n: topN },

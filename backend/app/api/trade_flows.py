@@ -66,7 +66,7 @@ def get_trade_flows(
 @router.get("/aggregated", response_model=List[TradeFlowAggregated])
 def get_aggregated_trade_flows(
     year: int = Query(..., description="Year"),
-    top_n: int = Query(100, le=500, description="Top N flows by value"),
+    top_n: int = Query(100, le=2000, description="Top N flows by value"),
     db: Session = Depends(get_db),
 ):
     """Get aggregated bilateral trade flows (for globe visualization)."""

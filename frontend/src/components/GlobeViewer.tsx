@@ -538,6 +538,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!layers.tradeFlows || tradeFlows.length === 0) return;
 
     const maxValue = Math.max(...tradeFlows.map((f) => f.total_value_usd));
+    const totalFlows = tradeFlows.length;
+    // Tier thresholds scale with total flow count for performance
+    const animateLimit = Math.min(40, Math.floor(totalFlows * 0.08)); // top ~8% get animated pulses
+    const glowLimit = Math.min(80, Math.floor(totalFlows * 0.2));     // top ~20% get glow underlay
+    // Segment count: fewer segments for lower-ranked flows (performance)
+    const getSegments = (rank: number) => rank < glowLimit ? 40 : 20;
 
     tradeFlows.forEach((flow, index) => {
       if (
@@ -556,8 +562,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       if (highlightCountryIso && !isHighlighted) return;
 
       const normalized = flow.total_value_usd / maxValue;
-      const width = 2 + normalized * 8;
-      const alpha = 0.5 + normalized * 0.45;
+      // Width scaling: top flows thick, bottom flows thin but still visible
+      const width = index < animateLimit
+        ? 2 + normalized * 8
+        : Math.max(0.8, 1 + normalized * 5);
+      // Alpha: top flows opaque, bottom flows quite transparent (web effect)
+      const alpha = index < glowLimit
+        ? 0.5 + normalized * 0.45
+        : 0.15 + normalized * 0.35;
 
       // Color: exports from highlighted = cyan, imports to highlighted = amber
       let lineColor: string;
@@ -575,11 +587,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         glowColor = `rgba(0, 150, 255, ${alpha * 0.35})`;
       }
 
+      const segments = getSegments(index);
+
       // 3D elevated arc positions
       const arcPoints = computeArcPositions(
         flow.exporter_lon, flow.exporter_lat,
         flow.importer_lon, flow.importer_lat,
-        40, 0.15 + normalized * 0.12
+        segments, 0.15 + normalized * 0.12
       );
 
       // Main directional arrow arc
@@ -600,8 +614,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
 
-      // Glow underlay for all visible flows
-      if (normalized > 0.15) {
+      // Glow underlay — only top flows (performance)
+      if (index < glowLimit && normalized > 0.05) {
         viewer.entities.add({
           name: `flow_glow_${index}`,
           polyline: {
@@ -616,29 +630,31 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         });
       }
 
-      // ── Animated directional pulse traveling from exporter → importer ──
-      const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const pulseLen = Math.max(4, Math.floor(arcCartesian.length * 0.18));
-      const animSpeed = 2200 + (1 - normalized) * 2800; // larger trades = faster pulse
-      const stagger = index * 317; // stagger animations to avoid sync
+      // ── Animated directional pulse — only top flows (performance) ──
+      if (index < animateLimit) {
+        const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+        const pulseLen = Math.max(4, Math.floor(arcCartesian.length * 0.18));
+        const animSpeed = 2200 + (1 - normalized) * 2800; // larger trades = faster
+        const stagger = index * 317; // stagger to avoid sync
 
-      viewer.entities.add({
-        name: `flow_anim_${index}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + pulseLen);
-          }, false),
-          width: width + 2,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.7,
-            color: Color.WHITE.withAlpha(0.85),
-          }),
-          arcType: ArcType.NONE,
-        },
-      });
+        viewer.entities.add({
+          name: `flow_anim_${index}`,
+          polyline: {
+            positions: new CallbackProperty(() => {
+              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+              const startIdx = Math.floor(t * maxStart);
+              return arcCartesian.slice(startIdx, startIdx + pulseLen);
+            }, false),
+            width: width + 2,
+            material: new PolylineGlowMaterialProperty({
+              glowPower: 0.7,
+              color: Color.WHITE.withAlpha(0.85),
+            }),
+            arcType: ArcType.NONE,
+          },
+        });
+      }
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
