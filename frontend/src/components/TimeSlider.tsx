@@ -7,6 +7,7 @@ interface TimeSliderProps {
   onYearChange: (year: number) => void;
   minYear?: number;
   maxYear?: number;
+  availableYears?: number[];
   isLoading?: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function TimeSlider({
   onYearChange,
   minYear = DEFAULT_MIN,
   maxYear = DEFAULT_MAX,
+  availableYears,
   isLoading = false,
 }: TimeSliderProps) {
   const [playing, setPlaying] = useState(false);
@@ -42,15 +44,16 @@ export default function TimeSlider({
   const startPlayback = useCallback(() => {
     setPlaying(true);
     intervalRef.current = setInterval(() => {
-      const next = yearRef.current + 1;
-      if (next > maxYear) {
-        // Loop back to start
-        onYearChange(minYear);
+      if (availableYears && availableYears.length > 0) {
+        const curIdx = availableYears.indexOf(yearRef.current);
+        const nextIdx = curIdx >= 0 ? curIdx + 1 : 0;
+        onYearChange(nextIdx >= availableYears.length ? availableYears[0] : availableYears[nextIdx]);
       } else {
-        onYearChange(next);
+        const next = yearRef.current + 1;
+        onYearChange(next > maxYear ? minYear : next);
       }
     }, PLAY_INTERVAL_MS);
-  }, [maxYear, minYear, onYearChange]);
+  }, [maxYear, minYear, availableYears, onYearChange]);
 
   const togglePlay = useCallback(() => {
     if (playing) {
@@ -139,6 +142,7 @@ export default function TimeSlider({
               {years.map((y) => {
                 const isActive = y === year;
                 const isPast = y < year;
+                const hasData = !availableYears || availableYears.includes(y);
                 return (
                   <button
                     key={y}
@@ -147,11 +151,14 @@ export default function TimeSlider({
                       if (playing) stopPlayback();
                     }}
                     className="relative flex flex-col items-center group"
+                    title={hasData ? String(y) : `${y} — no data`}
                   >
                     {/* Dot */}
                     <div
                       className={`w-3 h-3 rounded-full border-2 transition-all -mt-[9px] ${
-                        isActive
+                        !hasData
+                          ? "bg-gray-800 border-gray-600 opacity-40"
+                          : isActive
                           ? "bg-cyan-400 border-cyan-400 scale-125 shadow-lg shadow-cyan-400/40"
                           : isPast
                           ? "bg-cyan-700 border-cyan-600"
@@ -161,7 +168,9 @@ export default function TimeSlider({
                     {/* Label */}
                     <span
                       className={`text-[10px] mt-1 font-mono tabular-nums transition-colors ${
-                        isActive
+                        !hasData
+                          ? "text-gray-600 line-through"
+                          : isActive
                           ? "text-cyan-400 font-bold"
                           : isPast
                           ? "text-gray-400"

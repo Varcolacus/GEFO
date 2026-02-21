@@ -258,7 +258,7 @@ export default function Home() {
         fetchConflictZones().then(setConflictZones).catch(() => {});
 
         if (countriesData.length > 0) setCountries(countriesData);
-        if (flowsData.length > 0) setTradeFlows(flowsData);
+        setTradeFlows(flowsData); // Always update — empty array clears stale year data
         if (portsData.length > 0) setPorts(portsData);
         if (densityData.data.length > 0) setShippingDensity(densityData.data);
         setDataSource("live");
@@ -474,6 +474,7 @@ export default function Home() {
       <TimeSlider
         year={year}
         onYearChange={setYear}
+        availableYears={[2018, 2019, 2020, 2023]}
         isLoading={isLoadingYear}
       />
 
