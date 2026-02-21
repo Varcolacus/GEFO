@@ -199,12 +199,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     // ── Globe translucency for subtle ocean depth ──
     viewer.scene.globe.translucency.enabled = false;
 
-    // Initial camera — oblique angle for dramatic 3D perspective
+    // Initial camera — centered globe view
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(15, 30, 18000000),
+      destination: Cartesian3.fromDegrees(15, 20, 22000000),
       orientation: {
-        heading: CesiumMath.toRadians(5),
-        pitch: CesiumMath.toRadians(-75),
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-90),
         roll: 0,
       },
       duration: 0,
