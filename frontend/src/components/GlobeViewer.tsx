@@ -831,12 +831,125 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
   }, [commodityFlows]);
 
+  // ── Zoom helpers ──
+  const zoomIn = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const camera = viewer.camera;
+    const height = camera.positionCartographic.height;
+    camera.zoomIn(height * 0.4);                     // zoom 40% closer
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const camera = viewer.camera;
+    const height = camera.positionCartographic.height;
+    camera.zoomOut(height * 0.6);                     // zoom 60% further
+  }, []);
+
+  const resetView = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(15, 20, 22000000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-90),
+        roll: 0,
+      },
+      duration: 1.2,
+    });
+  }, []);
+
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full"
-      style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-    />
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      {/* Cesium canvas */}
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+
+      {/* Zoom controls — bottom-right floating buttons */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 32,
+          right: 16,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={zoomIn}
+          title="Zoom in"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(10,15,30,0.85)",
+            color: "#fff",
+            fontSize: 20,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          +
+        </button>
+        <button
+          onClick={zoomOut}
+          title="Zoom out"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(10,15,30,0.85)",
+            color: "#fff",
+            fontSize: 20,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          −
+        </button>
+        <button
+          onClick={resetView}
+          title="Reset view"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(10,15,30,0.85)",
+            color: "#fff",
+            fontSize: 14,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          ⌂
+        </button>
+      </div>
+    </div>
   );
 });
 
