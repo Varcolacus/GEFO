@@ -531,10 +531,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!viewer) return;
 
     const toRemove = viewer.entities.values.filter(
-      (e) =>
-        e.name?.startsWith("flow_") ||
-        e.name?.startsWith("flow_glow_") ||
-        e.name?.startsWith("flow_anim_")
+      (e) => e.name?.startsWith("flow_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
@@ -567,18 +564,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Use power curve so only the largest flows are truly thick
       const curve = Math.pow(normalized, 0.6);
 
-      // Width: wispy thin for small flows, bold ribbon for large ones
+      // Width: thin for small flows, bold for large ones
       const width = isCountryMode
-        ? 0.5 + curve * 7
-        : 0.3 + curve * 5;
+        ? 1.5 + curve * 8
+        : 1 + curve * 6;
 
-      // Alpha: very transparent for small flows, moderately opaque for large
+      // Alpha for the arrow color
       const alpha = isCountryMode
-        ? 0.12 + curve * 0.55
-        : 0.06 + curve * 0.45;
-
-      // Glow power: subtle for small, stronger for large
-      const glowPower = 0.15 + curve * 0.35;
+        ? 0.35 + curve * 0.55
+        : 0.2 + curve * 0.5;
 
       // Country mode: cyan exports / amber imports. Global mode: soft teal.
       let arcColor: Color;
@@ -601,11 +595,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const isExportLabel =
         isCountryMode && flow.exporter_iso === highlightCountryIso;
 
-      // Main arc — directional arrow showing flow direction
+      // Only the moving arrow is visible — no static underlying line
+      const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+      const pulseLen = Math.max(5, Math.floor(arcCartesian.length * 0.2));
+      const animSpeed = 6000;
+      const stagger = index * 317;
+
       viewer.entities.add({
         name: `flow_${index}`,
         polyline: {
-          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            return arcCartesian.slice(startIdx, startIdx + pulseLen);
+          }, false),
           width: width,
           material: new PolylineArrowMaterialProperty(arcColor),
           arcType: ArcType.NONE,
@@ -616,60 +620,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
       });
-
-      // Soft glow underlay behind the arrow for aesthetic depth
-      if (curve > 0.08) {
-        const glowAlpha = alpha * 0.35;
-        let glowCol: Color;
-        if (isCountryMode) {
-          const isExport = flow.exporter_iso === highlightCountryIso;
-          glowCol = isExport
-            ? Color.fromCssColorString(`rgba(80, 200, 255, ${glowAlpha})`)
-            : Color.fromCssColorString(`rgba(255, 150, 40, ${glowAlpha})`);
-        } else {
-          glowCol = Color.fromCssColorString(`rgba(80, 200, 220, ${glowAlpha})`);
-        }
-        viewer.entities.add({
-          name: `flow_glow_${index}`,
-          polyline: {
-            positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
-            width: width + 4,
-            material: new PolylineGlowMaterialProperty({
-              glowPower: glowPower,
-              color: glowCol,
-            }),
-            arcType: ArcType.NONE,
-          },
-        });
-      }
-
-      // Animated directional pulse — only for notable flows
-      const animateThis = isCountryMode ? normalized > 0.03 : normalized > 0.1;
-      if (animateThis) {
-        const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-        const pulseLen = Math.max(4, Math.floor(arcCartesian.length * 0.15));
-        const animSpeed = 6000;
-        const stagger = index * 317;
-        const pulseAlpha = isCountryMode ? 0.25 + curve * 0.5 : 0.15 + curve * 0.4;
-
-        viewer.entities.add({
-          name: `flow_anim_${index}`,
-          polyline: {
-            positions: new CallbackProperty(() => {
-              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-              const startIdx = Math.floor(t * maxStart);
-              return arcCartesian.slice(startIdx, startIdx + pulseLen);
-            }, false),
-            width: width + 1.5,
-            material: new PolylineGlowMaterialProperty({
-              glowPower: 0.5,
-              color: Color.WHITE.withAlpha(pulseAlpha),
-            }),
-            arcType: ArcType.NONE,
-          },
-        });
-      }
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
