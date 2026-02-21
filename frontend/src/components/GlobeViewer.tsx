@@ -1010,7 +1010,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           outlineColor: Color.fromCssColorString(color).withAlpha(0.4),
           outlineWidth: 3,
           scaleByDistance: new NearFarScalar(1e5, 1.5, 1.2e7, 0.4),
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          heightReference: HeightReference.RELATIVE_TO_GROUND,
         },
         label: {
           text: v.name,
@@ -1024,7 +1024,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           pixelOffset: new Cartesian2(8, -4),
           scaleByDistance: new NearFarScalar(5e4, 1.0, 5e6, 0.0),
           translucencyByDistance: new NearFarScalar(5e4, 1.0, 8e6, 0.0),
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         description: `
           <h3>${icon} ${v.name}</h3>
