@@ -601,16 +601,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const isExportLabel =
         isCountryMode && flow.exporter_iso === highlightCountryIso;
 
-      // Main arc — soft glow material for elegance
+      // Main arc — directional arrow showing flow direction
       viewer.entities.add({
         name: `flow_${index}`,
         polyline: {
           positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
           width: width,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: glowPower,
-            color: arcColor,
-          }),
+          material: new PolylineArrowMaterialProperty(arcColor),
           arcType: ArcType.NONE,
         },
         description: `
@@ -619,6 +616,32 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
       });
+
+      // Soft glow underlay behind the arrow for aesthetic depth
+      if (curve > 0.08) {
+        const glowAlpha = alpha * 0.35;
+        let glowCol: Color;
+        if (isCountryMode) {
+          const isExport = flow.exporter_iso === highlightCountryIso;
+          glowCol = isExport
+            ? Color.fromCssColorString(`rgba(80, 200, 255, ${glowAlpha})`)
+            : Color.fromCssColorString(`rgba(255, 150, 40, ${glowAlpha})`);
+        } else {
+          glowCol = Color.fromCssColorString(`rgba(80, 200, 220, ${glowAlpha})`);
+        }
+        viewer.entities.add({
+          name: `flow_glow_${index}`,
+          polyline: {
+            positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
+            width: width + 4,
+            material: new PolylineGlowMaterialProperty({
+              glowPower: glowPower,
+              color: glowCol,
+            }),
+            arcType: ArcType.NONE,
+          },
+        });
+      }
 
       // Animated directional pulse — only for notable flows
       const animateThis = isCountryMode ? normalized > 0.03 : normalized > 0.1;
