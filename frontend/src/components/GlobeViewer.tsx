@@ -241,6 +241,43 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     return () => handler.destroy();
   }, [countries, onCountryClick]);
 
+  // ─── Double-click to zoom (Google Earth style) ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    // Disable default double-click behaviour (entity tracking)
+    viewer.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction((click: { position: Cartesian2 }) => {
+      // Ray-pick the globe surface at click position
+      const ray = viewer.camera.getPickRay(click.position);
+      if (!ray) return;
+      const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+      if (!cartesian) return;
+
+      const height = viewer.camera.positionCartographic.height;
+      const targetHeight = Math.max(height * 0.35, 100); // zoom to 35% of current height, min 100m
+
+      viewer.camera.flyTo({
+        destination: Cartesian3.fromRadians(
+          viewer.scene.globe.ellipsoid.cartesianToCartographic(cartesian).longitude,
+          viewer.scene.globe.ellipsoid.cartesianToCartographic(cartesian).latitude,
+          targetHeight
+        ),
+        orientation: {
+          heading: viewer.camera.heading,
+          pitch: viewer.camera.pitch,
+          roll: 0,
+        },
+        duration: 1.0,
+      });
+    }, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+
+    return () => handler.destroy();
+  }, []);
+
   // ─── Fly to country when requested ───
   useEffect(() => {
     const viewer = viewerRef.current;
