@@ -241,9 +241,10 @@ class VesselTracker:
     otherwise runs a high-fidelity route-based simulator.
     """
 
-    MAX_VESSELS = 200        # cap to avoid overloading the frontend
+    MAX_VESSELS = 500        # cap to avoid overloading the frontend
     BROADCAST_INTERVAL = 3   # seconds between WebSocket broadcasts
     SIM_UPDATE_INTERVAL = 2  # seconds between simulation ticks
+    STALE_TIMEOUT = 600      # remove vessels not heard from in 10 minutes
 
     def __init__(self, aisstream_api_key: str = ""):
         self._api_key = aisstream_api_key
@@ -266,6 +267,7 @@ class VesselTracker:
         if self._api_key:
             logger.info("VesselTracker starting in LIVE mode (AISstream.io)")
             self._tasks.append(asyncio.ensure_future(self._ais_stream_loop()))
+            self._tasks.append(asyncio.ensure_future(self._cleanup_loop()))
         else:
             logger.info("VesselTracker starting in SIMULATION mode (no API key)")
             self._init_simulated_fleet()
@@ -336,12 +338,31 @@ class VesselTracker:
                 logger.warning(f"AISstream connection error: {e}, reconnecting in 10s")
                 await asyncio.sleep(10)
 
+    async def _cleanup_loop(self) -> None:
+        """Periodically remove stale vessels (live mode) and log stats."""
+        while self._running:
+            try:
+                await asyncio.sleep(60)
+                cutoff = time.time() - self.STALE_TIMEOUT
+                async with self._lock:
+                    stale = [k for k, v in self._vessels.items() if v.last_update < cutoff]
+                    for k in stale:
+                        del self._vessels[k]
+                if stale:
+                    logger.info(f"Cleaned {len(stale)} stale vessels, {len(self._vessels)} active")
+                else:
+                    logger.info(f"AIS live tracking: {len(self._vessels)} vessels")
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                pass
+
     async def _process_ais_message(self, msg: dict) -> None:
         """Process a single AIS message from aisstream.io."""
         msg_type = msg.get("MessageType", "")
         meta = msg.get("MetaData", {})
         mmsi = str(meta.get("MMSI", ""))
-        if not mmsi:
+        if not mmsi or len(mmsi) < 5:
             return
 
         async with self._lock:
@@ -352,54 +373,208 @@ class VesselTracker:
 
                 if lat == 0 and lon == 0:
                     return  # invalid position
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    return  # out of range
+
+                heading_raw = pos_report.get("TrueHeading", 511)
+                cog = pos_report.get("Cog", 0)
+                # TrueHeading=511 means "not available" in AIS
+                heading = cog if heading_raw == 511 else heading_raw
 
                 if mmsi in self._vessels:
                     v = self._vessels[mmsi]
                     v.lat = lat
                     v.lon = lon
                     v.speed_knots = pos_report.get("Sog", v.speed_knots)
-                    v.heading = pos_report.get("TrueHeading", pos_report.get("Cog", v.heading))
+                    v.heading = heading
                     v.last_update = time.time()
                 elif len(self._vessels) < self.MAX_VESSELS:
-                    ship_name = meta.get("ShipName", f"VESSEL-{mmsi[-4:]}")
-                    vtype = self._ais_type_to_gefo(meta.get("ShipType", 0))
+                    ship_name = meta.get("ShipName", f"VESSEL-{mmsi[-4:]}").strip()
+                    if not ship_name or ship_name == "":
+                        ship_name = f"VESSEL-{mmsi[-4:]}"
                     self._vessels[mmsi] = VesselPosition(
                         mmsi=mmsi,
-                        name=ship_name.strip(),
-                        vessel_type=vtype,
+                        name=ship_name,
+                        vessel_type="cargo",  # default; updated by ShipStaticData
                         lat=lat,
                         lon=lon,
                         speed_knots=pos_report.get("Sog", 0),
-                        heading=pos_report.get("TrueHeading", pos_report.get("Cog", 0)),
-                        flag_iso=meta.get("country_iso", ""),
+                        heading=heading,
+                        flag_iso=self._mmsi_to_flag(mmsi),
                     )
 
             elif msg_type == "ShipStaticData":
                 static = msg.get("Message", {}).get("ShipStaticData", {})
+                ship_type = static.get("Type", 0)
+                vtype = self._ais_type_to_gefo(ship_type)
+                name = (static.get("Name", "") or "").strip()
+                destination = (static.get("Destination", "") or "").strip()
+                dim = static.get("Dimension", {})
+                length = (dim.get("A", 0) + dim.get("B", 0)) if dim else 0
+                draught = static.get("MaximumStaticDraught", 0)  # already in meters
+                # Refine type using ship name for better categorization
+                vtype = self._refine_type_by_name(name, vtype)
+
                 if mmsi in self._vessels:
                     v = self._vessels[mmsi]
-                    v.name = static.get("Name", v.name).strip()
-                    v.destination = static.get("Destination", "").strip()
-                    dim = static.get("Dimension", {})
-                    if dim:
-                        v.length_m = dim.get("A", 0) + dim.get("B", 0)
-                        v.draught_m = static.get("MaximumStaticDraught", 0) / 10
+                    if name:
+                        v.name = name
+                    v.vessel_type = vtype
+                    if destination:
+                        v.destination = destination
+                    if length > 0:
+                        v.length_m = length
+                    if draught > 0:
+                        v.draught_m = draught
+                elif len(self._vessels) < self.MAX_VESSELS:
+                    # Create vessel from static data with MetaData position
+                    lat = meta.get("latitude", 0)
+                    lon = meta.get("longitude", 0)
+                    if lat != 0 or lon != 0:
+                        self._vessels[mmsi] = VesselPosition(
+                            mmsi=mmsi,
+                            name=name or f"VESSEL-{mmsi[-4:]}",
+                            vessel_type=vtype,
+                            lat=lat,
+                            lon=lon,
+                            speed_knots=0,
+                            heading=0,
+                            destination=destination,
+                            flag_iso=self._mmsi_to_flag(mmsi),
+                            length_m=length,
+                            draught_m=draught,
+                        )
+
+    @staticmethod
+    def _mmsi_to_flag(mmsi: str) -> str:
+        """Derive country ISO from MMSI Maritime Identification Digits (MID)."""
+        MID_TO_ISO = {
+            "201": "ALB", "202": "AND", "203": "AUT", "204": "PRT", "205": "BEL",
+            "206": "BLR", "207": "BGR", "208": "VAT", "209": "CYP", "210": "CYP",
+            "211": "DEU", "212": "CYP", "213": "GEO", "214": "MDA", "215": "MLT",
+            "216": "ARM", "218": "DEU", "219": "DNK", "220": "DNK", "224": "ESP",
+            "225": "ESP", "226": "FRA", "227": "FRA", "228": "FRA", "229": "MLT",
+            "230": "FIN", "231": "FRO", "232": "GBR", "233": "GBR", "234": "GBR",
+            "235": "GBR", "236": "GIB", "237": "GRC", "238": "HRV", "239": "GRC",
+            "240": "GRC", "241": "GRC", "242": "MAR", "243": "HUN", "244": "NLD",
+            "245": "NLD", "246": "NLD", "247": "ITA", "248": "MLT", "249": "MLT",
+            "250": "IRL", "251": "ISL", "252": "LIE", "253": "LUX", "254": "MCO",
+            "255": "PRT", "256": "MLT", "257": "NOR", "258": "NOR", "259": "NOR",
+            "261": "POL", "263": "PRT", "264": "ROU", "265": "SWE", "266": "SWE",
+            "267": "SVK", "268": "SMR", "269": "CHE", "270": "CZE", "271": "TUR",
+            "272": "UKR", "273": "RUS", "274": "MKD", "275": "LVA", "276": "EST",
+            "277": "LTU", "278": "SVN", "279": "SRB",
+            "301": "AIA", "303": "USA", "304": "ATG", "305": "ATG",
+            "306": "CUW", "307": "ARU", "308": "BHS", "309": "BHS",
+            "310": "BMU", "311": "BHS", "312": "BLZ", "314": "BRB",
+            "316": "CAN", "319": "CYM", "321": "CRI", "323": "CUB",
+            "325": "DMA", "327": "DOM", "329": "GLP", "330": "GRD",
+            "331": "GRL", "332": "GTM", "334": "HND", "336": "HTI",
+            "338": "USA", "339": "JAM", "341": "KNA", "343": "LCA",
+            "345": "MEX", "347": "MTQ", "348": "MSR", "350": "NIC",
+            "351": "PAN", "352": "PAN", "353": "PAN", "354": "PAN",
+            "355": "PAN", "356": "PAN", "357": "PAN",
+            "358": "PRI", "359": "SLV", "361": "SPM", "362": "TTO",
+            "364": "TCA", "366": "USA", "367": "USA", "368": "USA",
+            "369": "USA", "370": "PAN", "371": "PAN", "372": "PAN",
+            "373": "PAN", "374": "PAN", "375": "VCT", "376": "VCT",
+            "377": "VCT",
+            "401": "AFG", "403": "SAU", "405": "BGD", "408": "BHR",
+            "410": "BTN", "412": "CHN", "413": "CHN", "414": "CHN",
+            "416": "TWN", "417": "LKA", "419": "IND", "422": "IRN",
+            "423": "AZE", "425": "IRQ", "428": "ISR", "431": "JPN",
+            "432": "JPN", "434": "TKM", "436": "KAZ", "437": "UZB",
+            "438": "JOR", "440": "KOR", "441": "KOR", "443": "PSE",
+            "445": "PRK", "447": "KWT", "450": "LBN", "451": "KGZ",
+            "453": "MAC", "455": "MYS", "456": "MYS", "457": "MYS",
+            "459": "MMR", "461": "OMN", "463": "PAK", "466": "QAT",
+            "468": "SYR", "470": "ARE", "471": "ARE", "472": "TJK",
+            "473": "YEM", "475": "THA",
+            "501": "ADE", "503": "AUS", "506": "MMR",
+            "508": "BRN", "510": "FSM", "511": "PLW", "512": "NZL",
+            "514": "KHM", "515": "KHM", "516": "CXR", "518": "COK",
+            "520": "FJI", "523": "CCK", "525": "IDN", "529": "KIR",
+            "531": "LAO", "533": "MYS", "536": "MNP", "538": "MHL",
+            "540": "NCL", "542": "NIU", "544": "NRU", "546": "NCL",
+            "548": "PHL", "553": "PNG", "555": "PCN", "557": "SOL",
+            "559": "ASM", "561": "WSM", "563": "SGP", "564": "SGP",
+            "565": "SGP", "566": "SGP", "567": "THA",
+            "570": "TON", "572": "TUV", "574": "VNM", "576": "VUT",
+            "577": "VUT", "578": "WLF",
+            "601": "ZAF", "603": "AGO", "605": "DZA", "607": "CMR",
+            "609": "BDI", "610": "BEN", "611": "BWA", "612": "CMR",
+            "613": "CMR", "615": "COG", "616": "COM", "617": "CPV",
+            "618": "COD", "619": "CIV", "620": "COM", "621": "DJI",
+            "622": "EGY", "624": "ETH", "625": "ERI", "626": "GAB",
+            "627": "GHA", "629": "GMB", "630": "GNB", "631": "GNQ",
+            "632": "GIN", "633": "BFA", "634": "KEN", "635": "COD",
+            "636": "LBR", "637": "LBR", "638": "SSD", "642": "LBY",
+            "644": "LSO", "645": "MUS", "647": "MDG", "649": "MLI",
+            "650": "MOZ", "654": "MRT", "655": "MWI", "656": "NER",
+            "657": "NGA", "659": "NAM", "660": "REU", "661": "RWA",
+            "662": "SDN", "663": "SEN", "664": "SYC", "665": "SHN",
+            "666": "SOM", "667": "SLE", "668": "STP", "669": "SWZ",
+            "670": "TCD", "671": "TGO", "672": "TUN", "674": "TZA",
+            "675": "UGA", "676": "COD", "677": "TZA", "678": "ZMB",
+            "679": "ZWE",
+            "701": "ARG", "710": "BRA", "720": "BOL", "725": "CHL",
+            "730": "COL", "735": "ECU", "740": "FLK", "745": "GUF",
+            "750": "GUY", "755": "PRY", "760": "PER", "765": "SUR",
+            "770": "URY", "775": "VEN",
+        }
+        if len(mmsi) >= 3:
+            mid = mmsi[:3]
+            return MID_TO_ISO.get(mid, "")
+        return ""
 
     @staticmethod
     def _ais_type_to_gefo(ais_type: int) -> str:
-        """Map AIS ship type number to our type categories."""
-        if 70 <= ais_type <= 79:
+        """Map AIS ship type number to our GEFO type categories.
+        
+        AIS type codes (ITU-R M.1371-5):
+        20-29: Wing in ground, 30-39: Fishing/towing,
+        40-49: High speed craft, 50-59: Special craft (pilot, SAR, tug),
+        60-69: Passenger, 70-79: Cargo, 80-89: Tanker, 90-99: Other
+        """
+        if ais_type is None or ais_type == 0:
+            return "cargo"  # default when unknown
+        elif 70 <= ais_type <= 79:
             return "cargo"
         elif 80 <= ais_type <= 89:
             return "tanker"
-        elif ais_type in (60, 61, 62, 63, 64, 65, 66, 67, 68, 69):
+        elif 60 <= ais_type <= 69:
             return "passenger"
         elif 30 <= ais_type <= 39:
             return "fishing"
-        elif 35 <= ais_type <= 39:
-            return "military"
-        # Container ships are typically type 70-79 but we differentiate by name
+        elif 50 <= ais_type <= 59:
+            # Tugs, pilot, SAR, law enforcement, etc.
+            if ais_type == 55:
+                return "military"
+            return "other"
+        elif 40 <= ais_type <= 49:
+            return "passenger"  # high speed craft often passenger
+        elif 90 <= ais_type <= 99:
+            return "other"
         return "cargo"
+
+    @staticmethod
+    def _refine_type_by_name(name: str, current_type: str) -> str:
+        """Refine vessel type based on ship name keywords."""
+        if not name:
+            return current_type
+        upper = name.upper()
+        # Container ship indicators
+        if any(k in upper for k in ("MSC ", "MAERSK", "EVER ", "CMA ", "COSCO",
+                                     "OOCL", "ONE ", "HMM ", "ZIM ", "HAPAG",
+                                     "YANG MING", "CONTAINER")):
+            return "container"
+        # LNG/LPG indicators
+        if any(k in upper for k in ("LNG", "LPG", "GAS ", "SPIRIT", "ENERGY")):
+            return "lng"
+        # Bulk carrier indicators
+        if any(k in upper for k in ("BULK", "ORE ", "VALEMAX", "CAPE ", "PANAMAX")):
+            return "bulk"
+        return current_type
 
     # ── Simulation mode ──
 
@@ -661,4 +836,8 @@ class VesselTracker:
 
 
 # ── Singleton ──
-vessel_tracker = VesselTracker()
+def _create_tracker() -> VesselTracker:
+    from app.core.config import settings
+    return VesselTracker(aisstream_api_key=settings.aisstream_api_key)
+
+vessel_tracker = _create_tracker()
