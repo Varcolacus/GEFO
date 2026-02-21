@@ -21,7 +21,7 @@ import CommodityPanel from "@/components/CommodityPanel";
 import DataSourcePanel from "@/components/DataSourcePanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
-import type { GlobeViewerHandle } from "@/components/GlobeViewer";
+import type { GlobeViewerHandle, MapStyle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -200,6 +200,7 @@ export default function Home() {
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("satellite");
   const { user, isAuthenticated } = useAuth();
 
   // ─── WebSocket live feed ───
@@ -297,6 +298,8 @@ export default function Home() {
         flyToCountry={flyToCountry}
         flyToPosition={flyToPosition}
         highlightCountryIso={selectedCountry?.iso_code ?? null}
+        mapStyle={mapStyle}
+        onMapStyleChange={setMapStyle}
       />
 
       <SearchBar

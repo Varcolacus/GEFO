@@ -72,6 +72,48 @@ function computeArcPositions(
   return points;
 }
 
+export type MapStyle = "satellite" | "physical" | "dark" | "street" | "natgeo";
+
+const MAP_TILE_PROVIDERS: Record<MapStyle, { url: string; subdomains?: string[]; credit: string; maxZoom: number; label: string; icon: string }> = {
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    credit: "Esri, Maxar, Earthstar Geographics",
+    maxZoom: 19,
+    label: "Satellite",
+    icon: "🛰",
+  },
+  physical: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    credit: "Esri, HERE, Garmin, FAO, USGS — © OpenStreetMap contributors",
+    maxZoom: 19,
+    label: "Terrain",
+    icon: "🏔",
+  },
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    subdomains: ["a", "b", "c", "d"],
+    credit: "© OpenStreetMap contributors, © CARTO",
+    maxZoom: 20,
+    label: "Dark",
+    icon: "🌑",
+  },
+  street: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    subdomains: ["a", "b", "c"],
+    credit: "© OpenStreetMap contributors",
+    maxZoom: 19,
+    label: "Street",
+    icon: "🗺",
+  },
+  natgeo: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}",
+    credit: "National Geographic, Esri, Garmin, HERE, UNEP-WCMC, NASA, ESA",
+    maxZoom: 16,
+    label: "NatGeo",
+    icon: "🌍",
+  },
+};
+
 interface GlobeViewerProps {
   countries: CountryMacro[];
   tradeFlows: TradeFlowAggregated[];
@@ -87,6 +129,8 @@ interface GlobeViewerProps {
     shippingDensity: boolean;
   };
   indicator: string;
+  mapStyle?: MapStyle;
+  onMapStyleChange?: (style: MapStyle) => void;
   onCountryClick?: (country: CountryMacro) => void;
   flyToCountry?: CountryMacro | null;
   flyToPosition?: { lon: number; lat: number; altitude: number } | null;
@@ -107,6 +151,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   commodityFlows = [],
   layers,
   indicator,
+  mapStyle = "satellite",
+  onMapStyleChange,
   onCountryClick,
   flyToCountry,
   flyToPosition,
@@ -153,18 +199,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           preserveDrawingBuffer: true, // needed for screenshots
         },
       },
-      baseLayer: new ImageryLayer(
-        new UrlTemplateImageryProvider({
-          url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-          credit: "Esri, HERE, Garmin, FAO, USGS, EPA, NPS — © OpenStreetMap contributors",
-          minimumLevel: 0,
-          maximumLevel: 19,
-        })
-      ),
+      baseLayer: false as unknown as ImageryLayer,  // we add imagery manually below
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // ESRI World Topo provides physical terrain, country borders, and labels through zoom 19
+    // Add initial map style imagery
+    const initStyle = MAP_TILE_PROVIDERS["satellite"];
+    viewer.imageryLayers.addImageryProvider(
+      new UrlTemplateImageryProvider({
+        url: initStyle.url,
+        ...(initStyle.subdomains ? { subdomains: initStyle.subdomains } : {}),
+        credit: initStyle.credit,
+        minimumLevel: 0,
+        maximumLevel: initStyle.maxZoom,
+      })
+    );
 
     // Deep-space background + ocean-blue globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
@@ -217,6 +266,35 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       }
     };
   }, []);
+
+  // ─── Switch map style when prop changes ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const style = MAP_TILE_PROVIDERS[mapStyle];
+    if (!style) return;
+
+    // Remove all existing imagery layers
+    viewer.imageryLayers.removeAll();
+
+    // Add new style
+    viewer.imageryLayers.addImageryProvider(
+      new UrlTemplateImageryProvider({
+        url: style.url,
+        ...(style.subdomains ? { subdomains: style.subdomains } : {}),
+        credit: style.credit,
+        minimumLevel: 0,
+        maximumLevel: style.maxZoom,
+      })
+    );
+
+    // Adjust globe base color per style
+    if (mapStyle === "dark") {
+      viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
+    } else {
+      viewer.scene.globe.baseColor = Color.fromCssColorString("#1a3a5c");
+    }
+  }, [mapStyle]);
 
   // ─── Click handler for country entities ───
   useEffect(() => {
@@ -984,6 +1062,44 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         >
           ⌂
         </button>
+
+        {/* Spacer */}
+        <div style={{ height: 8 }} />
+
+        {/* Map style buttons */}
+        {(Object.keys(MAP_TILE_PROVIDERS) as MapStyle[]).map((key) => {
+          const provider = MAP_TILE_PROVIDERS[key];
+          const isActive = mapStyle === key;
+          return (
+            <button
+              key={key}
+              onClick={() => onMapStyleChange?.(key)}
+              title={provider.label}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 6,
+                border: isActive
+                  ? "2px solid rgba(0,200,255,0.9)"
+                  : "1px solid rgba(255,255,255,0.2)",
+                background: isActive
+                  ? "rgba(0,120,200,0.5)"
+                  : "rgba(10,15,30,0.85)",
+                color: "#fff",
+                fontSize: 15,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                lineHeight: 1,
+                backdropFilter: "blur(6px)",
+                transition: "all 0.2s",
+              }}
+            >
+              {provider.icon}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
