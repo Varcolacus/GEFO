@@ -594,7 +594,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Only the moving arrow is visible — no static underlying line
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
       const pulseLen = Math.max(6, Math.floor(arcCartesian.length * 0.2));
-      const animSpeed = 6000;
+      const animSpeed = 12000;
       const stagger = index * 317;
 
       // Single arrow that transitions green → red based on journey progress
