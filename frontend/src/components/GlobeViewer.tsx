@@ -155,22 +155,20 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       },
       baseLayer: new ImageryLayer(
         new UrlTemplateImageryProvider({
-          url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          subdomains: ["a", "b", "c", "d"],
-          credit: "© OpenStreetMap contributors, © CARTO",
+          url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+          credit: "Esri, HERE, Garmin, FAO, USGS, EPA, NPS — © OpenStreetMap contributors",
           minimumLevel: 0,
-          maximumLevel: 20,
+          maximumLevel: 19,
         })
       ),
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // CartoDB dark_all provides full street/building/port detail through zoom 20
-    // No additional imagery layers needed
+    // ESRI World Topo provides physical terrain, country borders, and labels through zoom 19
 
-    // Deep-space background + dark globe base
+    // Deep-space background + ocean-blue globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
-    viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
+    viewer.scene.globe.baseColor = Color.fromCssColorString("#1a3a5c");
     viewer.scene.globe.showGroundAtmosphere = true;
     viewer.scene.globe.enableLighting = false; // disabled — lighting darkens tiles making detail invisible
 
