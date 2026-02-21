@@ -561,30 +561,31 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       )
         return;
 
-      const normalized = flow.total_value_usd / maxValue;
-      // Use power curve so only the largest flows are truly thick
-      const curve = Math.pow(normalized, 0.6);
+      // Logarithmic scale: compresses huge range so small flows stay visible
+      const logValue = Math.log10(1 + flow.total_value_usd);
+      const logMax = Math.log10(1 + maxValue);
+      const logNorm = logMax > 0 ? logValue / logMax : 0; // 0-1 log-normalised
 
-      // Width: thin for small flows, bold for large ones
+      // Width: thin for small flows, bold for large ones (log scale)
       const width = isCountryMode
-        ? 1.5 + curve * 8
-        : 1 + curve * 6;
+        ? 1.5 + logNorm * 8
+        : 1 + logNorm * 6;
 
-      // Alpha for the arrow color
+      // Alpha for the arrow color (also log-scaled)
       const alpha = isCountryMode
-        ? 0.35 + curve * 0.55
-        : 0.2 + curve * 0.5;
+        ? 0.35 + logNorm * 0.55
+        : 0.2 + logNorm * 0.5;
 
       // Green at exporter, smoothly transitions to red at importer
       const greenBase = new Color(30/255, 200/255, 80/255, alpha);
       const redBase = new Color(220/255, 50/255, 50/255, alpha);
       const lerpScratch = new Color();
 
-      // 3D elevated arc positions — height also scales with magnitude
+      // 3D elevated arc positions — height also scales with magnitude (log)
       const arcPoints = computeArcPositions(
         flow.exporter_lon, flow.exporter_lat,
         flow.importer_lon, flow.importer_lat,
-        40, 0.08 + curve * 0.18
+        40, 0.08 + logNorm * 0.18
       );
 
       const isExportLabel =
@@ -640,7 +641,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       if (!arc.exporter_lat || !arc.exporter_lon || !arc.importer_lat || !arc.importer_lon) return;
 
       const value = arc.total_value_usd || 100_000_000;
-      const width = Math.min(3 + (value / 500_000_000) * 4, 8);
+      // Logarithmic scale for live trade arc width
+      const logW = Math.log10(1 + value) / Math.log10(1 + 500_000_000);
+      const width = Math.min(2 + logW * 6, 8);
 
       // 3D elevated arc
       const arcPoints = computeArcPositions(
