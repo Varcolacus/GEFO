@@ -574,9 +574,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         ? 0.35 + curve * 0.55
         : 0.2 + curve * 0.5;
 
-      // Green = export end, Red = import end, transition at midway
-      const greenColor = Color.fromCssColorString(`rgba(30, 200, 80, ${alpha})`);
-      const redColor = Color.fromCssColorString(`rgba(220, 50, 50, ${alpha})`);
+      // Green at exporter, smoothly transitions to red at importer
+      const greenBase = new Color(30/255, 200/255, 80/255, alpha);
+      const redBase = new Color(220/255, 50/255, 50/255, alpha);
+      const lerpScratch = new Color();
 
       // 3D elevated arc positions — height also scales with magnitude
       const arcPoints = computeArcPositions(
@@ -591,38 +592,26 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Only the moving arrow is visible — no static underlying line
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
       const pulseLen = Math.max(6, Math.floor(arcCartesian.length * 0.2));
-      const halfPulse = Math.ceil(pulseLen / 2);
       const animSpeed = 6000;
       const stagger = index * 317;
 
-      // First half — GREEN (export origin side), flat line
+      // Single arrow that transitions green → red based on journey progress
       viewer.entities.add({
-        name: `flow_g_${index}`,
+        name: `flow_${index}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
             const maxStart = Math.max(0, arcCartesian.length - pulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + halfPulse + 1);
+            return arcCartesian.slice(startIdx, startIdx + pulseLen);
           }, false),
           width: width,
-          material: greenColor,
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // Second half — RED (import destination side), arrow head
-      viewer.entities.add({
-        name: `flow_r_${index}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx + halfPulse, startIdx + pulseLen);
-          }, false),
-          width: width,
-          material: new PolylineArrowMaterialProperty(redColor),
+          material: new PolylineArrowMaterialProperty(
+            new CallbackProperty(() => {
+              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+              return Color.lerp(greenBase, redBase, t, lerpScratch);
+            }, false)
+          ),
           arcType: ArcType.NONE,
         },
         description: `
@@ -659,17 +648,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         40, 0.22
       );
 
-      // Only moving green→red arrows, no static lines
+      // Single arrow that transitions green → red based on journey progress
       const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
       const livePulseLen = Math.max(6, Math.floor(liveArcCartesian.length * 0.2));
-      const halfPulse = Math.ceil(livePulseLen / 2);
       const liveSpeed = 6000;
       const liveStagger = i * 293;
 
-      const greenColor = Color.fromCssColorString("rgba(30, 200, 80, 0.75)");
-      const redColor = Color.fromCssColorString("rgba(220, 50, 50, 0.75)");
+      const greenBase = new Color(30/255, 200/255, 80/255, 0.75);
+      const redBase = new Color(220/255, 50/255, 50/255, 0.75);
+      const lerpScratch = new Color();
 
-      // Green half (export origin)
       viewer.entities.add({
         name: `live_arc_${i}`,
         polyline: {
@@ -677,26 +665,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
             const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return liveArcCartesian.slice(startIdx, startIdx + halfPulse + 1);
+            return liveArcCartesian.slice(startIdx, startIdx + livePulseLen);
           }, false),
           width: width,
-          material: greenColor,
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // Red half (import destination) with arrowhead
-      viewer.entities.add({
-        name: `live_arc_r_${i}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
-            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            return liveArcCartesian.slice(startIdx + halfPulse, startIdx + livePulseLen);
-          }, false),
-          width: width,
-          material: new PolylineArrowMaterialProperty(redColor),
+          material: new PolylineArrowMaterialProperty(
+            new CallbackProperty(() => {
+              const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
+              return Color.lerp(greenBase, redBase, t, lerpScratch);
+            }, false)
+          ),
           arcType: ArcType.NONE,
         },
       });
