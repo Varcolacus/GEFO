@@ -639,7 +639,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       if (animateThis) {
         const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
         const pulseLen = Math.max(4, Math.floor(arcCartesian.length * 0.18));
-        const animSpeed = 2200 + (1 - normalized) * 2800;
+        const animSpeed = 6000; // uniform calm speed for all arcs
         const stagger = index * 317;
 
         viewer.entities.add({
@@ -718,7 +718,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // ── Animated directional pulse for live arc ──
       const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
       const livePulseLen = Math.max(4, Math.floor(liveArcCartesian.length * 0.2));
-      const liveSpeed = 1500; // faster for live events
+      const liveSpeed = 6000; // uniform calm speed matching static arcs
       const liveStagger = i * 293;
 
       viewer.entities.add({
