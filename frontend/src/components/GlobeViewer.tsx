@@ -659,53 +659,44 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         40, 0.22
       );
 
-      // Magenta arc to distinguish from static trade flows
-      viewer.entities.add({
-        name: `live_arc_${i}`,
-        polyline: {
-          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
-          width: width,
-          material: new PolylineArrowMaterialProperty(
-            Color.fromCssColorString("rgba(255, 60, 210, 0.85)")
-          ),
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // Bright glow underlay
-      viewer.entities.add({
-        name: `live_arc_glow_${i}`,
-        polyline: {
-          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
-          width: width + 8,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.45,
-            color: Color.fromCssColorString("rgba(255, 60, 210, 0.25)"),
-          }),
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // ── Animated directional pulse for live arc ──
+      // Only moving green→red arrows, no static lines
       const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const livePulseLen = Math.max(4, Math.floor(liveArcCartesian.length * 0.2));
-      const liveSpeed = 6000; // uniform calm speed matching static arcs
+      const livePulseLen = Math.max(6, Math.floor(liveArcCartesian.length * 0.2));
+      const halfPulse = Math.ceil(livePulseLen / 2);
+      const liveSpeed = 6000;
       const liveStagger = i * 293;
 
+      const greenColor = Color.fromCssColorString("rgba(30, 200, 80, 0.75)");
+      const redColor = Color.fromCssColorString("rgba(220, 50, 50, 0.75)");
+
+      // Green half (export origin)
       viewer.entities.add({
-        name: `live_arc_anim_${i}`,
+        name: `live_arc_${i}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
             const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return liveArcCartesian.slice(startIdx, startIdx + livePulseLen);
+            return liveArcCartesian.slice(startIdx, startIdx + halfPulse + 1);
           }, false),
-          width: width + 3,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.8,
-            color: Color.WHITE.withAlpha(0.9),
-          }),
+          width: width,
+          material: greenColor,
+          arcType: ArcType.NONE,
+        },
+      });
+
+      // Red half (import destination) with arrowhead
+      viewer.entities.add({
+        name: `live_arc_r_${i}`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
+            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
+            const startIdx = Math.floor(t * maxStart);
+            return liveArcCartesian.slice(startIdx + halfPulse, startIdx + livePulseLen);
+          }, false),
+          width: width,
+          material: new PolylineArrowMaterialProperty(redColor),
           arcType: ArcType.NONE,
         },
       });
