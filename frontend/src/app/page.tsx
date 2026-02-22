@@ -169,14 +169,15 @@ const DEMO_SHIPPING: ShippingDensityPoint[] = [
 
 export default function Home() {
   const [layers, setLayers] = useState({
-    countries: true,
-    tradeFlows: true,
-    ports: true,
+    countries: false,
+    tradeFlows: false,
+    ports: false,
     shippingDensity: false,
-    vessels: true,
-    borders: false,
+    vessels: false,
     railroads: false,
     highways: false,
+    seaPorts: false,
+    airports: false,
   });
   const [indicator, setIndicator] = useState("gdp");
   const [year, setYear] = useState(2023);

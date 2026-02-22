@@ -7,8 +7,9 @@ interface LayerControlProps {
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
-    borders: boolean;
     railroads: boolean;
+    seaPorts: boolean;
+    airports: boolean;
     highways: boolean;
   };
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
@@ -132,14 +133,6 @@ export default function LayerControl({
           </h3>
 
           <ToggleSwitch
-            label="Borders"
-            description="Country frontiers"
-            active={layers.borders}
-            color="bg-yellow-400"
-            onToggle={() => onToggle("borders")}
-          />
-
-          <ToggleSwitch
             label="Railroads"
             description="Railway network"
             active={layers.railroads}
@@ -153,6 +146,22 @@ export default function LayerControl({
             active={layers.highways}
             color="bg-amber-500"
             onToggle={() => onToggle("highways")}
+          />
+
+          <ToggleSwitch
+            label="Sea Ports"
+            description="Maritime ports & harbors"
+            active={layers.seaPorts}
+            color="bg-blue-400"
+            onToggle={() => onToggle("seaPorts")}
+          />
+
+          <ToggleSwitch
+            label="Airports"
+            description="Airfields & aerodromes"
+            active={layers.airports}
+            color="bg-violet-400"
+            onToggle={() => onToggle("airports")}
           />
         </div>
       </div>

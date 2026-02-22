@@ -42,6 +42,7 @@ import type {
   CommodityFlowEdge,
   VesselPosition,
 } from "@/lib/api";
+import { MAJOR_AIRPORTS } from "@/lib/airports";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -97,8 +98,9 @@ interface GlobeViewerProps {
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
-    borders: boolean;
     railroads: boolean;
+    seaPorts: boolean;
+    airports: boolean;
     highways: boolean;
   };
   indicator: string;
@@ -254,24 +256,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    // ── Borders overlay (Stamen Toner Lines — shows borders + coastlines) ──
-    const existingBorders = findOverlayLayer(viewer, "borders");
-    if (layers.borders && !existingBorders) {
-      const provider = new UrlTemplateImageryProvider({
-        url: "https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png",
-        credit: "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap",
-        minimumLevel: 0,
-        maximumLevel: 18,
-      });
-      const layer = viewer.imageryLayers.addImageryProvider(provider);
-      layer.alpha = 0.6;
-      layer.brightness = 1.5;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (layer as any)._overlayTag = "borders";
-    } else if (!layers.borders && existingBorders) {
-      viewer.imageryLayers.remove(existingBorders, false);
-    }
-
     // ── Railroads overlay (OpenRailwayMap) ──
     const existingRailroads = findOverlayLayer(viewer, "railroads");
     if (layers.railroads && !existingRailroads) {
@@ -291,24 +275,113 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.imageryLayers.remove(existingRailroads, false);
     }
 
-    // ── Highways overlay (Stamen Toner Hybrid — labels + roads) ──
+    // ── Highways overlay (CartoDB Voyager labels — roads, cities, labels) ──
     const existingHighways = findOverlayLayer(viewer, "highways");
     if (layers.highways && !existingHighways) {
       const provider = new UrlTemplateImageryProvider({
-        url: "https://stamen-tiles.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png",
-        credit: "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap",
+        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+        subdomains: ["a", "b", "c", "d"],
+        credit: "© CARTO, © OpenStreetMap contributors",
         minimumLevel: 0,
         maximumLevel: 18,
       });
       const layer = viewer.imageryLayers.addImageryProvider(provider);
-      layer.alpha = 0.55;
-      layer.brightness = 1.4;
+      layer.alpha = 0.7;
+      layer.brightness = 1.3;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (layer as any)._overlayTag = "highways";
     } else if (!layers.highways && existingHighways) {
       viewer.imageryLayers.remove(existingHighways, false);
     }
-  }, [layers.borders, layers.railroads, layers.highways, findOverlayLayer]);
+
+    // ── Sea Ports overlay (OpenSeaMap) ──
+    const existingSeaPorts = findOverlayLayer(viewer, "seaPorts");
+    if (layers.seaPorts && !existingSeaPorts) {
+      const provider = new UrlTemplateImageryProvider({
+        url: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+        credit: "© OpenSeaMap contributors",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      });
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = 0.9;
+      layer.brightness = 1.3;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (layer as any)._overlayTag = "seaPorts";
+    } else if (!layers.seaPorts && existingSeaPorts) {
+      viewer.imageryLayers.remove(existingSeaPorts, false);
+    }
+
+    // ── Airports rendered as entities (see separate effect below) ──
+  }, [layers.railroads, layers.highways, layers.seaPorts, findOverlayLayer]);
+
+  // ─── Render Airport Markers ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    // Remove existing airport entities
+    const toRemove = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("airport_")
+    );
+    toRemove.forEach((e) => viewer.entities.remove(e));
+
+    if (!layers.airports) return;
+
+    const airportColor = Color.fromCssColorString("#c084fc"); // violet
+    const airportColorFaded = airportColor.withAlpha(0.35);
+
+    MAJOR_AIRPORTS.forEach((apt) => {
+      const size = Math.min(6 + Math.log10(Math.max(apt.pax, 1)) * 2.5, 14);
+
+      // Airport point
+      viewer.entities.add({
+        name: `airport_${apt.iata}`,
+        position: Cartesian3.fromDegrees(apt.lon, apt.lat),
+        point: {
+          pixelSize: size,
+          color: airportColor,
+          outlineColor: Color.WHITE.withAlpha(0.5),
+          outlineWidth: 1,
+          scaleByDistance: new NearFarScalar(5e5, 1.2, 1e7, 0.4),
+          translucencyByDistance: new NearFarScalar(1e5, 1, 2e7, 0.3),
+        },
+        label: {
+          text: apt.iata,
+          font: "10px 'Segoe UI', sans-serif",
+          fillColor: Color.WHITE.withAlpha(0.85),
+          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.5)"),
+          outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.LEFT,
+          pixelOffset: new Cartesian3(6, -6, 0) as any,
+          scaleByDistance: new NearFarScalar(2e5, 1, 5e6, 0),
+          translucencyByDistance: new NearFarScalar(2e5, 1, 8e6, 0),
+        },
+        description: `
+          <h3>✈ ${apt.name} (${apt.iata})</h3>
+          <p>${apt.city}, ${apt.country}</p>
+          <p>≈ ${apt.pax.toFixed(1)}M passengers/year</p>
+        `,
+      });
+
+      // Glow ring around major hubs (pax > 50M)
+      if (apt.pax > 50) {
+        viewer.entities.add({
+          name: `airport_glow_${apt.iata}`,
+          position: Cartesian3.fromDegrees(apt.lon, apt.lat),
+          ellipse: {
+            semiMajorAxis: 18000 + apt.pax * 200,
+            semiMinorAxis: 18000 + apt.pax * 200,
+            height: 0,
+            material: airportColorFaded,
+            outline: false,
+          },
+        });
+      }
+    });
+  }, [layers.airports]);
 
   // ─── Click handler for country entities ───
   useEffect(() => {
