@@ -141,14 +141,6 @@ export default function LayerControl({
           />
 
           <ToggleSwitch
-            label="Highways"
-            description="Motorways & major roads"
-            active={layers.highways}
-            color="bg-amber-500"
-            onToggle={() => onToggle("highways")}
-          />
-
-          <ToggleSwitch
             label="Sea Ports"
             description="Maritime ports & harbors"
             active={layers.seaPorts}

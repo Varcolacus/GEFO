@@ -175,7 +175,6 @@ export default function Home() {
     shippingDensity: false,
     vessels: false,
     railroads: false,
-    highways: false,
     seaPorts: false,
     airports: false,
   });

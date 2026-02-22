@@ -101,7 +101,6 @@ interface GlobeViewerProps {
     railroads: boolean;
     seaPorts: boolean;
     airports: boolean;
-    highways: boolean;
   };
   indicator: string;
   onCountryClick?: (country: CountryMacro) => void;
@@ -245,7 +244,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     };
   }, []);
 
-  // ─── Overlay layers: borders, railroads, highways ───
+  // ─── Overlay layers: railroads, sea ports, airports ───
   // Helper to find an overlay layer by tag
   const findOverlayLayer = useCallback((viewer: Viewer, tag: string): ImageryLayer | null => {
     for (let i = 0; i < viewer.imageryLayers.length; i++) {
@@ -279,25 +278,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.imageryLayers.remove(existingRailroads, false);
     }
 
-    // ── Highways overlay (CartoDB Voyager labels — roads, cities, labels) ──
-    const existingHighways = findOverlayLayer(viewer, "highways");
-    if (layers.highways && !existingHighways) {
-      const provider = new UrlTemplateImageryProvider({
-        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
-        subdomains: ["a", "b", "c", "d"],
-        credit: "© CARTO, © OpenStreetMap contributors",
-        minimumLevel: 0,
-        maximumLevel: 18,
-      });
-      const layer = viewer.imageryLayers.addImageryProvider(provider);
-      layer.alpha = 0.7;
-      layer.brightness = 1.3;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (layer as any)._overlayTag = "highways";
-    } else if (!layers.highways && existingHighways) {
-      viewer.imageryLayers.remove(existingHighways, false);
-    }
-
     // ── Sea Ports overlay (OpenSeaMap) ──
     const existingSeaPorts = findOverlayLayer(viewer, "seaPorts");
     if (layers.seaPorts && !existingSeaPorts) {
@@ -317,7 +297,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     }
 
     // ── Airports rendered as entities (see separate effect below) ──
-  }, [layers.railroads, layers.highways, layers.seaPorts, findOverlayLayer]);
+  }, [layers.railroads, layers.seaPorts, findOverlayLayer]);
 
   // ─── Render Airport Markers ───
   useEffect(() => {
