@@ -174,6 +174,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
+    // ── High-resolution rendering (match Google Earth sharpness) ──
+    viewer.resolutionScale = window.devicePixelRatio || 1.0; // HiDPI / Retina support
+    viewer.scene.globe.maximumScreenSpaceError = 1.0;        // load higher-detail tiles (default 2)
+    viewer.scene.postProcessStages.fxaa.enabled = true;     // anti-aliasing
+    viewer.scene.msaaSamples = 4;                            // multi-sample anti-aliasing
+
     // Add Google Earth hybrid imagery
     const initLayer = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
@@ -184,15 +190,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         maximumLevel: GOOGLE_EARTH_TILES.maxZoom,
       })
     );
-    // Slightly darken tiles so vessel markers pop
-    initLayer.brightness = 0.75;
-    initLayer.contrast = 1.1;
-    initLayer.saturation = 0.9;
+    // 1:1 tile fidelity — matches Google Earth rendering
+    initLayer.brightness = 1.03;
+    initLayer.contrast = 1.02;
+    initLayer.saturation = 1.05;
 
     // Deep-space background + ocean-blue globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
     viewer.scene.globe.baseColor = Color.fromCssColorString("#0f2a45");
-    viewer.scene.globe.showGroundAtmosphere = true;
+    viewer.scene.globe.showGroundAtmosphere = false;
     viewer.scene.globe.enableLighting = false; // disabled — lighting darkens tiles making detail invisible
 
     // ── Allow ultra-close zoom (street/building level) ──
@@ -206,13 +212,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (viewer.scene.skyAtmosphere) {
       viewer.scene.skyAtmosphere.brightnessShift = 0.0;
       viewer.scene.skyAtmosphere.hueShift = 0.0;
-      viewer.scene.skyAtmosphere.saturationShift = -0.1;
+      viewer.scene.skyAtmosphere.saturationShift = 0.0;
     }
 
-    // ── Fog for atmospheric depth (subtle — doesn't obscure close zoom) ──
-    viewer.scene.fog.enabled = true;
-    viewer.scene.fog.density = 5.0e-5;
-    viewer.scene.fog.minimumBrightness = 0.03;
+    // ── No fog — matches Google Earth clarity ──
+    viewer.scene.fog.enabled = false;
 
     // ── Depth testing so entities occlude properly ──
     viewer.scene.globe.depthTestAgainstTerrain = false;
