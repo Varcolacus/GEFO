@@ -75,46 +75,12 @@ function computeArcPositions(
   return points;
 }
 
-export type MapStyle = "satellite" | "physical" | "dark" | "street" | "natgeo";
-
-const MAP_TILE_PROVIDERS: Record<MapStyle, { url: string; subdomains?: string[]; credit: string; maxZoom: number; label: string; icon: string }> = {
-  satellite: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    credit: "Esri, Maxar, Earthstar Geographics",
-    maxZoom: 19,
-    label: "Satellite",
-    icon: "🛰",
-  },
-  physical: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-    credit: "Esri, HERE, Garmin, FAO, USGS — © OpenStreetMap contributors",
-    maxZoom: 19,
-    label: "Terrain",
-    icon: "🏔",
-  },
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-    subdomains: ["a", "b", "c", "d"],
-    credit: "© OpenStreetMap contributors, © CARTO",
-    maxZoom: 20,
-    label: "Dark",
-    icon: "🌑",
-  },
-  street: {
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    subdomains: ["a", "b", "c"],
-    credit: "© OpenStreetMap contributors",
-    maxZoom: 19,
-    label: "Street",
-    icon: "🗺",
-  },
-  natgeo: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}",
-    credit: "National Geographic, Esri, Garmin, HERE, UNEP-WCMC, NASA, ESA",
-    maxZoom: 16,
-    label: "NatGeo",
-    icon: "🌍",
-  },
+// Google Earth hybrid tiles — satellite + borders + roads + labels
+const GOOGLE_EARTH_TILES = {
+  url: "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+  subdomains: ["0", "1", "2", "3"],
+  credit: "© Google",
+  maxZoom: 21,
 };
 
 interface GlobeViewerProps {
@@ -138,8 +104,6 @@ interface GlobeViewerProps {
     highways: boolean;
   };
   indicator: string;
-  mapStyle?: MapStyle;
-  onMapStyleChange?: (style: MapStyle) => void;
   onCountryClick?: (country: CountryMacro) => void;
   flyToCountry?: CountryMacro | null;
   flyToPosition?: { lon: number; lat: number; altitude: number } | null;
@@ -161,8 +125,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   vessels = [],
   layers,
   indicator,
-  mapStyle = "satellite",
-  onMapStyleChange,
   onCountryClick,
   flyToCountry,
   flyToPosition,
@@ -213,21 +175,20 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       terrainProvider: new EllipsoidTerrainProvider(),
     });
 
-    // Add initial map style imagery
-    const initStyle = MAP_TILE_PROVIDERS["satellite"];
+    // Add Google Earth hybrid imagery
     const initLayer = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
-        url: initStyle.url,
-        ...(initStyle.subdomains ? { subdomains: initStyle.subdomains } : {}),
-        credit: initStyle.credit,
+        url: GOOGLE_EARTH_TILES.url,
+        subdomains: GOOGLE_EARTH_TILES.subdomains,
+        credit: GOOGLE_EARTH_TILES.credit,
         minimumLevel: 0,
-        maximumLevel: initStyle.maxZoom,
+        maximumLevel: GOOGLE_EARTH_TILES.maxZoom,
       })
     );
-    // Darken tiles so vessel markers pop
-    initLayer.brightness = 0.65;
-    initLayer.contrast = 1.15;
-    initLayer.saturation = 0.85;
+    // Slightly darken tiles so vessel markers pop
+    initLayer.brightness = 0.75;
+    initLayer.contrast = 1.1;
+    initLayer.saturation = 0.9;
 
     // Deep-space background + ocean-blue globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
@@ -280,38 +241,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       }
     };
   }, []);
-
-  // ─── Switch map style when prop changes ───
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    const style = MAP_TILE_PROVIDERS[mapStyle];
-    if (!style) return;
-
-    // Remove all existing imagery layers (overlays will be re-added by their effect)
-    viewer.imageryLayers.removeAll();
-
-    // Add new style with darkened tiles for vessel visibility
-    const layer = viewer.imageryLayers.addImageryProvider(
-      new UrlTemplateImageryProvider({
-        url: style.url,
-        ...(style.subdomains ? { subdomains: style.subdomains } : {}),
-        credit: style.credit,
-        minimumLevel: 0,
-        maximumLevel: style.maxZoom,
-      })
-    );
-    layer.brightness = mapStyle === "dark" ? 0.55 : 0.65;
-    layer.contrast = 1.15;
-    layer.saturation = mapStyle === "dark" ? 0.7 : 0.85;
-
-    // Adjust globe base color per style
-    if (mapStyle === "dark") {
-      viewer.scene.globe.baseColor = Color.fromCssColorString("#050a10");
-    } else {
-      viewer.scene.globe.baseColor = Color.fromCssColorString("#0f2a45");
-    }
-  }, [mapStyle]);
 
   // ─── Overlay layers: borders, railroads, highways ───
   // Helper to find an overlay layer by tag
@@ -1239,13 +1168,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       <div
         style={{
           position: "absolute",
-          left: 16,
-          top: "50%",
-          transform: "translateY(-50%)",
+          left: 8,
+          bottom: 100,
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          zIndex: 50,
+          zIndex: 40,
         }}
       >
         <button
@@ -1313,44 +1241,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         >
           ⌂
         </button>
-
-        {/* Spacer */}
-        <div style={{ height: 8 }} />
-
-        {/* Map style buttons */}
-        {(Object.keys(MAP_TILE_PROVIDERS) as MapStyle[]).map((key) => {
-          const provider = MAP_TILE_PROVIDERS[key];
-          const isActive = mapStyle === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onMapStyleChange?.(key)}
-              title={provider.label}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 6,
-                border: isActive
-                  ? "2px solid rgba(0,200,255,0.9)"
-                  : "1px solid rgba(255,255,255,0.2)",
-                background: isActive
-                  ? "rgba(0,120,200,0.5)"
-                  : "rgba(10,15,30,0.85)",
-                color: "#fff",
-                fontSize: 15,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                lineHeight: 1,
-                backdropFilter: "blur(6px)",
-                transition: "all 0.2s",
-              }}
-            >
-              {provider.icon}
-            </button>
-          );
-        })}
       </div>
     </div>
   );

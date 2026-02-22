@@ -21,7 +21,7 @@ import CommodityPanel from "@/components/CommodityPanel";
 import DataSourcePanel from "@/components/DataSourcePanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
-import type { GlobeViewerHandle, MapStyle } from "@/components/GlobeViewer";
+import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -209,7 +209,6 @@ export default function Home() {
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
-  const [mapStyle, setMapStyle] = useState<MapStyle>("satellite");
   const [tradeFlowCount, setTradeFlowCount] = useState(1000);
   const { user, isAuthenticated } = useAuth();
 
@@ -323,8 +322,6 @@ export default function Home() {
         flyToCountry={flyToCountry}
         flyToPosition={flyToPosition}
         highlightCountryIso={selectedCountry?.iso_code ?? null}
-        mapStyle={mapStyle}
-        onMapStyleChange={setMapStyle}
       />
 
       <SearchBar
@@ -336,7 +333,7 @@ export default function Home() {
       />
 
       {/* Toolbar: Compare & Screenshot */}
-      <div className="absolute top-4 left-[22rem] z-50 flex gap-2">
+      <div className="absolute top-4 left-[22rem] right-[19rem] z-50 flex flex-wrap gap-2">
         <button
           onClick={() => setShowCompare((v) => !v)}
           className={`text-xs px-3 py-2 rounded-lg border transition-colors backdrop-blur-sm ${
@@ -502,7 +499,7 @@ export default function Home() {
       />
 
       {/* Global Stats Summary */}
-      <div className="absolute bottom-20 left-4 z-50 bg-gray-900/80 backdrop-blur-sm
+      <div className="absolute bottom-20 left-12 z-50 bg-gray-900/80 backdrop-blur-sm
                       text-white rounded-lg border border-gray-700 px-4 py-3 w-64">
         <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
           Global Overview

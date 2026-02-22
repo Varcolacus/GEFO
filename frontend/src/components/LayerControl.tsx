@@ -44,7 +44,7 @@ export default function LayerControl({
   onRegionClick,
 }: LayerControlProps) {
   return (
-    <div className="absolute top-4 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72">
+    <div className="absolute top-16 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72 max-h-[calc(100vh-5rem)] overflow-y-auto">
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
         <h2 className="text-lg font-bold tracking-tight">
