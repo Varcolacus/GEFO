@@ -4,7 +4,6 @@ interface LayerControlProps {
   layers: {
     countries: boolean;
     tradeFlows: boolean;
-    liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
@@ -13,6 +12,7 @@ interface LayerControlProps {
     highways: boolean;
   };
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
+  onToggleAll?: (on: boolean) => void;
   indicator: string;
   onIndicatorChange: (indicator: string) => void;
   onRegionClick?: (lon: number, lat: number, altitude: number) => void;
@@ -39,20 +39,45 @@ const REGIONS = [
 export default function LayerControl({
   layers,
   onToggle,
+  onToggleAll,
   indicator,
   onIndicatorChange,
   onRegionClick,
 }: LayerControlProps) {
+  const allOn = Object.values(layers).every(Boolean);
+
   return (
     <div className="absolute top-16 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72 max-h-[calc(100vh-5rem)] overflow-y-auto">
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
-        <h2 className="text-lg font-bold tracking-tight">
-          🌐 GEFO
-        </h2>
-        <p className="text-xs text-gray-400 mt-1">
-          Global Economic Flow Observatory
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">
+              🌐 GEFO
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Global Economic Flow Observatory
+            </p>
+          </div>
+          {/* Master toggle */}
+          <button
+            onClick={() => onToggleAll?.(!allOn)}
+            title={allOn ? "Turn all off" : "Turn all on"}
+            className="flex-shrink-0"
+          >
+            <div
+              className={`w-10 h-5 rounded-full transition-colors relative ${
+                allOn ? "bg-cyan-500" : "bg-gray-600"
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                  allOn ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Layer Toggles */}
@@ -75,14 +100,6 @@ export default function LayerControl({
           active={layers.tradeFlows}
           color="bg-cyan-500"
           onToggle={() => onToggle("tradeFlows")}
-        />
-
-        <ToggleSwitch
-          label="Live Trade"
-          description="Real-time trade events"
-          active={layers.liveTrade}
-          color="bg-rose-500"
-          onToggle={() => onToggle("liveTrade")}
         />
 
         <ToggleSwitch

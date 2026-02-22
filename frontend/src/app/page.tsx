@@ -171,7 +171,6 @@ export default function Home() {
   const [layers, setLayers] = useState({
     countries: true,
     tradeFlows: true,
-    liveTrade: true,
     ports: true,
     shippingDensity: false,
     vessels: true,
@@ -214,25 +213,9 @@ export default function Home() {
 
   // ─── WebSocket live feed ───
   const { connectionState, events: liveEvents, clientId, clearEvents } = useWebSocket({
-    channels: ["trade", "ports", "alerts", "geopolitical", "vessels"],
+    channels: ["ports", "alerts", "geopolitical", "vessels"],
     enabled: true,
   });
-
-  // Derive live trade arcs from recent WS trade events
-  const liveTradeArcs = useMemo(() => {
-    return liveEvents
-      .filter((e) => e.type === "trade" && e.event === "trade_flow")
-      .slice(0, 8)
-      .map((e) => ({
-        exporter_iso: e.exporter_iso as string,
-        importer_iso: e.importer_iso as string,
-        total_value_usd: e.value_usd as number,
-        exporter_lat: e.exporter_lat as number,
-        exporter_lon: e.exporter_lon as number,
-        importer_lat: e.importer_lat as number,
-        importer_lon: e.importer_lon as number,
-      }));
-  }, [liveEvents]);
 
   // Update vessel positions from WebSocket broadcasts
   useEffect(() => {
@@ -301,6 +284,19 @@ export default function Home() {
     []
   );
 
+  const toggleAllLayers = useCallback(
+    (on: boolean) => {
+      setLayers((prev) => {
+        const updated = { ...prev };
+        for (const key of Object.keys(updated) as (keyof typeof updated)[]) {
+          updated[key] = on;
+        }
+        return updated;
+      });
+    },
+    []
+  );
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-950">
       <GlobeViewer
@@ -310,7 +306,6 @@ export default function Home() {
         ports={ports}
         shippingDensity={shippingDensity}
         conflictZones={showGeopolitical ? conflictZones : []}
-        liveTradeArcs={liveTradeArcs}
         commodityFlows={commodityFlows}
         vessels={vessels}
         layers={layers}
@@ -484,6 +479,7 @@ export default function Home() {
       <LayerControl
         layers={layers}
         onToggle={toggleLayer}
+        onToggleAll={toggleAllLayers}
         indicator={indicator}
         onIndicatorChange={setIndicator}
         onRegionClick={(lon, lat, altitude) =>

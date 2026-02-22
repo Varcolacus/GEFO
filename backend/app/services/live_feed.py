@@ -1,7 +1,7 @@
 """
 Simulated live-data feed generator.
 
-Produces realistic-looking events for trade flows, port activity,
+Produces realistic-looking events for port activity,
 geopolitical risk changes, and alert triggers at configurable intervals.
 Events are broadcast via the WebSocket ConnectionManager.
 """
@@ -19,17 +19,6 @@ from app.core.websocket_manager import manager
 logger = logging.getLogger("gefo.livefeed")
 
 # ─── Reference data used by the simulator ───
-
-MAJOR_PAIRS = [
-    ("CHN", "USA"), ("USA", "CHN"), ("DEU", "USA"), ("CHN", "JPN"),
-    ("CHN", "KOR"), ("USA", "CAN"), ("CAN", "USA"), ("USA", "MEX"),
-    ("MEX", "USA"), ("DEU", "CHN"), ("SAU", "CHN"), ("AUS", "CHN"),
-    ("RUS", "CHN"), ("BRA", "CHN"), ("CHN", "DEU"), ("DEU", "FRA"),
-    ("NLD", "DEU"), ("JPN", "USA"), ("KOR", "USA"), ("SGP", "CHN"),
-    ("IND", "USA"), ("SAU", "IND"), ("NOR", "GBR"), ("GBR", "NLD"),
-    ("FRA", "DEU"), ("IND", "ARE"), ("IDN", "CHN"), ("CHN", "AUS"),
-    ("USA", "GBR"), ("GBR", "USA"), ("CHN", "IND"), ("TUR", "DEU"),
-]
 
 CENTROIDS = {
     "USA": (39.8, -98.5), "CHN": (35.86, 104.19), "DEU": (51.16, 10.45),
@@ -53,12 +42,6 @@ PORTS_LIST = [
     {"name": "Busan", "iso": "KOR", "lat": 35.10, "lon": 129.04, "base_teu": 22_070_000},
     {"name": "Santos", "iso": "BRA", "lat": -23.96, "lon": -46.33, "base_teu": 4_200_000},
     {"name": "Ras Tanura", "iso": "SAU", "lat": 26.64, "lon": 50.17, "base_teu": 0},
-]
-
-COMMODITIES = [
-    "Crude Oil", "LNG", "Electronics", "Automobiles", "Steel",
-    "Grain & Cereals", "Pharmaceuticals", "Semiconductors", "Textiles",
-    "Machinery", "Chemical Products", "Copper", "Lithium", "Rare Earths",
 ]
 
 RISK_COUNTRIES = ["RUS", "IRN", "CHN", "SAU", "BLR", "TUR", "IND", "BRA", "NGA", "EGY"]
@@ -85,13 +68,11 @@ class LiveFeedSimulator:
 
     def __init__(
         self,
-        trade_interval: float = 3.0,
         port_interval: float = 5.0,
         alert_interval: float = 12.0,
         geo_interval: float = 8.0,
         heartbeat_interval: float = 15.0,
     ) -> None:
-        self.trade_interval = trade_interval
         self.port_interval = port_interval
         self.alert_interval = alert_interval
         self.geo_interval = geo_interval
@@ -108,13 +89,12 @@ class LiveFeedSimulator:
         self._running = True
         loop = asyncio.get_event_loop()
         self._tasks = [
-            loop.create_task(self._trade_loop()),
             loop.create_task(self._port_loop()),
             loop.create_task(self._alert_loop()),
             loop.create_task(self._geo_loop()),
             loop.create_task(self._heartbeat_loop()),
         ]
-        logger.info("Live feed simulator started  (5 loops)")
+        logger.info("Live feed simulator started  (4 loops)")
 
     def stop(self) -> None:
         self._running = False
@@ -126,35 +106,6 @@ class LiveFeedSimulator:
     def _next_id(self) -> str:
         self._event_id += 1
         return f"evt-{self._event_id}"
-
-    # ─── Trade Flow Events ───
-
-    async def _trade_loop(self) -> None:
-        while self._running:
-            await asyncio.sleep(self.trade_interval + random.uniform(-1, 1))
-            if manager.client_count == 0:
-                continue
-            pair = random.choice(MAJOR_PAIRS)
-            exp_c = CENTROIDS.get(pair[0], (0, 0))
-            imp_c = CENTROIDS.get(pair[1], (0, 0))
-            commodity = random.choice(COMMODITIES)
-            value = random.randint(5, 800) * 1_000_000  # $5M – $800M
-            change_pct = round(random.uniform(-12, 18), 1)
-
-            await manager.broadcast("trade", {
-                "event": "trade_flow",
-                "id": self._next_id(),
-                "exporter_iso": pair[0],
-                "importer_iso": pair[1],
-                "exporter_lat": exp_c[0],
-                "exporter_lon": exp_c[1],
-                "importer_lat": imp_c[0],
-                "importer_lon": imp_c[1],
-                "commodity": commodity,
-                "value_usd": value,
-                "change_pct": change_pct,
-                "description": f"{pair[0]}→{pair[1]}: ${value/1e6:.0f}M {commodity} ({'+' if change_pct > 0 else ''}{change_pct}%)",
-            })
 
     # ─── Port Activity Events ───
 

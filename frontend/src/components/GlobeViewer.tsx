@@ -89,13 +89,11 @@ interface GlobeViewerProps {
   ports: PortData[];
   shippingDensity: ShippingDensityPoint[];
   conflictZones?: ConflictZone[];
-  liveTradeArcs?: TradeFlowAggregated[];
   commodityFlows?: CommodityFlowEdge[];
   vessels?: VesselPosition[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
-    liveTrade: boolean;
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
@@ -120,7 +118,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   ports,
   shippingDensity,
   conflictZones = [],
-  liveTradeArcs = [],
   commodityFlows = [],
   vessels = [],
   layers,
@@ -664,91 +661,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       });
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
-
-  // ─── Render Live Trade Arcs (from WebSocket) ───
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-
-    const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("live_")
-    );
-    toRemove.forEach((e) => viewer.entities.remove(e));
-
-    if (!layers.liveTrade || liveTradeArcs.length === 0) return;
-
-    liveTradeArcs.forEach((arc, i) => {
-      if (!arc.exporter_lat || !arc.exporter_lon || !arc.importer_lat || !arc.importer_lon) return;
-
-      const value = arc.total_value_usd || 100_000_000;
-      // Logarithmic scale for live trade arc width
-      const logW = Math.log10(1 + value) / Math.log10(1 + 500_000_000);
-      const width = Math.min(2 + logW * 6, 8);
-
-      // 3D elevated arc
-      const arcPoints = computeArcPositions(
-        arc.exporter_lon, arc.exporter_lat,
-        arc.importer_lon, arc.importer_lat,
-        40, 0.22
-      );
-
-      // Tapered ribbon for live trade arcs
-      const liveArcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const livePulseLen = Math.max(10, Math.floor(liveArcCartesian.length * 0.35));
-      const liveBodyLen = Math.floor(livePulseLen * 0.6);
-      const liveTipWidth = Math.max(1, width * 0.2);
-      const liveSpeed = 6000;
-      const liveStagger = i * 293;
-
-      const greenBase = new Color(30/255, 200/255, 80/255, 0.75);
-      const redBase = new Color(220/255, 50/255, 50/255, 0.75);
-      const lerpScratch = new Color();
-      const lerpScratch2 = new Color();
-
-      // Body — wide back portion
-      viewer.entities.add({
-        name: `live_body_${i}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
-            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            return liveArcCartesian.slice(startIdx, startIdx + liveBodyLen);
-          }, false),
-          width: width,
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
-              return Color.lerp(greenBase, redBase, t, lerpScratch);
-            }, false)
-          ),
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // Tip — thin sharp point
-      viewer.entities.add({
-        name: `live_tip_${i}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
-            const maxStart = Math.max(0, liveArcCartesian.length - livePulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            const tipStart = Math.max(0, startIdx + liveBodyLen - 2);
-            return liveArcCartesian.slice(tipStart, startIdx + livePulseLen);
-          }, false),
-          width: liveTipWidth,
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + liveStagger) % liveSpeed) / liveSpeed;
-              return Color.lerp(greenBase, redBase, t, lerpScratch2);
-            }, false)
-          ),
-          arcType: ArcType.NONE,
-        },
-      });
-    });
-  }, [liveTradeArcs, layers.liveTrade]);
 
   // ─── Render Port Markers ───
   useEffect(() => {
