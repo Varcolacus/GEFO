@@ -8,6 +8,9 @@ interface LayerControlProps {
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
+    borders: boolean;
+    railroads: boolean;
+    highways: boolean;
   };
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
   indicator: string;
@@ -105,6 +108,36 @@ export default function LayerControl({
           color="bg-sky-400"
           onToggle={() => onToggle("vessels")}
         />
+
+        <div className="mt-2 pt-2 border-t border-gray-700">
+          <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
+            Map Overlays
+          </h3>
+
+          <ToggleSwitch
+            label="Borders"
+            description="Country frontiers"
+            active={layers.borders}
+            color="bg-yellow-400"
+            onToggle={() => onToggle("borders")}
+          />
+
+          <ToggleSwitch
+            label="Railroads"
+            description="Railway network"
+            active={layers.railroads}
+            color="bg-red-400"
+            onToggle={() => onToggle("railroads")}
+          />
+
+          <ToggleSwitch
+            label="Highways"
+            description="Motorways & major roads"
+            active={layers.highways}
+            color="bg-amber-500"
+            onToggle={() => onToggle("highways")}
+          />
+        </div>
       </div>
 
       {/* Indicator Selector */}

@@ -133,6 +133,9 @@ interface GlobeViewerProps {
     ports: boolean;
     shippingDensity: boolean;
     vessels: boolean;
+    borders: boolean;
+    railroads: boolean;
+    highways: boolean;
   };
   indicator: string;
   mapStyle?: MapStyle;
@@ -212,7 +215,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     // Add initial map style imagery
     const initStyle = MAP_TILE_PROVIDERS["satellite"];
-    viewer.imageryLayers.addImageryProvider(
+    const initLayer = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
         url: initStyle.url,
         ...(initStyle.subdomains ? { subdomains: initStyle.subdomains } : {}),
@@ -221,10 +224,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         maximumLevel: initStyle.maxZoom,
       })
     );
+    // Darken tiles so vessel markers pop
+    initLayer.brightness = 0.65;
+    initLayer.contrast = 1.15;
+    initLayer.saturation = 0.85;
 
     // Deep-space background + ocean-blue globe base
     viewer.scene.backgroundColor = Color.fromCssColorString("#020209");
-    viewer.scene.globe.baseColor = Color.fromCssColorString("#1a3a5c");
+    viewer.scene.globe.baseColor = Color.fromCssColorString("#0f2a45");
     viewer.scene.globe.showGroundAtmosphere = true;
     viewer.scene.globe.enableLighting = false; // disabled — lighting darkens tiles making detail invisible
 
@@ -281,11 +288,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const style = MAP_TILE_PROVIDERS[mapStyle];
     if (!style) return;
 
-    // Remove all existing imagery layers
+    // Remove all existing imagery layers (overlays will be re-added by their effect)
     viewer.imageryLayers.removeAll();
 
-    // Add new style
-    viewer.imageryLayers.addImageryProvider(
+    // Add new style with darkened tiles for vessel visibility
+    const layer = viewer.imageryLayers.addImageryProvider(
       new UrlTemplateImageryProvider({
         url: style.url,
         ...(style.subdomains ? { subdomains: style.subdomains } : {}),
@@ -294,14 +301,88 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         maximumLevel: style.maxZoom,
       })
     );
+    layer.brightness = mapStyle === "dark" ? 0.55 : 0.65;
+    layer.contrast = 1.15;
+    layer.saturation = mapStyle === "dark" ? 0.7 : 0.85;
 
     // Adjust globe base color per style
     if (mapStyle === "dark") {
-      viewer.scene.globe.baseColor = Color.fromCssColorString("#080c14");
+      viewer.scene.globe.baseColor = Color.fromCssColorString("#050a10");
     } else {
-      viewer.scene.globe.baseColor = Color.fromCssColorString("#1a3a5c");
+      viewer.scene.globe.baseColor = Color.fromCssColorString("#0f2a45");
     }
   }, [mapStyle]);
+
+  // ─── Overlay layers: borders, railroads, highways ───
+  // Helper to find an overlay layer by tag
+  const findOverlayLayer = useCallback((viewer: Viewer, tag: string): ImageryLayer | null => {
+    for (let i = 0; i < viewer.imageryLayers.length; i++) {
+      const layer = viewer.imageryLayers.get(i);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((layer as any)._overlayTag === tag) return layer;
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    // ── Borders overlay (Stamen Toner Lines — shows borders + coastlines) ──
+    const existingBorders = findOverlayLayer(viewer, "borders");
+    if (layers.borders && !existingBorders) {
+      const provider = new UrlTemplateImageryProvider({
+        url: "https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png",
+        credit: "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      });
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = 0.6;
+      layer.brightness = 1.5;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (layer as any)._overlayTag = "borders";
+    } else if (!layers.borders && existingBorders) {
+      viewer.imageryLayers.remove(existingBorders, false);
+    }
+
+    // ── Railroads overlay (OpenRailwayMap) ──
+    const existingRailroads = findOverlayLayer(viewer, "railroads");
+    if (layers.railroads && !existingRailroads) {
+      const provider = new UrlTemplateImageryProvider({
+        url: "https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+        subdomains: ["a", "b", "c"],
+        credit: "© OpenRailwayMap contributors, © OpenStreetMap contributors",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      });
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = 0.85;
+      layer.brightness = 1.3;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (layer as any)._overlayTag = "railroads";
+    } else if (!layers.railroads && existingRailroads) {
+      viewer.imageryLayers.remove(existingRailroads, false);
+    }
+
+    // ── Highways overlay (Stamen Toner Hybrid — labels + roads) ──
+    const existingHighways = findOverlayLayer(viewer, "highways");
+    if (layers.highways && !existingHighways) {
+      const provider = new UrlTemplateImageryProvider({
+        url: "https://stamen-tiles.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png",
+        credit: "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      });
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = 0.55;
+      layer.brightness = 1.4;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (layer as any)._overlayTag = "highways";
+    } else if (!layers.highways && existingHighways) {
+      viewer.imageryLayers.remove(existingHighways, false);
+    }
+  }, [layers.borders, layers.railroads, layers.highways, findOverlayLayer]);
 
   // ─── Click handler for country entities ───
   useEffect(() => {

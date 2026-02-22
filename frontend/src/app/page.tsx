@@ -175,6 +175,9 @@ export default function Home() {
     ports: true,
     shippingDensity: false,
     vessels: true,
+    borders: false,
+    railroads: false,
+    highways: false,
   });
   const [indicator, setIndicator] = useState("gdp");
   const [year, setYear] = useState(2023);
