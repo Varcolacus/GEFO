@@ -99,7 +99,6 @@ interface GlobeViewerProps {
     shippingDensity: boolean;
     vessels: boolean;
     railroads: boolean;
-    seaPorts: boolean;
     airports: boolean;
   };
   indicator: string;
@@ -278,26 +277,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.imageryLayers.remove(existingRailroads, false);
     }
 
-    // ── Sea Ports overlay (OpenSeaMap) ──
-    const existingSeaPorts = findOverlayLayer(viewer, "seaPorts");
-    if (layers.seaPorts && !existingSeaPorts) {
-      const provider = new UrlTemplateImageryProvider({
-        url: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
-        credit: "© OpenSeaMap contributors",
-        minimumLevel: 0,
-        maximumLevel: 18,
-      });
-      const layer = viewer.imageryLayers.addImageryProvider(provider);
-      layer.alpha = 0.9;
-      layer.brightness = 1.3;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (layer as any)._overlayTag = "seaPorts";
-    } else if (!layers.seaPorts && existingSeaPorts) {
-      viewer.imageryLayers.remove(existingSeaPorts, false);
-    }
-
     // ── Airports rendered as entities (see separate effect below) ──
-  }, [layers.railroads, layers.seaPorts, findOverlayLayer]);
+  }, [layers.railroads, findOverlayLayer]);
 
   // ─── Render Airport Markers ───
   useEffect(() => {
@@ -660,24 +641,19 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const isExportLabel =
         isCountryMode && flow.exporter_iso === highlightCountryIso;
 
-      // Tapered ribbon: wide body + thin sharp tip
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const totalPulseLen = Math.max(10, Math.floor(arcCartesian.length * 0.35));
-      const bodyLen = Math.floor(totalPulseLen * 0.6);
-      const tipWidth = Math.max(1, width * 0.2);
-      const animSpeed = 12000;
+      const pulseLen = Math.max(10, Math.floor(arcCartesian.length * 0.35));
+      const animSpeed = 36000;
       const stagger = index * 317;
-      const lerpScratch2 = new Color();
 
-      // Body — wide back portion of the ribbon
       viewer.entities.add({
         name: `flow_body_${index}`,
         polyline: {
           positions: new CallbackProperty(() => {
             const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - totalPulseLen);
+            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
             const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + bodyLen);
+            return arcCartesian.slice(startIdx, startIdx + pulseLen);
           }, false),
           width: width,
           material: new ColorMaterialProperty(
@@ -694,28 +670,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
       });
-
-      // Tip — thin sharp point extending ahead
-      viewer.entities.add({
-        name: `flow_tip_${index}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - totalPulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            const tipStart = Math.max(0, startIdx + bodyLen - 2);
-            return arcCartesian.slice(tipStart, startIdx + totalPulseLen);
-          }, false),
-          width: tipWidth,
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              return Color.lerp(greenBase, redBase, t, lerpScratch2);
-            }, false)
-          ),
-          arcType: ArcType.NONE,
-        },
-      });
     });
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
@@ -729,8 +683,27 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
+    // ── OpenSeaMap tile overlay (thousands of nautical features) ──
+    const existingSeaPorts = findOverlayLayer(viewer, "seaPorts");
+    if (layers.ports && !existingSeaPorts) {
+      const provider = new UrlTemplateImageryProvider({
+        url: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+        credit: "© OpenSeaMap contributors",
+        minimumLevel: 0,
+        maximumLevel: 18,
+      });
+      const layer = viewer.imageryLayers.addImageryProvider(provider);
+      layer.alpha = 0.9;
+      layer.brightness = 1.3;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (layer as any)._overlayTag = "seaPorts";
+    } else if (!layers.ports && existingSeaPorts) {
+      viewer.imageryLayers.remove(existingSeaPorts, false);
+    }
+
     if (!layers.ports || ports.length === 0) return;
 
+    // ── Database ports (44 major ports with 3D pillars & info) ──
     ports.forEach((port) => {
       const throughput = port.throughput_teu || port.throughput_tons || 0;
       const size = Math.min(10 + Math.log10(Math.max(throughput, 1)) * 2.5, 24);
@@ -811,7 +784,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         },
       });
     });
-  }, [ports, layers.ports]);
+  }, [ports, layers.ports, findOverlayLayer]);
 
   // ─── Render Shipping Density Heatmap ───
   useEffect(() => {

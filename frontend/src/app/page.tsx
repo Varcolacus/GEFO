@@ -175,7 +175,6 @@ export default function Home() {
     shippingDensity: false,
     vessels: false,
     railroads: false,
-    seaPorts: false,
     airports: false,
   });
   const [indicator, setIndicator] = useState("gdp");

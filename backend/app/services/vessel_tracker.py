@@ -241,7 +241,7 @@ class VesselTracker:
     otherwise runs a high-fidelity route-based simulator.
     """
 
-    MAX_VESSELS = 500        # cap to avoid overloading the frontend
+    MAX_VESSELS = 0           # 0 = no cap — track all vessels
     BROADCAST_INTERVAL = 3   # seconds between WebSocket broadcasts
     SIM_UPDATE_INTERVAL = 2  # seconds between simulation ticks
     STALE_TIMEOUT = 600      # remove vessels not heard from in 10 minutes
@@ -388,7 +388,7 @@ class VesselTracker:
                     v.speed_knots = pos_report.get("Sog", v.speed_knots)
                     v.heading = heading
                     v.last_update = time.time()
-                elif len(self._vessels) < self.MAX_VESSELS:
+                else:
                     ship_name = meta.get("ShipName", f"VESSEL-{mmsi[-4:]}").strip()
                     if not ship_name or ship_name == "":
                         ship_name = f"VESSEL-{mmsi[-4:]}"
@@ -426,7 +426,7 @@ class VesselTracker:
                         v.length_m = length
                     if draught > 0:
                         v.draught_m = draught
-                elif len(self._vessels) < self.MAX_VESSELS:
+                else:
                     # Create vessel from static data with MetaData position
                     lat = meta.get("latitude", 0)
                     lon = meta.get("longitude", 0)
