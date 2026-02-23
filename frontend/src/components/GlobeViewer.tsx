@@ -43,6 +43,7 @@ import type {
   VesselPosition,
 } from "@/lib/api";
 import { MAJOR_AIRPORTS } from "@/lib/airports";
+import { SHIPPING_CORRIDORS } from "@/lib/shipping-corridors";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -786,7 +787,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
   }, [ports, layers.ports, findOverlayLayer]);
 
-  // ─── Render Shipping Density Heatmap ───
+  // ─── Render Shipping Density — Real Corridor Polygons ───
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -796,45 +797,56 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.shippingDensity || shippingDensity.length === 0) return;
+    if (!layers.shippingDensity) return;
 
-    const maxDensity = Math.max(...shippingDensity.map((d) => d.density_value));
+    const maxDensity = Math.max(...SHIPPING_CORRIDORS.map((c) => c.density));
 
-    shippingDensity.forEach((point, index) => {
-      const normalized = point.density_value / maxDensity;
-      const alpha = 0.15 + normalized * 0.6;
+    SHIPPING_CORRIDORS.forEach((corridor, index) => {
+      const normalized = corridor.density / maxDensity;
+      const alpha = 0.10 + normalized * 0.30;
 
-      // Heat color: blue → yellow → red
+      // Heat color: blue → cyan → yellow → orange → red
       let r: number, g: number, b: number;
-      if (normalized < 0.5) {
-        r = Math.round(normalized * 2 * 255);
-        g = Math.round(normalized * 2 * 255);
-        b = Math.round(255 - normalized * 2 * 200);
+      if (normalized < 0.33) {
+        const t = normalized / 0.33;
+        r = Math.round(30 * t);
+        g = Math.round(100 + 155 * t);
+        b = Math.round(255 - 100 * t);
+      } else if (normalized < 0.66) {
+        const t = (normalized - 0.33) / 0.33;
+        r = Math.round(30 + 225 * t);
+        g = Math.round(255 - 55 * t);
+        b = Math.round(155 - 155 * t);
       } else {
+        const t = (normalized - 0.66) / 0.34;
         r = 255;
-        g = Math.round(255 - (normalized - 0.5) * 2 * 255);
+        g = Math.round(200 - 200 * t);
         b = 0;
       }
 
-      const radius = 40000 + normalized * 80000;
-      const densityHeight = 15000 + normalized * 250000; // extruded 3D columns
+      // Flatten [lon, lat][] to [lon, lat, lon, lat, ...]
+      const degreesFlat: number[] = [];
+      for (const [lon, lat] of corridor.coords) {
+        degreesFlat.push(lon, lat);
+      }
 
       viewer.entities.add({
         name: `density_${index}`,
-        position: Cartesian3.fromDegrees(point.lon, point.lat),
-        ellipse: {
-          semiMajorAxis: radius,
-          semiMinorAxis: radius,
-          height: 0,
-          extrudedHeight: densityHeight,
+        polygon: {
+          hierarchy: Cartesian3.fromDegreesArray(degreesFlat),
           material: Color.fromBytes(r, g, b, Math.round(alpha * 255)),
           outline: true,
-          outlineColor: Color.fromBytes(r, g, b, Math.round(alpha * 100)),
+          outlineColor: Color.fromBytes(r, g, b, Math.round((alpha + 0.15) * 255)),
           outlineWidth: 1,
+          heightReference: HeightReference.CLAMP_TO_GROUND,
         },
+        description: `
+          <h3>${corridor.name}</h3>
+          <p>Relative Traffic Density: ${corridor.density}%</p>
+        `,
       });
     });
-  }, [shippingDensity, layers.shippingDensity]);
+  }, [layers.shippingDensity]);
 
   // ─── Render Conflict Zone Overlays ───
   useEffect(() => {

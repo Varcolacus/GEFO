@@ -207,7 +207,6 @@ export default function Home() {
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const globeRef = useRef<GlobeViewerHandle>(null);
-  const [tradeFlowCount, setTradeFlowCount] = useState(1000);
   const { user, isAuthenticated } = useAuth();
 
   // ─── WebSocket live feed ───
@@ -248,7 +247,7 @@ export default function Home() {
       try {
         const [countriesData, flowsData, portsData, densityData] = await Promise.all([
           fetchCountries(),
-          fetchTradeFlows(year, tradeFlowCount),
+          fetchTradeFlows(year),
           fetchPorts(),
           fetchShippingDensity(year),
         ]);
@@ -274,7 +273,7 @@ export default function Home() {
     }
 
     loadLiveData();
-  }, [year, tradeFlowCount]);
+  }, [year]);
 
   const toggleLayer = useCallback(
     (layer: keyof typeof layers) => {
@@ -516,28 +515,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Trade Density Slider */}
-        <div className="mt-3 pt-2 border-t border-gray-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider">Trade Density</span>
-            <span className="text-[10px] text-cyan-400 font-medium">{tradeFlowCount} flows</span>
-          </div>
-          <input
-            type="range"
-            min={50}
-            max={10000}
-            step={50}
-            value={tradeFlowCount}
-            onChange={(e) => setTradeFlowCount(Number(e.target.value))}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer
-                       bg-gray-700 accent-cyan-500"
-          />
-          <div className="flex justify-between text-[9px] text-gray-500 mt-0.5">
-            <span>50</span>
-            <span>5000</span>
-            <span>10000</span>
-          </div>
-        </div>
+
       </div>
 
       <div className="absolute bottom-4 right-4 z-50 flex items-center gap-2">
