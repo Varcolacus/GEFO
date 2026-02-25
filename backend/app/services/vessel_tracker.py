@@ -1,14 +1,19 @@
 """
-Real-time vessel tracker using AISstream.io WebSocket API.
+Real-time vessel tracker using AISstream.io + AISHUB dual AIS sources.
 
-When AISSTREAM_API_KEY is configured in settings, connects to the live
-AIS data stream and broadcasts vessel positions to GEFO frontend clients.
-When no key is provided, runs a high-fidelity simulator that moves
-vessels along major shipping lanes with realistic speeds and headings.
+When AISSTREAM_API_KEY is configured, connects to the live AIS WebSocket.
+When AISHUB_USERNAME is configured, polls the AISHUB HTTP API every 60 s.
+Both sources merge into one vessel dict keyed by MMSI — duplicate vessels
+from both feeds are automatically deduplicated (most-recent update wins).
+When neither key is provided, runs a high-fidelity route-based simulator.
 
 AISstream.io provides free real-time AIS data:
   - Sign up at https://aisstream.io to get an API key
   - Set env var AISSTREAM_API_KEY=<your-key>
+
+AISHUB provides community-contributed AIS data (better Asian coverage):
+  - Sign up at https://www.aishub.net to get a username/key
+  - Set env var AISHUB_USERNAME=<your-key>
 """
 
 from __future__ import annotations
@@ -21,6 +26,8 @@ import random
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+import aiohttp
 
 from app.core.websocket_manager import manager
 
@@ -245,10 +252,13 @@ class VesselTracker:
     BROADCAST_INTERVAL = 3   # seconds between WebSocket broadcasts
     SIM_UPDATE_INTERVAL = 2  # seconds between simulation ticks
     STALE_TIMEOUT = 600      # remove vessels not heard from in 10 minutes
+    AISHUB_POLL_INTERVAL = 60  # AISHUB rate limit: ~1 request per minute
 
-    def __init__(self, aisstream_api_key: str = ""):
+    def __init__(self, aisstream_api_key: str = "", aishub_username: str = ""):
         self._api_key = aisstream_api_key
+        self._aishub_key = aishub_username
         self._vessels: Dict[str, VesselPosition] = {}
+        self._vessel_source: Dict[str, str] = {}   # mmsi → "aisstream"|"aishub"
         self._sim_vessels: List[SimulatedVessel] = []
         self._running = False
         self._tasks: List[asyncio.Task] = []
@@ -256,7 +266,7 @@ class VesselTracker:
 
     @property
     def is_live(self) -> bool:
-        return bool(self._api_key)
+        return bool(self._api_key) or bool(self._aishub_key)
 
     def start(self) -> None:
         """Start the tracker (called during app startup)."""
@@ -264,9 +274,15 @@ class VesselTracker:
             return
         self._running = True
 
-        if self._api_key:
-            logger.info("VesselTracker starting in LIVE mode (AISstream.io)")
-            self._tasks.append(asyncio.ensure_future(self._ais_stream_loop()))
+        if self._api_key or self._aishub_key:
+            sources = []
+            if self._api_key:
+                sources.append("AISstream.io")
+                self._tasks.append(asyncio.ensure_future(self._ais_stream_loop()))
+            if self._aishub_key:
+                sources.append("AISHUB")
+                self._tasks.append(asyncio.ensure_future(self._aishub_poll_loop()))
+            logger.info(f"VesselTracker starting in LIVE mode ({' + '.join(sources)})")
             self._tasks.append(asyncio.ensure_future(self._cleanup_loop()))
         else:
             logger.info("VesselTracker starting in SIMULATION mode (no API key)")
@@ -297,10 +313,16 @@ class VesselTracker:
         by_type: Dict[str, int] = {}
         for v in self._vessels.values():
             by_type[v.vessel_type] = by_type.get(v.vessel_type, 0) + 1
+
+        by_source: Dict[str, int] = {}
+        for src in self._vessel_source.values():
+            by_source[src] = by_source.get(src, 0) + 1
+
         return {
             "mode": "live" if self.is_live else "simulation",
             "total_vessels": len(self._vessels),
             "by_type": by_type,
+            "by_source": by_source,
             "routes_active": len(SHIPPING_ROUTES) if not self.is_live else 0,
         }
 
@@ -348,6 +370,7 @@ class VesselTracker:
                     stale = [k for k, v in self._vessels.items() if v.last_update < cutoff]
                     for k in stale:
                         del self._vessels[k]
+                        self._vessel_source.pop(k, None)
                 if stale:
                     logger.info(f"Cleaned {len(stale)} stale vessels, {len(self._vessels)} active")
                 else:
@@ -388,6 +411,7 @@ class VesselTracker:
                     v.speed_knots = pos_report.get("Sog", v.speed_knots)
                     v.heading = heading
                     v.last_update = time.time()
+                    self._vessel_source[mmsi] = "aisstream"
                 else:
                     ship_name = meta.get("ShipName", f"VESSEL-{mmsi[-4:]}").strip()
                     if not ship_name or ship_name == "":
@@ -402,6 +426,7 @@ class VesselTracker:
                         heading=heading,
                         flag_iso=self._mmsi_to_flag(mmsi),
                     )
+                    self._vessel_source[mmsi] = "aisstream"
 
             elif msg_type == "ShipStaticData":
                 static = msg.get("Message", {}).get("ShipStaticData", {})
@@ -444,6 +469,170 @@ class VesselTracker:
                             length_m=length,
                             draught_m=draught,
                         )
+                        self._vessel_source[mmsi] = "aisstream"
+
+    # ── AISHUB polling (HTTP API) ──
+
+    async def _aishub_poll_loop(self) -> None:
+        """Poll AISHUB HTTP API periodically for vessel positions.
+
+        AISHUB is a community AIS network with good Asian regional coverage.
+        The API returns JSON with vessel positions; we merge them into the
+        same _vessels dict keyed by MMSI for automatic deduplication.
+        Rate limit: ~1 request per minute.
+        """
+        base_url = "http://data.aishub.net/ws.php"
+        params_base = {
+            "username": self._aishub_key,
+            "format": "1",       # 1 = AIS format
+            "output": "json",
+            "compress": "0",     # no gzip
+        }
+
+        # Wait a few seconds on startup to let AISstream connect first
+        await asyncio.sleep(5)
+
+        while self._running:
+            try:
+                total_new = 0
+                total_updated = 0
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as session:
+                    # Global request (no bbox) — AISHUB returns up to ~5000 vessels
+                    params = {**params_base}
+                    try:
+                        async with session.get(base_url, params=params) as resp:
+                            if resp.status != 200:
+                                logger.warning(f"AISHUB HTTP {resp.status}")
+                            else:
+                                data = await resp.json(content_type=None)
+                                new, upd = await self._process_aishub_response(data)
+                                total_new += new
+                                total_updated += upd
+                    except Exception as e:
+                        logger.warning(f"AISHUB request error: {e}")
+
+                logger.info(
+                    f"AISHUB poll: +{total_new} new, ~{total_updated} updated, "
+                    f"{len(self._vessels)} total vessels"
+                )
+                await asyncio.sleep(self.AISHUB_POLL_INTERVAL)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"AISHUB poll loop error: {e}, retrying in 30s")
+                await asyncio.sleep(30)
+
+    async def _process_aishub_response(self, data: Any) -> Tuple[int, int]:
+        """Parse AISHUB JSON response and merge vessels into _vessels dict.
+
+        AISHUB response format:
+            [ {"ERROR": false}, [ {vessel}, {vessel}, ... ] ]
+
+        Each vessel object has:
+            MMSI, TIME, LONGITUDE, LATITUDE, COG, SOG, HEADING,
+            IMO, NAME, CALLSIGN, TYPE, A, B, C, D, DRAUGHT, DEST, ETA
+
+        Returns (new_count, updated_count).
+        """
+        if not isinstance(data, list) or len(data) < 2:
+            logger.debug(f"AISHUB: unexpected response format: {type(data)}")
+            return 0, 0
+
+        # First element is status
+        status = data[0]
+        if isinstance(status, dict) and status.get("ERROR"):
+            error_msg = status.get("ERROR_MESSAGE", "unknown")
+            logger.warning(f"AISHUB API error: {error_msg}")
+            return 0, 0
+
+        vessels_arr = data[1]
+        if not isinstance(vessels_arr, list):
+            return 0, 0
+
+        new_count = 0
+        updated_count = 0
+        now = time.time()
+
+        async with self._lock:
+            for raw in vessels_arr:
+                try:
+                    mmsi = str(raw.get("MMSI", ""))
+                    if not mmsi or len(mmsi) < 5:
+                        continue
+
+                    lat = float(raw.get("LATITUDE", 0))
+                    lon = float(raw.get("LONGITUDE", 0))
+                    if lat == 0 and lon == 0:
+                        continue
+                    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                        continue
+
+                    sog = float(raw.get("SOG", 0)) / 10.0  # AISHUB SOG in 1/10 knot
+                    cog = float(raw.get("COG", 0)) / 10.0  # AISHUB COG in 1/10 degree
+                    heading_raw = int(raw.get("HEADING", 511))
+                    heading = cog if heading_raw == 511 else float(heading_raw)
+
+                    name = (raw.get("NAME", "") or "").strip()
+                    if not name:
+                        name = f"VESSEL-{mmsi[-4:]}"
+
+                    ais_type = int(raw.get("TYPE", 0))
+                    vtype = self._ais_type_to_gefo(ais_type)
+                    vtype = self._refine_type_by_name(name, vtype)
+
+                    dest = (raw.get("DEST", "") or "").strip()
+                    dim_a = int(raw.get("A", 0))
+                    dim_b = int(raw.get("B", 0))
+                    length = dim_a + dim_b
+                    draught = float(raw.get("DRAUGHT", 0)) / 10.0  # 1/10 metre
+
+                    if mmsi in self._vessels:
+                        # Update existing vessel — dedup: just refresh position
+                        v = self._vessels[mmsi]
+                        v.lat = lat
+                        v.lon = lon
+                        v.speed_knots = sog
+                        v.heading = heading
+                        v.last_update = now
+                        if name and not name.startswith("VESSEL-"):
+                            v.name = name
+                        if vtype != "cargo":
+                            v.vessel_type = vtype
+                        if dest:
+                            v.destination = dest
+                        if length > 0:
+                            v.length_m = length
+                        if draught > 0:
+                            v.draught_m = draught
+                        self._vessel_source[mmsi] = "aishub"
+                        updated_count += 1
+                    else:
+                        # New vessel from AISHUB
+                        self._vessels[mmsi] = VesselPosition(
+                            mmsi=mmsi,
+                            name=name,
+                            vessel_type=vtype,
+                            lat=lat,
+                            lon=lon,
+                            speed_knots=sog,
+                            heading=heading,
+                            destination=dest,
+                            flag_iso=self._mmsi_to_flag(mmsi),
+                            length_m=length,
+                            draught_m=draught,
+                            last_update=now,
+                        )
+                        self._vessel_source[mmsi] = "aishub"
+                        new_count += 1
+
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.debug(f"AISHUB vessel parse error: {e}")
+                    continue
+
+        return new_count, updated_count
 
     @staticmethod
     def _mmsi_to_flag(mmsi: str) -> str:
@@ -839,6 +1028,9 @@ class VesselTracker:
 # ── Singleton ──
 def _create_tracker() -> VesselTracker:
     from app.core.config import settings
-    return VesselTracker(aisstream_api_key=settings.aisstream_api_key)
+    return VesselTracker(
+        aisstream_api_key=settings.aisstream_api_key,
+        aishub_username=settings.aishub_username,
+    )
 
 vessel_tracker = _create_tracker()

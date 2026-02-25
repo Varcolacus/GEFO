@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # AIS vessel tracking (AISstream.io — free, register at https://aisstream.io)
     aisstream_api_key: str = ""
 
+    # AISHUB (community AIS network — sign up at https://www.aishub.net)
+    # Complements AISstream with better Asian coverage; deduplicates by MMSI.
+    aishub_username: str = ""
+
     # Auth
     jwt_secret_key: str = "CHANGE-ME-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"
