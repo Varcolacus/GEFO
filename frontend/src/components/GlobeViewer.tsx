@@ -1096,6 +1096,100 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.resumeEvents();
   }, [vessels, layers.vessels]);
 
+  // ─── Port-Vessel Proximity: highlight ships near ports ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    viewer.entities.suspendEvents();
+
+    // Remove old proximity entities
+    const toRemoveProx = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("prox_")
+    );
+    toRemoveProx.forEach((e) => viewer.entities.remove(e));
+
+    // Only show when both layers are active and have data
+    if (!layers.ports || !layers.vessels || ports.length === 0 || vessels.length === 0) {
+      viewer.entities.resumeEvents();
+      return;
+    }
+
+    const PROXIMITY_KM = 50; // radius to consider "near port"
+    const DEG_APPROX = PROXIMITY_KM / 111; // rough km→degrees conversion
+
+    // For each port, find vessels within proximity
+    const portProximity: { port: typeof ports[0]; nearVessels: typeof vessels }[] = [];
+
+    ports.forEach((port) => {
+      const near = vessels.filter((v) => {
+        const dlat = Math.abs(v.lat - port.lat);
+        const dlon = Math.abs(v.lon - port.lon);
+        if (dlat > DEG_APPROX * 1.5 || dlon > DEG_APPROX * 2) return false;
+        // Haversine-lite
+        const dx = dlon * Math.cos((port.lat * Math.PI) / 180) * 111;
+        const dy = dlat * 111;
+        return Math.sqrt(dx * dx + dy * dy) < PROXIMITY_KM;
+      });
+      if (near.length > 0) {
+        portProximity.push({ port, nearVessels: near });
+      }
+    });
+
+    portProximity.forEach(({ port, nearVessels }) => {
+      // Proximity ring around port
+      viewer.entities.add({
+        name: `prox_ring_${port.id}`,
+        position: Cartesian3.fromDegrees(port.lon, port.lat),
+        ellipse: {
+          semiMajorAxis: PROXIMITY_KM * 1000,
+          semiMinorAxis: PROXIMITY_KM * 1000,
+          height: 0,
+          material: Color.fromCssColorString("rgba(0, 255, 180, 0.04)"),
+          outline: true,
+          outlineColor: Color.fromCssColorString("rgba(0, 255, 180, 0.25)"),
+          outlineWidth: 1,
+        },
+      });
+
+      // Count badge
+      viewer.entities.add({
+        name: `prox_count_${port.id}`,
+        position: Cartesian3.fromDegrees(port.lon, port.lat, 60000),
+        label: {
+          text: `${nearVessels.length} 🚢`,
+          font: "bold 12px 'Segoe UI', sans-serif",
+          fillColor: Color.fromCssColorString("#00ffb4"),
+          outlineColor: Color.BLACK,
+          outlineWidth: 3,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.CENTER,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          scaleByDistance: new NearFarScalar(2e5, 1, 8e6, 0.3),
+          translucencyByDistance: new NearFarScalar(2e5, 1, 1e7, 0),
+        },
+      });
+
+      // Thin connecting lines from port to each nearby vessel
+      nearVessels.forEach((v, vi) => {
+        viewer.entities.add({
+          name: `prox_line_${port.id}_${vi}`,
+          polyline: {
+            positions: Cartesian3.fromDegreesArrayHeights([
+              port.lon, port.lat, 200,
+              v.lon, v.lat, 200,
+            ]),
+            width: 1,
+            material: Color.fromCssColorString("rgba(0, 255, 180, 0.18)"),
+            arcType: ArcType.NONE,
+          },
+        });
+      });
+    });
+
+    viewer.entities.resumeEvents();
+  }, [vessels, ports, layers.vessels, layers.ports]);
+
   // ─── Render Commodity Flow Arcs (Gold) ───
   useEffect(() => {
     const viewer = viewerRef.current;

@@ -324,9 +324,17 @@ export default function Home() {
 
       <SearchBar
         countries={countries}
-        onSelect={(country) => {
+        vessels={vessels}
+        ports={ports}
+        onSelectCountry={(country) => {
           setFlyToCountry(country);
           setSelectedCountry(country);
+        }}
+        onSelectVessel={(vessel) => {
+          setFlyToPosition({ lon: vessel.lon, lat: vessel.lat, altitude: 50000 });
+        }}
+        onSelectPort={(port) => {
+          setFlyToPosition({ lon: port.lon, lat: port.lat, altitude: 100000 });
         }}
       />
 
