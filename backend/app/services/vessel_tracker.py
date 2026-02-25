@@ -481,12 +481,12 @@ class VesselTracker:
         same _vessels dict keyed by MMSI for automatic deduplication.
         Rate limit: ~1 request per minute.
         """
-        base_url = "http://data.aishub.net/ws.php"
+        base_url = "https://data.aishub.net/ws.php"
         params_base = {
             "username": self._aishub_key,
-            "format": "1",       # 1 = AIS format
+            "format": "1",       # 1 = Human readable (degrees, knots, metres)
             "output": "json",
-            "compress": "0",     # no gzip
+            "compress": "0",     # no compression
         }
 
         # Wait a few seconds on startup to let AISstream connect first
@@ -570,8 +570,13 @@ class VesselTracker:
                     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
                         continue
 
-                    sog = float(raw.get("SOG", 0)) / 10.0  # AISHUB SOG in 1/10 knot
-                    cog = float(raw.get("COG", 0)) / 10.0  # AISHUB COG in 1/10 degree
+                    # format=1 → values already in knots / degrees / metres
+                    sog = float(raw.get("SOG", 0))
+                    if sog >= 102.3:       # 102.4 = "not available"
+                        sog = 0.0
+                    cog = float(raw.get("COG", 0))
+                    if cog >= 360.0:       # 360 = "not available"
+                        cog = 0.0
                     heading_raw = int(raw.get("HEADING", 511))
                     heading = cog if heading_raw == 511 else float(heading_raw)
 
@@ -587,7 +592,7 @@ class VesselTracker:
                     dim_a = int(raw.get("A", 0))
                     dim_b = int(raw.get("B", 0))
                     length = dim_a + dim_b
-                    draught = float(raw.get("DRAUGHT", 0)) / 10.0  # 1/10 metre
+                    draught = float(raw.get("DRAUGHT", 0))  # already in metres (format=1)
 
                     if mmsi in self._vessels:
                         # Update existing vessel — dedup: just refresh position
