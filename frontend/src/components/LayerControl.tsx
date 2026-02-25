@@ -46,7 +46,7 @@ export default function LayerControl({
   const allOn = Object.values(layers).every(Boolean);
 
   return (
-    <div className="absolute top-16 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72 max-h-[calc(100vh-5rem)] overflow-y-auto">
+    <div className="absolute top-16 right-4 z-50 bg-gray-900/90 backdrop-blur-sm text-white rounded-lg shadow-xl border border-gray-700 w-72 max-h-[calc(100vh-8rem)] overflow-y-auto">
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">

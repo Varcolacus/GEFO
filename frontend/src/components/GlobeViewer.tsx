@@ -248,7 +248,27 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     viewerRef.current = viewer;
 
+    // ── Block browser pinch-zoom globally ──
+    // Windows precision touchpads send pinch as Ctrl+wheel at the document level;
+    // we must intercept *there* so the browser never gets a chance to page-zoom.
+    const blockBrowserZoom = (e: WheelEvent) => {
+      if (e.ctrlKey) e.preventDefault();
+    };
+    document.addEventListener("wheel", blockBrowserZoom, { passive: false });
+
+    // Also set touch-action on the canvas so real touch screens pass through
+    const canvas = viewer.canvas;
+    canvas.style.touchAction = "none";
+
+    // Safari pinch events
+    const blockGesture = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", blockGesture);
+    document.addEventListener("gesturechange", blockGesture);
+
     return () => {
+      document.removeEventListener("wheel", blockBrowserZoom);
+      document.removeEventListener("gesturestart", blockGesture);
+      document.removeEventListener("gesturechange", blockGesture);
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy();
         viewerRef.current = null;
@@ -668,10 +688,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const logMax = Math.log10(1 + maxValue);
       const logNorm = logMax > 0 ? logValue / logMax : 0; // 0-1 log-normalised
 
-      // Width: thin for small flows, bold for large ones (log scale)
+      // Width: thin for small flows, slightly bolder for large ones (log scale)
       const width = isCountryMode
-        ? 0.5 + logNorm * 9
-        : 0.5 + logNorm * 7;
+        ? 0.3 + logNorm * 3
+        : 0.3 + logNorm * 2.5;
 
       // Alpha for the arrow color (also log-scaled)
       const alpha = isCountryMode
@@ -1282,7 +1302,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       <div
         ref={containerRef}
         className="w-full h-full"
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+          touchAction: "none",   // prevent browser from stealing pinch/pan gestures
+        }}
       />
 
       {/* Zoom controls — left side, vertically centered */}
