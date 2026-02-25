@@ -37,6 +37,7 @@ import type {
   CountryMacro,
   TradeFlowAggregated,
   PortData,
+  AirportData,
   ShippingDensityPoint,
   ConflictZone,
   CommodityFlowEdge,
@@ -102,6 +103,7 @@ interface GlobeViewerProps {
   conflictZones?: ConflictZone[];
   commodityFlows?: CommodityFlowEdge[];
   vessels?: VesselPosition[];
+  airports?: AirportData[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
@@ -130,6 +132,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   conflictZones = [],
   commodityFlows = [],
   vessels = [],
+  airports: airportsProp = [],
   layers,
   indicator,
   onCountryClick,
@@ -295,19 +298,46 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     // Remove existing airport entities
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("airport_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.airports) return;
+    if (!layers.airports) { viewer.entities.resumeEvents(); return; }
 
-    const airportColor = Color.fromCssColorString("#c084fc"); // violet
+    // Use API data if available, fall back to hardcoded list
+    const useApiData = airportsProp.length > 0;
+    const airportsList = useApiData
+      ? airportsProp.map((a) => ({
+          iata: a.iata || "?",
+          name: a.name,
+          city: a.city || "",
+          country: a.country_iso,
+          lat: a.lat,
+          lon: a.lon,
+          pax: a.pax_annual || 0,
+          elevation_ft: a.elevation_ft,
+          icao: a.icao,
+          runways: a.runways,
+          airport_type: a.airport_type,
+        }))
+      : MAJOR_AIRPORTS.map((a) => ({
+          ...a,
+          elevation_ft: undefined as number | undefined,
+          icao: undefined as string | undefined,
+          runways: undefined as number | undefined,
+          airport_type: undefined as string | undefined,
+        }));
+
+    const airportColor = Color.fromCssColorString("#d8b4fe"); // bright violet
     const airportColorFaded = airportColor.withAlpha(0.35);
 
-    MAJOR_AIRPORTS.forEach((apt) => {
-      const size = Math.min(6 + Math.log10(Math.max(apt.pax, 1)) * 2.5, 14);
+    airportsList.forEach((apt) => {
+      const pax = apt.pax || 0;
+      const size = Math.min(8 + Math.log10(Math.max(pax, 1)) * 3, 18);
 
       // Airport point
       viewer.entities.add({
@@ -316,39 +346,43 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         point: {
           pixelSize: size,
           color: airportColor,
-          outlineColor: Color.WHITE.withAlpha(0.5),
-          outlineWidth: 1,
-          scaleByDistance: new NearFarScalar(5e5, 1.2, 1e7, 0.4),
-          translucencyByDistance: new NearFarScalar(1e5, 1, 2e7, 0.3),
+          outlineColor: Color.WHITE.withAlpha(0.7),
+          outlineWidth: 1.5,
+          scaleByDistance: new NearFarScalar(5e5, 1.4, 2e7, 0.6),
+          translucencyByDistance: new NearFarScalar(1e5, 1, 3e7, 0.5),
         },
         label: {
           text: apt.iata,
-          font: "10px 'Segoe UI', sans-serif",
-          fillColor: Color.WHITE.withAlpha(0.85),
-          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.5)"),
-          outlineWidth: 2,
+          font: "bold 11px 'Segoe UI', sans-serif",
+          fillColor: Color.WHITE,
+          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+          outlineWidth: 3,
           style: LabelStyle.FILL_AND_OUTLINE,
           verticalOrigin: VerticalOrigin.BOTTOM,
           horizontalOrigin: HorizontalOrigin.LEFT,
-          pixelOffset: new Cartesian3(6, -6, 0) as any,
-          scaleByDistance: new NearFarScalar(2e5, 1, 5e6, 0),
-          translucencyByDistance: new NearFarScalar(2e5, 1, 8e6, 0),
+          pixelOffset: new Cartesian3(8, -8, 0) as any,
+          scaleByDistance: new NearFarScalar(5e5, 1, 1.5e7, 0.35),
+          translucencyByDistance: new NearFarScalar(5e5, 1, 2e7, 0.4),
         },
         description: `
           <h3>✈ ${apt.name} (${apt.iata})</h3>
           <p>${apt.city}, ${apt.country}</p>
-          <p>≈ ${apt.pax.toFixed(1)}M passengers/year</p>
+          ${pax > 0 ? `<p>≈ ${pax.toFixed(1)}M passengers/year</p>` : ""}
+          ${apt.icao ? `<p>ICAO: ${apt.icao}</p>` : ""}
+          ${apt.elevation_ft != null ? `<p>Elevation: ${apt.elevation_ft.toLocaleString()} ft</p>` : ""}
+          ${apt.runways ? `<p>Runways: ${apt.runways}</p>` : ""}
+          ${apt.airport_type ? `<p>Type: ${apt.airport_type.replace("_", " ")}</p>` : ""}
         `,
       });
 
       // Glow ring around major hubs (pax > 50M)
-      if (apt.pax > 50) {
+      if (pax > 50) {
         viewer.entities.add({
           name: `airport_glow_${apt.iata}`,
           position: Cartesian3.fromDegrees(apt.lon, apt.lat),
           ellipse: {
-            semiMajorAxis: 18000 + apt.pax * 200,
-            semiMinorAxis: 18000 + apt.pax * 200,
+            semiMajorAxis: 18000 + pax * 200,
+            semiMinorAxis: 18000 + pax * 200,
             height: 0,
             material: airportColorFaded,
             outline: false,
@@ -356,7 +390,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         });
       }
     });
-  }, [layers.airports]);
+
+    viewer.entities.resumeEvents();
+  }, [layers.airports, airportsProp]);
 
   // ─── Click handler for country entities ───
   useEffect(() => {
@@ -461,13 +497,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     // Remove existing country entities
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("country_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.countries || countries.length === 0) return;
+    if (!layers.countries || countries.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // Calculate value range for color mapping
     const computeValue = (c: CountryMacro): number | null | undefined => {
@@ -584,6 +622,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [countries, layers.countries, indicator]);
 
   // ─── Render Trade Flow Lines (only when a country is selected) ───
@@ -591,12 +631,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("flow_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.tradeFlows || tradeFlows.length === 0) return;
+    if (!layers.tradeFlows || tradeFlows.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // If a country is selected, filter to its flows; otherwise show all globally
     const isCountryMode = !!highlightCountryIso;
@@ -681,12 +723,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
 
   // ─── Render Port Markers ───
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
+
+    viewer.entities.suspendEvents();
 
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("port_") || e.name?.startsWith("port_glow_") || e.name?.startsWith("port_pillar_")
@@ -711,7 +757,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       viewer.imageryLayers.remove(existingSeaPorts, false);
     }
 
-    if (!layers.ports || ports.length === 0) return;
+    if (!layers.ports || ports.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // ── Database ports (44 major ports with 3D pillars & info) ──
     ports.forEach((port) => {
@@ -794,6 +840,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         },
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [ports, layers.ports, findOverlayLayer]);
 
   // ─── Render Shipping Density — Real Corridor Polygons ───
@@ -801,12 +849,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("density_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.shippingDensity) return;
+    if (!layers.shippingDensity) { viewer.entities.resumeEvents(); return; }
 
     const maxDensity = Math.max(...SHIPPING_CORRIDORS.map((c) => c.density));
 
@@ -855,6 +905,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [layers.shippingDensity]);
 
   // ─── Render Conflict Zone Overlays ───
@@ -862,13 +914,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     // Remove existing conflict zone entities
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("conflict_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!conflictZones || conflictZones.length === 0) return;
+    if (!conflictZones || conflictZones.length === 0) { viewer.entities.resumeEvents(); return; }
 
     conflictZones.forEach((zone) => {
       // Color by severity
@@ -933,6 +987,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         `,
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [conflictZones]);
 
   // ─── Render Vessel Markers ───
@@ -940,13 +996,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     // Remove existing vessel entities
     const toRemove2 = viewer.entities.values.filter(
       (e) => e.name?.startsWith("vessel_")
     );
     toRemove2.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.vessels || vessels.length === 0) return;
+    if (!layers.vessels || vessels.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // Vessel type → color mapping
     const typeColors: Record<string, string> = {
@@ -1034,6 +1092,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         });
       }
     });
+
+    viewer.entities.resumeEvents();
   }, [vessels, layers.vessels]);
 
   // ─── Render Commodity Flow Arcs (Gold) ───
@@ -1041,12 +1101,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    viewer.entities.suspendEvents();
+
     const toRemove = viewer.entities.values.filter(
       (e) => e.name?.startsWith("commodity_flow_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (commodityFlows.length === 0) return;
+    if (commodityFlows.length === 0) { viewer.entities.resumeEvents(); return; }
 
     commodityFlows.forEach((edge, i) => {
       const width = Math.max(2, edge.weight * 8);
@@ -1085,6 +1147,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         },
       });
     });
+
+    viewer.entities.resumeEvents();
   }, [commodityFlows]);
 
   // ── Zoom helpers ──

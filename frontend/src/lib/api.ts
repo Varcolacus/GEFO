@@ -59,6 +59,22 @@ export interface PortData {
   unlocode?: string;
 }
 
+export interface AirportData {
+  id: number;
+  iata?: string;
+  icao?: string;
+  name: string;
+  city?: string;
+  country_iso: string;
+  lat: number;
+  lon: number;
+  elevation_ft?: number;
+  airport_type?: string;
+  pax_annual?: number;
+  runways?: number;
+  continent?: string;
+}
+
 export interface ShippingDensityPoint {
   lat: number;
   lon: number;
@@ -130,6 +146,17 @@ export async function fetchPorts(
 ): Promise<PortData[]> {
   const params = country ? { country } : {};
   const response = await api.get("/api/ports", { params });
+  return response.data;
+}
+
+export async function fetchAirports(
+  country?: string,
+  continent?: string
+): Promise<AirportData[]> {
+  const params: Record<string, string> = {};
+  if (country) params.country = country;
+  if (continent) params.continent = continent;
+  const response = await api.get("/api/airports", { params });
   return response.data;
 }
 

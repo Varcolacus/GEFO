@@ -88,6 +88,27 @@ class PortResponse(BaseModel):
         from_attributes = True
 
 
+# ─── Airport Schemas ───
+
+class AirportResponse(BaseModel):
+    id: int
+    iata: Optional[str] = None
+    icao: Optional[str] = None
+    name: str
+    city: Optional[str] = None
+    country_iso: str
+    lat: float
+    lon: float
+    elevation_ft: Optional[int] = None
+    airport_type: Optional[str] = None
+    pax_annual: Optional[float] = None
+    runways: Optional[int] = None
+    continent: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── Shipping Density Schemas ───
 
 class ShippingDensityResponse(BaseModel):

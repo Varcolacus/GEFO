@@ -6,7 +6,7 @@ import logging
 from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from app.core.rate_limit import setup_rate_limiting
-from app.api import countries, trade_flows, ports, shipping_density, indicators, intelligence
+from app.api import countries, trade_flows, ports, airports, shipping_density, indicators, intelligence
 from app.api import auth, keys, billing, export, alerts, admin, geopolitical
 from app.api import analytics as analytics_router
 from app.api import import_data as import_router
@@ -75,6 +75,7 @@ app.include_router(alerts.router)
 app.include_router(countries.router)
 app.include_router(trade_flows.router)
 app.include_router(ports.router)
+app.include_router(airports.router)
 app.include_router(shipping_density.router)
 app.include_router(indicators.router)
 app.include_router(intelligence.router)

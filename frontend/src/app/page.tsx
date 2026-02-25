@@ -29,9 +29,11 @@ import {
   fetchShippingDensity,
   fetchConflictZones,
   fetchVessels,
+  fetchAirports,
   type CountryMacro,
   type TradeFlowAggregated,
   type PortData,
+  type AirportData,
   type ShippingDensityPoint,
   type ConflictZone,
   type CommodityFlowEdge,
@@ -183,6 +185,7 @@ export default function Home() {
   const [countries, setCountries] = useState<CountryMacro[]>(DEMO_COUNTRIES);
   const [tradeFlows, setTradeFlows] = useState<TradeFlowAggregated[]>(DEMO_TRADE_FLOWS);
   const [ports, setPorts] = useState<PortData[]>(DEMO_PORTS);
+  const [airportsData, setAirportsData] = useState<AirportData[]>([]);
   const [shippingDensity, setShippingDensity] = useState<ShippingDensityPoint[]>(DEMO_SHIPPING);
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
   const [selectedCountry, setSelectedCountry] = useState<CountryMacro | null>(null);
@@ -252,7 +255,8 @@ export default function Home() {
           fetchShippingDensity(year),
         ]);
 
-        // Fetch conflict zones and vessels separately (non-blocking)
+        // Fetch airports and conflict zones separately (non-blocking)
+        fetchAirports().then((data) => { if (data.length > 0) setAirportsData(data); }).catch(() => {});
         fetchConflictZones().then(setConflictZones).catch(() => {});
         fetchVessels().then((snap) => {
           setVessels(snap.vessels);
@@ -306,6 +310,7 @@ export default function Home() {
         conflictZones={showGeopolitical ? conflictZones : []}
         commodityFlows={commodityFlows}
         vessels={vessels}
+        airports={airportsData}
         layers={layers}
         indicator={indicator}
         onCountryClick={(country) => {
