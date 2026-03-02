@@ -117,7 +117,7 @@ def print_counts():
 
 # ── setup steps ──────────────────────────────────────────────────────────────
 
-TOTAL_STEPS = 8
+TOTAL_STEPS = 9
 
 
 def run_init_schema():
@@ -134,29 +134,36 @@ def run_seed_countries():
         ingest_natural_earth()
 
 
+def run_seed_globe_merge():
+    step(3, TOTAL_STEPS, "Enrich countries & create missing ones (globe merge)")
+    with _timer("globe merge"):
+        from app.ingestion.seed_globe_merge import seed_globe_merge
+        seed_globe_merge()
+
+
 def run_seed_ports():
-    step(3, TOTAL_STEPS, "Seed world ports")
+    step(4, TOTAL_STEPS, "Seed world ports")
     with _timer("ports"):
         from app.ingestion.ports_seed import seed_ports
         seed_ports()
 
 
 def run_seed_airports():
-    step(4, TOTAL_STEPS, "Seed world airports")
+    step(5, TOTAL_STEPS, "Seed world airports")
     with _timer("airports"):
         from app.ingestion.airports_seed import seed_airports
         seed_airports()
 
 
 def run_seed_shipping():
-    step(5, TOTAL_STEPS, "Seed shipping density data")
+    step(6, TOTAL_STEPS, "Seed shipping density data")
     with _timer("shipping density"):
         from app.ingestion.shipping_density_seed import seed_shipping_density
         seed_shipping_density()
 
 
 def run_seed_trade():
-    step(6, TOTAL_STEPS, "Seed trade flows (comprehensive gravity model)")
+    step(7, TOTAL_STEPS, "Seed trade flows (comprehensive gravity model)")
     with _timer("trade flows"):
         from app.ingestion.trade_flows_seed import seed_trade_flows
         seed_trade_flows()
@@ -165,14 +172,14 @@ def run_seed_trade():
 
 
 def run_seed_commodities():
-    step(7, TOTAL_STEPS, "Seed commodities & supply dependencies")
+    step(8, TOTAL_STEPS, "Seed commodities & supply dependencies")
     with _timer("commodities"):
         from app.ingestion.seed_commodities import seed_commodities
         seed_commodities()
 
 
 def run_seed_geopolitical():
-    step(8, TOTAL_STEPS, "Seed geopolitical data (sanctions, conflicts, risk scores)")
+    step(9, TOTAL_STEPS, "Seed geopolitical data (sanctions, conflicts, risk scores)")
     with _timer("geopolitical"):
         from app.ingestion.seed_geopolitical import seed_geopolitical
         seed_geopolitical()
@@ -211,6 +218,7 @@ def main():
         run_init_schema()
 
     run_seed_countries()
+    run_seed_globe_merge()
     run_seed_ports()
     run_seed_airports()
     run_seed_shipping()

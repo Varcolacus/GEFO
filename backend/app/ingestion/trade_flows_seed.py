@@ -174,9 +174,17 @@ def seed_trade_flows():
             db.query(TradeFlow).delete()
             db.commit()
 
+        # Build set of valid ISO codes to avoid FK violations
+        valid_isos = {c.iso_code for c in db.query(Country.iso_code).all()}
+
         count = 0
+        skipped = 0
         for year, multiplier in YEAR_MULTIPLIERS.items():
             for (exp, imp, value_bn, commodity, desc, weight_mt) in BILATERAL_FLOWS:
+                if exp not in valid_isos or imp not in valid_isos:
+                    skipped += 1
+                    continue
+
                 value_usd = value_bn * 1e9 * multiplier
                 weight_kg = weight_mt * 1e9 if weight_mt else None  # MT to kg
 
@@ -195,6 +203,8 @@ def seed_trade_flows():
                 count += 1
 
         db.commit()
+        if skipped:
+            logger.warning(f"Skipped {skipped} flows (missing country ISO codes)")
         logger.info(f"Seeded {count} trade flow records ({len(BILATERAL_FLOWS)} corridors x {len(YEAR_MULTIPLIERS)} years)")
 
     finally:

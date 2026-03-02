@@ -424,15 +424,29 @@ TRADE_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..",
 
 
 def enrich_countries(db):
-    """Add capitals, flags, iso_code_2, income_group from globe data."""
+    """Add capitals, flags, iso_code_2, income_group from globe data.
+    Creates missing countries so downstream seeds (trade flows) have valid FK targets."""
     updated = 0
+    created = 0
     for iso2, flag, capital, lat, lon, region in GLOBE_COUNTRIES:
         iso3 = ISO2_TO_ISO3.get(iso2)
         if not iso3:
             continue
         country = db.query(Country).filter(Country.iso_code == iso3).first()
         if not country:
-            continue
+            # Create the country so trade-flow FKs don't break
+            country = Country(
+                iso_code=iso3,
+                iso_code_2=iso2,
+                name=capital,  # temporary; overwritten below if present
+                region=region,
+                flag_emoji=flag,
+                capital=capital,
+                centroid_lat=lat,
+                centroid_lon=lon,
+            )
+            db.add(country)
+            created += 1
         # Enrich with globe data
         if not country.flag_emoji:
             country.flag_emoji = flag
@@ -455,7 +469,7 @@ def enrich_countries(db):
                 c.income_group = label
 
     db.commit()
-    print(f"  ✅ Enriched {updated} countries with capitals/flags/iso2")
+    print(f"  \u2705 Enriched {updated} countries, created {created} new ones")
 
 
 def seed_economic_groups(db):
