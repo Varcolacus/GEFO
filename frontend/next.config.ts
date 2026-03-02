@@ -3,7 +3,8 @@ import CopyPlugin from "copy-webpack-plugin";
 import webpack from "webpack";
 import path from "path";
 
-const cesiumSource = "node_modules/cesium/Build/Cesium";
+const cesiumSource = path.resolve(__dirname, "node_modules/cesium/Build/Cesium");
+const cesiumDest = path.resolve(__dirname, "public/cesium");
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
@@ -11,25 +12,12 @@ const nextConfig: NextConfig = {
       config.plugins.push(
         new CopyPlugin({
           patterns: [
-            {
-              from: path.join(cesiumSource, "Workers"),
-              to: "../public/cesium/Workers",
-            },
-            {
-              from: path.join(cesiumSource, "ThirdParty"),
-              to: "../public/cesium/ThirdParty",
-            },
-            {
-              from: path.join(cesiumSource, "Assets"),
-              to: "../public/cesium/Assets",
-            },
-            {
-              from: path.join(cesiumSource, "Widgets"),
-              to: "../public/cesium/Widgets",
-            },
+            { from: path.join(cesiumSource, "Workers"), to: path.join(cesiumDest, "Workers") },
+            { from: path.join(cesiumSource, "ThirdParty"), to: path.join(cesiumDest, "ThirdParty") },
+            { from: path.join(cesiumSource, "Assets"), to: path.join(cesiumDest, "Assets") },
+            { from: path.join(cesiumSource, "Widgets"), to: path.join(cesiumDest, "Widgets") },
           ],
         }),
-        // Define CESIUM_BASE_URL as a global so CesiumJS resolves assets to /cesium/
         new webpack.DefinePlugin({
           CESIUM_BASE_URL: JSON.stringify("/cesium"),
         })

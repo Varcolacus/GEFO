@@ -19,6 +19,7 @@ from app.models.analytics import TradeForecast, TradeAnomaly
 from app.models.import_job import ImportJob, DataSource
 from app.models.commodity import Commodity, CommodityPrice, SupplyDependency
 from app.models.data_source import NationalDataSource, EconomicGroup, CountryGroupMembership, DataProvenance
+from app.models.airport import Airport
 
 logger = logging.getLogger(__name__)
 
