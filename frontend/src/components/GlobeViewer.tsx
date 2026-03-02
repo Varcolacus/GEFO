@@ -695,8 +695,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       // Alpha for the arrow color (also log-scaled)
       const alpha = isCountryMode
-        ? 0.35 + logNorm * 0.55
-        : 0.2 + logNorm * 0.5;
+        ? 0.15 + logNorm * 0.3
+        : 0.08 + logNorm * 0.25;
 
       // Green at exporter, smoothly transitions to red at importer
       const greenBase = new Color(30/255, 200/255, 80/255, alpha);
@@ -714,8 +714,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         isCountryMode && flow.exporter_iso === highlightCountryIso;
 
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const pulseLen = Math.max(10, Math.floor(arcCartesian.length * 0.35));
-      const animSpeed = 36000;
+      const pulseLen = Math.max(10, Math.floor(arcCartesian.length * 1.0));
+      const animSpeed = 90000;
       const stagger = index * 317;
 
       viewer.entities.add({
