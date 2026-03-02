@@ -58,7 +58,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     // Derive WS URL from the API URL
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    if (!apiUrl && typeof window !== "undefined" && window.location.hostname.includes(".app.github.dev")) {
+      apiUrl = window.location.origin.replace("-3000.", "-8000.");
+    }
+    if (!apiUrl) apiUrl = "http://localhost:8000";
     const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws/live";
 
     setConnectionState("connecting");

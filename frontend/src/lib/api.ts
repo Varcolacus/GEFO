@@ -1,6 +1,18 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+function getApiBaseUrl(): string {
+  // Explicit env override
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+
+  // Auto-detect GitHub Codespaces: swap port 3000 → 8000 in the URL
+  if (typeof window !== "undefined" && window.location.hostname.includes(".app.github.dev")) {
+    return window.location.origin.replace("-3000.", "-8000.");
+  }
+
+  return "http://localhost:8000";
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
