@@ -13,7 +13,6 @@ import {
   Color,
   ArcType,
   NearFarScalar,
-  HeightReference,
   Math as CesiumMath,
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
@@ -291,19 +290,18 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    // ── Railroads overlay (OpenRailwayMap) ──
+    // ── Railroads overlay (proxied via backend to avoid OpenRailwayMap 403) ──
     const existingRailroads = findOverlayLayer(viewer, "railroads");
     if (layers.railroads && !existingRailroads) {
       const provider = new UrlTemplateImageryProvider({
-        url: "https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
-        subdomains: ["a", "b", "c"],
-        credit: "© OpenRailwayMap contributors, © OpenStreetMap contributors",
-        minimumLevel: 0,
+        url: "/api/tiles/railroad/{z}/{x}/{y}.png",
+        credit: "© OpenRailwayMap contributors",
+        minimumLevel: 2,
         maximumLevel: 18,
+        hasAlphaChannel: true,
       });
       const layer = viewer.imageryLayers.addImageryProvider(provider);
       layer.alpha = 0.85;
-      layer.brightness = 1.3;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (layer as any)._overlayTag = "railroads";
     } else if (!layers.railroads && existingRailroads) {
@@ -853,10 +851,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           semiMinorAxis: glowRadius,
           height: 0,
           material: cesiumColor.withAlpha(0.12),
-          outline: true,
-          outlineColor: cesiumColor.withAlpha(0.35),
-          outlineWidth: 1,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
+          outline: false,
         },
       });
     });
@@ -913,11 +908,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         name: `density_${index}`,
         polygon: {
           hierarchy: Cartesian3.fromDegreesArray(degreesFlat),
+          height: 0,
           material: Color.fromBytes(r, g, b, Math.round(alpha * 255)),
-          outline: true,
-          outlineColor: Color.fromBytes(r, g, b, Math.round((alpha + 0.15) * 255)),
-          outlineWidth: 1,
-          heightReference: HeightReference.CLAMP_TO_GROUND,
+          outline: false,
         },
         description: `
           <h3>${corridor.name}</h3>
@@ -1061,7 +1054,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           outlineColor: Color.fromCssColorString(color).withAlpha(0.4),
           outlineWidth: 3,
           scaleByDistance: new NearFarScalar(1e5, 1.5, 1.2e7, 0.4),
-          heightReference: HeightReference.RELATIVE_TO_GROUND,
         },
         label: {
           text: v.name,

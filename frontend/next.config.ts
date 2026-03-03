@@ -7,6 +7,7 @@ const cesiumSource = path.resolve(__dirname, "node_modules/cesium/Build/Cesium")
 const cesiumDest = path.resolve(__dirname, "public/cesium");
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.plugins.push(

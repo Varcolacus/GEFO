@@ -15,6 +15,7 @@ from app.api import websocket as ws_router
 from app.api import data_sources as data_sources_router
 from app.api import economic_groups as economic_groups_router
 from app.api import vessels as vessels_router
+from app.api import tiles as tiles_router
 from app.core.usage_middleware import UsageTrackingMiddleware
 from app.services.live_feed import simulator as live_feed_simulator
 from app.services.vessel_tracker import vessel_tracker
@@ -87,6 +88,7 @@ app.include_router(ws_router.router)
 app.include_router(data_sources_router.router)
 app.include_router(economic_groups_router.router)
 app.include_router(vessels_router.router)
+app.include_router(tiles_router.router)
 
 # Rate limiting
 setup_rate_limiting(app)

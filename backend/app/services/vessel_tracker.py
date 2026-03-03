@@ -341,7 +341,13 @@ class VesselTracker:
 
         while self._running:
             try:
-                async with websockets.connect(url) as ws:
+                async with websockets.connect(
+                    url,
+                    open_timeout=30,
+                    ping_interval=20,
+                    ping_timeout=20,
+                    close_timeout=10,
+                ) as ws:
                     await ws.send(subscribe_msg)
                     logger.info("Connected to AISstream.io WebSocket")
 

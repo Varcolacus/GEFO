@@ -48,6 +48,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const mountedRef = useRef(true);
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
@@ -57,21 +58,39 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    // Derive WS URL from the API URL
-    let apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-    if (!apiUrl && typeof window !== "undefined" && window.location.hostname.includes(".app.github.dev")) {
-      apiUrl = window.location.origin.replace("-3000.", "-8000.");
+    // Derive WS URL — WebSocket must go directly to the backend
+    // because Next.js API routes can't proxy WebSocket upgrades.
+    // The backend port is injected at build time via NEXT_PUBLIC_WS_PORT (default 8888).
+    const backendPort = process.env.NEXT_PUBLIC_WS_PORT || "8888";
+    let wsUrl = "";
+    if (typeof window !== "undefined") {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host;
+      // In Codespaces, replace the frontend port number in the tunnel URL
+      const portMatch = host.match(/-(\d+)\.app\.github\.dev/);
+      if (portMatch) {
+        wsUrl = `${proto}//${host.replace(`-${portMatch[1]}.`, `-${backendPort}.`)}/ws/live`;
+      } else {
+        // Local development
+        wsUrl = `ws://localhost:${backendPort}/ws/live`;
+      }
     }
-    if (!apiUrl) apiUrl = "http://localhost:8000";
-    const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws/live";
+    if (!wsUrl) wsUrl = `ws://localhost:${backendPort}/ws/live`;
 
     setConnectionState("connecting");
-    const ws = new WebSocket(wsUrl);
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch {
+      setConnectionState("error");
+      return;
+    }
     wsRef.current = ws;
 
     ws.onopen = () => {
       if (!mountedRef.current) return;
       setConnectionState("connected");
+      reconnectAttemptsRef.current = 0;
       // Subscribe to configured channels
       ws.send(JSON.stringify({ action: "subscribe", channels: channelsRef.current }));
     };
@@ -108,10 +127,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       if (!mountedRef.current) return;
       setConnectionState("disconnected");
       wsRef.current = null;
-      if (autoReconnect && mountedRef.current) {
+      // Limit reconnect attempts to avoid console spam
+      if (autoReconnect && mountedRef.current && (reconnectAttemptsRef.current ?? 0) < 3) {
+        reconnectAttemptsRef.current = (reconnectAttemptsRef.current ?? 0) + 1;
         reconnectTimer.current = setTimeout(() => {
           if (mountedRef.current) connect();
-        }, reconnectDelay);
+        }, reconnectDelay * (reconnectAttemptsRef.current ?? 1));
       }
     };
 

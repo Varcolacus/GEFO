@@ -3,10 +3,10 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
-  "forwardPorts": [3000, 8000, 5432],
+  "forwardPorts": [5555, 8888, 5432],
   "portsAttributes": {
-    "3000": { "label": "Frontend (Globe)", "onAutoForward": "openBrowser" },
-    "8000": { "label": "Backend API", "onAutoForward": "silent" },
+    "5555": { "label": "Frontend (Globe)", "onAutoForward": "openBrowser", "visibility": "public" },
+    "8888": { "label": "Backend API", "onAutoForward": "silent", "visibility": "public" },
     "5432": { "label": "PostgreSQL", "onAutoForward": "ignore" }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",

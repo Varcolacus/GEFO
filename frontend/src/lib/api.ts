@@ -1,22 +1,19 @@
 import axios from "axios";
 
-function getApiBaseUrl(): string {
-  // Explicit env override
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-
-  // Auto-detect GitHub Codespaces: swap port 3000 → 8000 in the URL
-  if (typeof window !== "undefined" && window.location.hostname.includes(".app.github.dev")) {
-    return window.location.origin.replace("-3000.", "-8000.");
-  }
-
-  return "http://localhost:8000";
-}
-
-const API_BASE_URL = getApiBaseUrl();
-
+// All API calls go through Next.js rewrites proxy (same origin → no CORS/tunnel issues)
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: "",
   timeout: 30000,
+  // Prevent axios from following redirects to localhost:8000 (FastAPI 307 trailing-slash)
+  maxRedirects: 0,
+});
+
+// Ensure API paths end with trailing slash to avoid FastAPI 307 redirects
+api.interceptors.request.use((config) => {
+  if (config.url && config.url.startsWith("/api/") && !config.url.includes("?") && !config.url.endsWith("/")) {
+    config.url += "/";
+  }
+  return config;
 });
 
 // Attach JWT token to requests if available
