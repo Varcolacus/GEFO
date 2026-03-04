@@ -569,6 +569,8 @@ export default function Home() {
         <CountryDetailPanel
           selectedCountry={selectedCountry}
           onClose={() => setSelectedCountry(null)}
+          tradeMode={tradeMode}
+          onTradeModeChange={setTradeMode}
         />
       )}
 

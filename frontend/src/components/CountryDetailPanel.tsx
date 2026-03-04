@@ -21,10 +21,14 @@ import {
   type CountryProfile,
   type CountryMacro,
 } from "@/lib/api";
+import type { TradeMode } from "@/lib/trade-modes";
+import { TRADE_MODES } from "@/lib/trade-modes";
 
 interface CountryDetailPanelProps {
   selectedCountry: CountryMacro | null;
   onClose: () => void;
+  tradeMode?: TradeMode;
+  onTradeModeChange?: (mode: TradeMode) => void;
 }
 
 const COLORS = [
@@ -57,6 +61,8 @@ function formatPopulation(val: number): string {
 export default function CountryDetailPanel({
   selectedCountry,
   onClose,
+  tradeMode = "all",
+  onTradeModeChange,
 }: CountryDetailPanelProps) {
   const [profile, setProfile] = useState<CountryProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -193,6 +199,29 @@ export default function CountryDetailPanel({
             {tab.label}
           </button>
         ))}
+      </div>
+
+      {/* Trade Mode Selector */}
+      <div className="px-4 py-2 border-b border-gray-700/50 bg-gray-800/30">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Trade View</span>
+          <div className="flex flex-wrap gap-1">
+            {TRADE_MODES.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => onTradeModeChange?.(m.value)}
+                title={m.description}
+                className={`text-[10px] px-2 py-0.5 rounded-md border transition-colors ${
+                  tradeMode === m.value
+                    ? "bg-cyan-500/30 border-cyan-500/60 text-cyan-300"
+                    : "bg-gray-800/60 border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500"
+                }`}
+              >
+                {m.icon} {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Content */}
