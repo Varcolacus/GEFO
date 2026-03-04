@@ -17,6 +17,7 @@ import {
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
   ColorMaterialProperty,
+  CallbackProperty,
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
@@ -842,7 +843,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const sLat = selectedCountryData?.centroid_lat || 0;
     const sLon = selectedCountryData?.centroid_lon || 0;
 
-    // ── Helper: add beautiful glowing arc with gentle breathing animation ──
+    // ── Helper: add glowing arc with gentle breathing animation ──
     const addArc = (
       arcCartesian: InstanceType<typeof Cartesian3>[],
       opts: {
@@ -858,40 +859,54 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         particleFrac?: number;
       }
     ) => {
-      // 1) Outer glow layer — soft wide bloom
+      const glowScratch = new Color();
+      const coreScratch = new Color();
+
+      // 1) Outer glow — soft, subtle, breathing
       viewer.entities.add({
         name: `${opts.name}_glow`,
         polyline: {
           positions: arcCartesian,
-          width: opts.particleWidth * 3,
+          width: new CallbackProperty(() => {
+            // Gentle breathing: slow sine wave makes glow pulse softly
+            const breathe = Math.sin((Date.now() + opts.stagger) / 3000) * 0.15 + 1;
+            return opts.particleWidth * 2 * breathe;
+          }, false),
           material: new PolylineGlowMaterialProperty({
-            glowPower: 0.25,
-            taperPower: 0.8,
-            color: new Color(
-              opts.particleColor.red,
-              opts.particleColor.green,
-              opts.particleColor.blue,
-              opts.particleColor.alpha * 0.35
-            ),
+            glowPower: 0.15,
+            taperPower: 0.9,
+            color: new CallbackProperty(() => {
+              const breathe = Math.sin((Date.now() + opts.stagger) / 3000) * 0.12 + 1;
+              const a = opts.particleColor.alpha * 0.2 * breathe;
+              return new Color(
+                opts.particleColor.red,
+                opts.particleColor.green,
+                opts.particleColor.blue,
+                Math.min(0.5, a)
+              );
+            }, false),
           }),
           arcType: ArcType.NONE,
         },
         description: opts.description,
       });
 
-      // 2) Inner core — bright thin line
+      // 2) Inner core — bright thin line, subtle alpha breathing
       viewer.entities.add({
         name: `${opts.name}_core`,
         polyline: {
           positions: arcCartesian,
-          width: Math.max(1, opts.particleWidth * 0.6),
+          width: Math.max(1, opts.particleWidth * 0.5),
           material: new ColorMaterialProperty(
-            new Color(
-              Math.min(1, opts.particleHeadColor.red * 0.7 + 0.3),
-              Math.min(1, opts.particleHeadColor.green * 0.7 + 0.3),
-              Math.min(1, opts.particleHeadColor.blue * 0.7 + 0.3),
-              opts.particleColor.alpha * 0.9
-            )
+            new CallbackProperty(() => {
+              const breathe = Math.sin((Date.now() + opts.stagger + 1500) / 3000) * 0.1 + 1;
+              return new Color(
+                Math.min(1, opts.particleHeadColor.red * 0.6 + 0.4),
+                Math.min(1, opts.particleHeadColor.green * 0.6 + 0.4),
+                Math.min(1, opts.particleHeadColor.blue * 0.6 + 0.4),
+                Math.min(0.85, opts.particleColor.alpha * 0.7 * breathe)
+              );
+            }, false)
           ),
           arcType: ArcType.NONE,
         },
