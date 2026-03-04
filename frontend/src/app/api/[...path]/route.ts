@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Never cache API proxy responses — always forward to backend
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8888";
 
 // Only forward these safe headers to the backend
@@ -31,6 +35,7 @@ async function proxyRequest(req: NextRequest) {
       headers,
       body: req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined,
       redirect: "follow",
+      cache: "no-store",
     });
 
     const responseHeaders = new Headers();
@@ -41,6 +46,9 @@ async function proxyRequest(req: NextRequest) {
     }
     // Allow any origin (the proxy is same-origin, CORS is irrelevant)
     responseHeaders.set("Access-Control-Allow-Origin", "*");
+    // Prevent browser/CDN caching of API responses
+    responseHeaders.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    responseHeaders.set("Pragma", "no-cache");
 
     const body = await response.arrayBuffer();
     return new NextResponse(body, {
