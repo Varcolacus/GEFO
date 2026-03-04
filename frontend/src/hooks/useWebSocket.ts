@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ───
 
-export type WSChannel = "trade" | "ports" | "alerts" | "geopolitical" | "vessels" | "system";
+export type WSChannel = "trade" | "ports" | "alerts" | "geopolitical" | "vessels" | "aircraft" | "system";
 
 export interface WSEvent {
   type: string;        // channel name

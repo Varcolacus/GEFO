@@ -1540,4 +1540,49 @@ export async function fetchVesselStats(): Promise<VesselStats> {
   return response.data;
 }
 
+// ── Aircraft (OpenSky Network) ──
+
+export type AircraftCategory = "heavy" | "large" | "small" | "light" | "rotorcraft" | "other";
+
+export interface AircraftPosition {
+  icao24: string;
+  callsign: string;
+  origin_country: string;
+  lat: number;
+  lon: number;
+  altitude_m: number;
+  altitude_ft: number;
+  velocity_knots: number;
+  velocity_kmh: number;
+  heading: number;
+  vertical_rate: number;
+  on_ground: boolean;
+  category: AircraftCategory;
+  last_update: number;
+}
+
+export interface AircraftSnapshot {
+  source: string;
+  count: number;
+  aircraft: AircraftPosition[];
+}
+
+export interface AircraftStats {
+  total_tracked: number;
+  airborne: number;
+  on_ground: number;
+  by_category: Record<string, number>;
+  top_countries: Record<string, number>;
+}
+
+export async function fetchAircraft(): Promise<AircraftSnapshot> {
+  const response = await api.get("/api/aircraft/");
+  return response.data;
+}
+
+export async function fetchAircraftStats(): Promise<AircraftStats> {
+  const response = await api.get("/api/aircraft/stats");
+  return response.data;
+}
+
 export default api;

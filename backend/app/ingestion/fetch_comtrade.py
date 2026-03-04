@@ -114,7 +114,7 @@ def fetch_reporter_exports(reporter_m49: int, year: int, subscription_key: str |
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch UN Comtrade bilateral trade data")
-    parser.add_argument("--years", default="2018,2019,2020,2021,2022,2023",
+    parser.add_argument("--years", default="2024,2023,2022,2021,2020,2019,2018",
                         help="Comma-separated years to fetch")
     parser.add_argument("--clean", action="store_true",
                         help="Clear ALL existing aggregate trade flows before importing")

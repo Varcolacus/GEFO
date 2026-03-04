@@ -12,6 +12,7 @@ interface LayerControlProps {
     vessels: boolean;
     railroads: boolean;
     airports: boolean;
+    aircraft: boolean;
   };
   onToggle: (layer: keyof LayerControlProps["layers"]) => void;
   onToggleAll?: (on: boolean) => void;
@@ -259,6 +260,14 @@ export default function LayerControl({
           active={layers.vessels}
           color="bg-sky-400"
           onToggle={() => onToggle("vessels")}
+        />
+
+        <ToggleSwitch
+          label="Aircraft"
+          description="Real-time flight tracking"
+          active={layers.aircraft}
+          color="bg-amber-400"
+          onToggle={() => onToggle("aircraft")}
         />
 
         <div className="mt-2 pt-2 border-t border-gray-700">

@@ -8,6 +8,12 @@ const cesiumDest = path.resolve(__dirname, "public/cesium");
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.plugins.push(

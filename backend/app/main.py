@@ -16,9 +16,11 @@ from app.api import data_sources as data_sources_router
 from app.api import economic_groups as economic_groups_router
 from app.api import vessels as vessels_router
 from app.api import tiles as tiles_router
+from app.api import aircraft as aircraft_router
 from app.core.usage_middleware import UsageTrackingMiddleware
 from app.services.live_feed import simulator as live_feed_simulator
 from app.services.vessel_tracker import vessel_tracker
+from app.services.aircraft_tracker import aircraft_tracker
 
 # ─── Logging ───
 logging.basicConfig(
@@ -38,8 +40,10 @@ async def lifespan(app: FastAPI):
     start_scheduler()
     live_feed_simulator.start()
     vessel_tracker.start()
+    aircraft_tracker.start()
     yield
     logger.info("GEFO API shutting down…")
+    aircraft_tracker.stop()
     vessel_tracker.stop()
     live_feed_simulator.stop()
     stop_scheduler()
@@ -88,6 +92,7 @@ app.include_router(ws_router.router)
 app.include_router(data_sources_router.router)
 app.include_router(economic_groups_router.router)
 app.include_router(vessels_router.router)
+app.include_router(aircraft_router.router)
 app.include_router(tiles_router.router)
 
 # Rate limiting
@@ -122,6 +127,7 @@ def root():
             "data_sources": "/api/data-sources",
             "economic_groups": "/api/economic-groups",
             "vessels": "/api/vessels",
+            "aircraft": "/api/aircraft",
             "proxy": "/api/data-sources/proxy",
             "docs": "/docs",
         },

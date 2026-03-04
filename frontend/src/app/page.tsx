@@ -43,6 +43,8 @@ import {
   type ConflictZone,
   type CommodityFlowEdge,
   type VesselPosition,
+  type AircraftPosition,
+  fetchAircraft,
 } from "@/lib/api";
 
 // Dynamic import for CesiumJS (no SSR)
@@ -181,6 +183,7 @@ export default function Home() {
     ports: false,
     shippingDensity: false,
     vessels: false,
+    aircraft: false,
     railroads: false,
     airports: false,
   });
@@ -214,6 +217,7 @@ export default function Home() {
   const [showDataSources, setShowDataSources] = useState(false);
   const [vessels, setVessels] = useState<VesselPosition[]>([]);
   const [vesselMode, setVesselMode] = useState<"live" | "simulation">("simulation");
+  const [aircraftList, setAircraftList] = useState<AircraftPosition[]>([]);
   const [commodityFlows, setCommodityFlows] = useState<CommodityFlowEdge[]>([]);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
@@ -222,7 +226,7 @@ export default function Home() {
 
   // ─── WebSocket live feed ───
   const { connectionState, events: liveEvents, clientId, clearEvents } = useWebSocket({
-    channels: ["ports", "alerts", "geopolitical", "vessels"],
+    channels: ["ports", "alerts", "geopolitical", "vessels", "aircraft"],
     enabled: true,
   });
 
@@ -233,6 +237,16 @@ export default function Home() {
     );
     if (vesselEvent && Array.isArray(vesselEvent.vessels)) {
       setVessels(vesselEvent.vessels as VesselPosition[]);
+    }
+  }, [liveEvents]);
+
+  // Update aircraft positions from WebSocket broadcasts
+  useEffect(() => {
+    const aircraftEvent = liveEvents.find(
+      (e) => e.type === "aircraft" && e.event === "aircraft_positions"
+    );
+    if (aircraftEvent && Array.isArray(aircraftEvent.aircraft)) {
+      setAircraftList(aircraftEvent.aircraft as AircraftPosition[]);
     }
   }, [liveEvents]);
 
@@ -271,6 +285,9 @@ export default function Home() {
         fetchVessels().then((snap) => {
           setVessels(snap.vessels);
           setVesselMode(snap.mode);
+        }).catch(() => {});
+        fetchAircraft().then((snap) => {
+          setAircraftList(snap.aircraft);
         }).catch(() => {});
 
         if (countriesData.length > 0) setCountries(countriesData);
@@ -322,6 +339,7 @@ export default function Home() {
         conflictZones={showGeopolitical ? conflictZones : []}
         commodityFlows={commodityFlows}
         vessels={vessels}
+        aircraftList={aircraftList}
         airports={airportsData}
         layers={layers}
         indicator={indicator}
