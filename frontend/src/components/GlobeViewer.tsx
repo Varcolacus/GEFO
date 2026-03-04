@@ -17,7 +17,6 @@ import {
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
   ColorMaterialProperty,
-  CallbackProperty,
   VerticalOrigin,
   HorizontalOrigin,
   LabelStyle,
@@ -843,8 +842,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const sLat = selectedCountryData?.centroid_lat || 0;
     const sLon = selectedCountryData?.centroid_lon || 0;
 
-    // ── Helper: add animated arc (missile-style: launches from origin, flies to destination) ──
-    const addAnimatedArc = (
+    // ── Helper: add static arc curve ──
+    const addArc = (
       arcCartesian: InstanceType<typeof Cartesian3>[],
       opts: {
         name: string;
@@ -853,80 +852,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         particleHeadColor: InstanceType<typeof Color>;
         trailWidth: number;
         particleWidth: number;
-        speed: number;         // ms for full flight (lower = faster)
+        speed: number;
         stagger: number;
         description: string;
-        particleFrac?: number; // fraction of arc for exhaust trail length
+        particleFrac?: number;
       }
     ) => {
-      const totalPts = arcCartesian.length;
-      const tailFrac = opts.particleFrac ?? 0.66;
-      const tailLen = Math.max(4, Math.floor(totalPts * tailFrac));
-
-      // 1) Exhaust trail — fading line behind the missile head
-      //    Shows from arc start up to current head position, but only the last tailLen points
-      const trailScratch = new Color();
       viewer.entities.add({
-        name: `${opts.name}_trail`,
+        name: opts.name,
         polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
-            // Linear motion — missile flies start to end
-            const headIdx = Math.floor(t * (totalPts - 1));
-            const trailStart = Math.max(0, headIdx - tailLen);
-            return arcCartesian.slice(trailStart, headIdx + 1);
-          }, false),
-          width: opts.trailWidth,
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
-              // Trail fades in as missile progresses, dims near restart
-              const fadeIn = Math.min(1, t * 4); // quickly appears
-              const fadeOut = t > 0.85 ? 1 - (t - 0.85) / 0.15 : 1; // fades before restart
-              const alpha = opts.trailColor.alpha * fadeIn * fadeOut;
-              return new Color(opts.trailColor.red, opts.trailColor.green, opts.trailColor.blue, alpha);
-            }, false)
-          ),
+          positions: arcCartesian,
+          width: opts.particleWidth,
+          material: new ColorMaterialProperty(opts.particleColor),
           arcType: ArcType.NONE,
         },
         description: opts.description,
-      });
-
-      // 2) Bright missile head — small bright segment at the leading edge
-      const headLen = Math.max(3, Math.floor(totalPts * 0.06));
-      const headScratch = new Color();
-      viewer.entities.add({
-        name: `${opts.name}_head`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
-            const headIdx = Math.floor(t * (totalPts - 1));
-            const segStart = Math.max(0, headIdx - headLen);
-            return arcCartesian.slice(segStart, headIdx + 1);
-          }, false),
-          width: new CallbackProperty(() => {
-            const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
-            // Fade out width near restart to avoid pop
-            const fadeOut = t > 0.9 ? 1 - (t - 0.9) / 0.1 : 1;
-            return opts.particleWidth * 1.2 * fadeOut;
-          }, false),
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
-              // Bright head, fades at start and end
-              const fadeIn = Math.min(1, t * 5);
-              const fadeOut = t > 0.85 ? 1 - (t - 0.85) / 0.15 : 1;
-              const intensity = fadeIn * fadeOut;
-              return Color.lerp(
-                opts.particleColor,
-                opts.particleHeadColor,
-                intensity * 0.8,
-                headScratch
-              );
-            }, false)
-          ),
-          arcType: ArcType.NONE,
-        },
       });
     };
 
@@ -967,7 +907,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         const wTrail = 0.15 + logAbsVal * 0.08;
         const wParticle = 0.3 + logAbsVal * 0.18;
 
-        addAnimatedArc(arcCartesian, {
+        addArc(arcCartesian, {
           name: `flow_balance_${index}`,
           trailColor,
           particleColor,
@@ -1012,7 +952,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         const wTrail = 0.15 + logAbsVal * 0.08;
         const wParticle = 0.3 + logAbsVal * 0.2;
 
-        addAnimatedArc(arcCartesian, {
+        addArc(arcCartesian, {
           name: `flow_volume_${index}`,
           trailColor,
           particleColor,
@@ -1096,7 +1036,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const wTrail = 0.1 + logAbsVal * 0.07;
       const wParticle = 0.2 + logAbsVal * 0.15;
 
-      addAnimatedArc(arcCartesian, {
+      addArc(arcCartesian, {
         name: `flow_body_${index}`,
         trailColor,
         particleColor,
