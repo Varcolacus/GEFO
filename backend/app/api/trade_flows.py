@@ -63,10 +63,35 @@ def get_trade_flows(
     return results
 
 
+@router.get("/stats")
+def get_trade_flow_stats(
+    year: int = Query(..., description="Year"),
+    db: Session = Depends(get_db),
+):
+    """Get total count and value of trade flows for a year."""
+    result = (
+        db.query(
+            func.count(TradeFlow.id),
+            func.sum(TradeFlow.trade_value_usd),
+            func.count(func.distinct(TradeFlow.exporter_iso)),
+            func.count(func.distinct(TradeFlow.importer_iso)),
+        )
+        .filter(TradeFlow.year == year)
+        .first()
+    )
+    return {
+        "total_flows": result[0] or 0,
+        "total_value_usd": result[1] or 0,
+        "exporter_countries": result[2] or 0,
+        "importer_countries": result[3] or 0,
+        "year": year,
+    }
+
+
 @router.get("/aggregated", response_model=List[TradeFlowAggregated])
 def get_aggregated_trade_flows(
     year: int = Query(..., description="Year"),
-    top_n: int = Query(100, le=10000, description="Top N flows by value"),
+    top_n: int = Query(2000, le=25000, description="Top N flows by value"),
     db: Session = Depends(get_db),
 ):
     """Get aggregated bilateral trade flows (for globe visualization)."""

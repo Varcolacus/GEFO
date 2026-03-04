@@ -25,6 +25,7 @@ import type { GlobeViewerHandle } from "@/components/GlobeViewer";
 import {
   fetchCountries,
   fetchTradeFlows,
+  fetchTradeFlowStats,
   fetchPorts,
   fetchShippingDensity,
   fetchConflictZones,
@@ -32,6 +33,7 @@ import {
   fetchAirports,
   type CountryMacro,
   type TradeFlowAggregated,
+  type TradeFlowStats,
   type PortData,
   type AirportData,
   type ShippingDensityPoint,
@@ -184,6 +186,7 @@ export default function Home() {
 
   const [countries, setCountries] = useState<CountryMacro[]>(DEMO_COUNTRIES);
   const [tradeFlows, setTradeFlows] = useState<TradeFlowAggregated[]>(DEMO_TRADE_FLOWS);
+  const [tradeFlowStats, setTradeFlowStats] = useState<TradeFlowStats | null>(null);
   const [ports, setPorts] = useState<PortData[]>(DEMO_PORTS);
   const [airportsData, setAirportsData] = useState<AirportData[]>([]);
   const [shippingDensity, setShippingDensity] = useState<ShippingDensityPoint[]>(DEMO_SHIPPING);
@@ -248,11 +251,12 @@ export default function Home() {
     async function loadLiveData() {
       setIsLoadingYear(true);
       try {
-        const [countriesData, flowsData, portsData, densityData] = await Promise.all([
+        const [countriesData, flowsData, portsData, densityData, statsData] = await Promise.all([
           fetchCountries(),
           fetchTradeFlows(year),
           fetchPorts(),
           fetchShippingDensity(year),
+          fetchTradeFlowStats(year),
         ]);
 
         // Fetch airports and conflict zones separately (non-blocking)
@@ -265,6 +269,7 @@ export default function Home() {
 
         if (countriesData.length > 0) setCountries(countriesData);
         setTradeFlows(flowsData); // Always update — empty array clears stale year data
+        if (statsData) setTradeFlowStats(statsData);
         if (portsData.length > 0) setPorts(portsData);
         if (densityData.data.length > 0) setShippingDensity(densityData.data);
         setDataSource("live");
@@ -515,12 +520,12 @@ export default function Home() {
           <span className="text-gray-400">Countries</span>
           <span className="text-right font-medium">{countries.length}</span>
           <span className="text-gray-400">Trade Flows</span>
-          <span className="text-right font-medium">{tradeFlows.length}</span>
+          <span className="text-right font-medium">{tradeFlowStats ? tradeFlowStats.total_flows.toLocaleString() : tradeFlows.length}</span>
           <span className="text-gray-400">Ports</span>
           <span className="text-right font-medium">{ports.length}</span>
           <span className="text-gray-400">Total Trade</span>
           <span className="text-right font-medium text-cyan-400">
-            ${(tradeFlows.reduce((s, f) => s + f.total_value_usd, 0) / 1e12).toFixed(1)}T
+            ${tradeFlowStats ? (tradeFlowStats.total_value_usd / 1e12).toFixed(1) : (tradeFlows.reduce((s, f) => s + f.total_value_usd, 0) / 1e12).toFixed(1)}T
           </span>
           <span className="text-gray-400">Vessels</span>
           <span className="text-right font-medium text-sky-400">

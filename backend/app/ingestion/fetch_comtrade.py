@@ -85,16 +85,17 @@ def fetch_reporter_exports(reporter_m49: int, year: int, subscription_key: str |
                         includeDesc=True
                     )
 
-            # Check if the library printed rate limit messages to stdout
-            # The comtradeapicall library prints JSON error to stdout
+            # Check stderr for rate‑limit / 403 signals
+            stderr_text = stderr_capture.getvalue()
+            rate_limited = any(kw in stderr_text.lower() for kw in ("403", "quota", "rate", "too many"))
+
             if df is None or (hasattr(df, 'empty') and df.empty):
-                # Could be rate limited or no data — check if we should retry
-                if attempt < max_retries - 1:
-                    # Parse wait time from "Quota will be replenished in HH:MM:SS"
-                    wait = min(60 * (attempt + 1), 900)  # exponential up to 15 min
-                    log.warning(f"  Empty response (attempt {attempt+1}), waiting {wait}s...")
+                if rate_limited and attempt < max_retries - 1:
+                    wait = min(60 * (attempt + 1), 900)
+                    log.warning(f"  Rate-limited (attempt {attempt+1}), waiting {wait}s...")
                     time.sleep(wait)
                     continue
+                # Not rate-limited — just no data for this reporter
                 return None
 
             return df

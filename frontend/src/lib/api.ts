@@ -142,10 +142,27 @@ export async function fetchCountriesGeoJSON(
 
 export async function fetchTradeFlows(
   year: number,
-  topN: number = 500
+  topN: number = 2000
 ): Promise<TradeFlowAggregated[]> {
   const response = await api.get("/api/trade_flows/aggregated", {
     params: { year, top_n: topN },
+  });
+  return response.data;
+}
+
+export interface TradeFlowStats {
+  total_flows: number;
+  total_value_usd: number;
+  exporter_countries: number;
+  importer_countries: number;
+  year: number;
+}
+
+export async function fetchTradeFlowStats(
+  year: number
+): Promise<TradeFlowStats> {
+  const response = await api.get("/api/trade_flows/stats", {
+    params: { year },
   });
   return response.data;
 }
