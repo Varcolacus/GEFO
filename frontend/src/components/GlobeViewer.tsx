@@ -894,16 +894,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         const expB = (entry.exportVal / 1e9).toFixed(2);
         const impB = (entry.importVal / 1e9).toFixed(2);
 
+        // Width from absolute log of value: log10(1+val) maps ~$1M→6, ~$1B→9, ~$100B→11
+        const logAbsVal = Math.log10(1 + Math.abs(entry.net));
+        const wTrail = 0.15 + logAbsVal * 0.08;
+        const wParticle = 0.3 + logAbsVal * 0.18;
+
         addAnimatedArc(arcCartesian, {
           name: `flow_balance_${index}`,
           trailColor,
           particleColor,
           particleHeadColor: headColor,
-          trailWidth: 0.5 + logNorm * 1.5,
-          particleWidth: 1.5 + logNorm * 3.5,
+          trailWidth: wTrail,
+          particleWidth: wParticle,
           speed,
           stagger: index * 731,
-          particleFrac: 0.2 + logNorm * 0.1,
+          particleFrac: 0.35 + logNorm * 0.15,
           description: `
             <h3>Trade Balance: ${iso} ↔ ${entry.partner}</h3>
             <p>${isSurplus ? "🟢 Surplus" : "🔴 Deficit"}: $${netB}B</p>
@@ -934,16 +939,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         );
         const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
 
+        // Width from absolute log of value
+        const logAbsVal = Math.log10(1 + entry.total);
+        const wTrail = 0.15 + logAbsVal * 0.08;
+        const wParticle = 0.3 + logAbsVal * 0.2;
+
         addAnimatedArc(arcCartesian, {
           name: `flow_volume_${index}`,
           trailColor,
           particleColor,
           particleHeadColor: headColor,
-          trailWidth: 0.5 + logNorm * 2,
-          particleWidth: 1.5 + logNorm * 4,
+          trailWidth: wTrail,
+          particleWidth: wParticle,
           speed,
           stagger: index * 731,
-          particleFrac: 0.2 + logNorm * 0.1,
+          particleFrac: 0.35 + logNorm * 0.15,
           description: `
             <h3>Trade Volume: ${iso} ↔ ${entry.partner}</h3>
             <p>Total: $${(entry.total / 1e9).toFixed(2)}B</p>
@@ -1013,16 +1023,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             : "Import"
           : "Trade Flow";
 
+      // Width from absolute log of value: log10(1+val) maps ~$1M→6, ~$1B→9, ~$100B→11
+      const logAbsVal = Math.log10(1 + flow.total_value_usd);
+      const wTrail = 0.1 + logAbsVal * 0.07;
+      const wParticle = 0.2 + logAbsVal * 0.15;
+
       addAnimatedArc(arcCartesian, {
         name: `flow_body_${index}`,
         trailColor,
         particleColor,
         particleHeadColor: headColor,
-        trailWidth: isCountryMode ? 0.3 + logNorm * 1.2 : 0.2 + logNorm * 1,
-        particleWidth: isCountryMode ? 1 + logNorm * 3.5 : 0.8 + logNorm * 2.5,
+        trailWidth: wTrail,
+        particleWidth: wParticle,
         speed,
         stagger: index * 731,
-        particleFrac: 0.2 + logNorm * 0.1,
+        particleFrac: 0.35 + logNorm * 0.15,
         description: `
           <h3>${modeLabel}</h3>
           <p>${flow.exporter_iso} → ${flow.importer_iso}</p>
