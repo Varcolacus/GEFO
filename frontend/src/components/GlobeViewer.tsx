@@ -902,17 +902,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         const expB = (entry.exportVal / 1e9).toFixed(2);
         const impB = (entry.importVal / 1e9).toFixed(2);
 
-        // Width from absolute log of value: log10(1+val) maps ~$1M→6, ~$1B→9, ~$100B→11
-        const logAbsVal = Math.log10(1 + Math.abs(entry.net));
-        const wTrail = 0.15 + logAbsVal * 0.08;
-        const wParticle = 0.3 + logAbsVal * 0.18;
+        // Width from log-normalized value: thin for small, thick for large
+        const wParticle = 1 + logNorm * 5;
 
         addArc(arcCartesian, {
           name: `flow_balance_${index}`,
           trailColor,
           particleColor,
           particleHeadColor: headColor,
-          trailWidth: wTrail,
+          trailWidth: wParticle * 0.5,
           particleWidth: wParticle,
           speed,
           stagger: index * 731,
@@ -947,17 +945,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         );
         const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
 
-        // Width from absolute log of value
-        const logAbsVal = Math.log10(1 + entry.total);
-        const wTrail = 0.15 + logAbsVal * 0.08;
-        const wParticle = 0.3 + logAbsVal * 0.2;
+        // Width from log-normalized value: thin for small, thick for large
+        const wParticle = 1 + logNorm * 5;
 
         addArc(arcCartesian, {
           name: `flow_volume_${index}`,
           trailColor,
           particleColor,
           particleHeadColor: headColor,
-          trailWidth: wTrail,
+          trailWidth: wParticle * 0.5,
           particleWidth: wParticle,
           speed,
           stagger: index * 731,
@@ -1031,17 +1027,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             : "Import"
           : "Trade Flow";
 
-      // Width from absolute log of value: log10(1+val) maps ~$1M→6, ~$1B→9, ~$100B→11
-      const logAbsVal = Math.log10(1 + flow.total_value_usd);
-      const wTrail = 0.1 + logAbsVal * 0.07;
-      const wParticle = 0.2 + logAbsVal * 0.15;
+      // Width from log-normalized value: thin for small, thick for large
+      const wParticle = 1 + logNorm * 5;
 
       addArc(arcCartesian, {
         name: `flow_body_${index}`,
         trailColor,
         particleColor,
         particleHeadColor: headColor,
-        trailWidth: wTrail,
+        trailWidth: wParticle * 0.5,
         particleWidth: wParticle,
         speed,
         stagger: index * 731,
