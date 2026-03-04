@@ -248,6 +248,22 @@ export async function fetchTradeFlowStats(
   return response.data;
 }
 
+export interface YearAvailability {
+  year: number;
+  flow_count: number;
+}
+
+export interface YearRangeInfo {
+  years: YearAvailability[];
+  min_year: number;
+  max_year: number;
+}
+
+export async function fetchAvailableYears(): Promise<YearRangeInfo> {
+  const response = await api.get("/api/trade_flows/years");
+  return response.data;
+}
+
 export async function fetchPorts(
   country?: string
 ): Promise<PortData[]> {

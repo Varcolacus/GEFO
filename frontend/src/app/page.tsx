@@ -27,6 +27,7 @@ import {
   fetchCountries,
   fetchTradeFlows,
   fetchTradeFlowStats,
+  fetchAvailableYears,
   fetchPorts,
   fetchShippingDensity,
   fetchConflictZones,
@@ -35,6 +36,7 @@ import {
   type CountryMacro,
   type TradeFlowAggregated,
   type TradeFlowStats,
+  type YearRangeInfo,
   type PortData,
   type AirportData,
   type ShippingDensityPoint,
@@ -185,6 +187,7 @@ export default function Home() {
   const [indicator, setIndicator] = useState("gdp");
   const [tradeMode, setTradeMode] = useState<TradeMode>("all");
   const [year, setYear] = useState(2023);
+  const [yearRange, setYearRange] = useState<YearRangeInfo | null>(null);
 
   const [countries, setCountries] = useState<CountryMacro[]>(DEMO_COUNTRIES);
   const [tradeFlows, setTradeFlows] = useState<TradeFlowAggregated[]>(DEMO_TRADE_FLOWS);
@@ -253,12 +256,13 @@ export default function Home() {
     async function loadLiveData() {
       setIsLoadingYear(true);
       try {
-        const [countriesData, flowsData, portsData, densityData, statsData] = await Promise.all([
+        const [countriesData, flowsData, portsData, densityData, statsData, yearsData] = await Promise.all([
           fetchCountries(),
           fetchTradeFlows(year),
           fetchPorts(),
           fetchShippingDensity(year),
           fetchTradeFlowStats(year),
+          fetchAvailableYears().catch(() => null),
         ]);
 
         // Fetch airports and conflict zones separately (non-blocking)
@@ -274,6 +278,7 @@ export default function Home() {
         if (statsData) setTradeFlowStats(statsData);
         if (portsData.length > 0) setPorts(portsData);
         if (densityData.data.length > 0) setShippingDensity(densityData.data);
+        if (yearsData) setYearRange(yearsData);
         setDataSource("live");
       } catch {
         console.log("Backend not available, using demo data");
@@ -508,7 +513,9 @@ export default function Home() {
       <TimeSlider
         year={year}
         onYearChange={setYear}
-        availableYears={[2018, 2019, 2020, 2023]}
+        minYear={yearRange?.min_year ?? 2023}
+        maxYear={yearRange?.max_year ?? 2023}
+        availableYears={yearRange?.years.map((y) => y.year)}
         isLoading={isLoadingYear}
       />
 

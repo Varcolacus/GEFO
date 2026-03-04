@@ -14,6 +14,21 @@ from app.schemas.schemas import TradeFlowResponse, TradeFlowAggregated
 router = APIRouter(prefix="/api/trade_flows", tags=["Trade Flows"])
 
 
+@router.get("/years")
+def get_available_years(db: Session = Depends(get_db)):
+    """Return available years with flow counts, ordered ascending."""
+    rows = (
+        db.query(TradeFlow.year, func.count(TradeFlow.id))
+        .group_by(TradeFlow.year)
+        .order_by(TradeFlow.year)
+        .all()
+    )
+    years = [{"year": y, "flow_count": c} for y, c in rows]
+    min_year = years[0]["year"] if years else 2023
+    max_year = years[-1]["year"] if years else 2023
+    return {"years": years, "min_year": min_year, "max_year": max_year}
+
+
 @router.get("/", response_model=List[TradeFlowResponse])
 def get_trade_flows(
     year: int = Query(..., description="Year of trade data"),

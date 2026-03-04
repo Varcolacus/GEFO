@@ -116,10 +116,10 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch UN Comtrade bilateral trade data")
     parser.add_argument("--years", default="2018,2019,2020,2021,2022,2023",
                         help="Comma-separated years to fetch")
-    parser.add_argument("--keep-synthetic", action="store_true",
-                        help="Keep existing synthetic data (add real data on top)")
+    parser.add_argument("--clean", action="store_true",
+                        help="Clear ALL existing aggregate trade flows before importing")
     parser.add_argument("--skip-existing", action="store_true",
-                        help="Skip years that already have data in the DB")
+                        help="Skip years that already have >1000 flows in the DB")
     args = parser.parse_args()
 
     years = [int(y.strip()) for y in args.years.split(",")]
@@ -157,8 +157,7 @@ def main():
 
         log.info(f"Matched {len(reporter_list)} Comtrade reporters to our DB countries")
 
-        if not args.keep_synthetic:
-            # Clear existing synthetic trade flows (commodity_code IS NULL = aggregate flows)
+        if args.clean:
             deleted = db.query(TradeFlow).filter(TradeFlow.commodity_code.is_(None)).delete()
             db.commit()
             log.info(f"Cleared {deleted} existing aggregate trade flows")
@@ -180,6 +179,15 @@ def main():
                 if existing and existing > 1000:
                     log.info(f"  Skipping — already has {existing:,} flows")
                     continue
+
+            # Clear any existing aggregate flows for this year (avoid duplicates)
+            deleted = db.query(TradeFlow).filter(
+                TradeFlow.year == year,
+                TradeFlow.commodity_code.is_(None),
+            ).delete()
+            if deleted:
+                db.commit()
+                log.info(f"  Cleared {deleted} existing flows for {year}")
 
             year_total = 0
             year_skipped = 0
