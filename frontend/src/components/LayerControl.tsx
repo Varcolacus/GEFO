@@ -21,13 +21,130 @@ interface LayerControlProps {
   onTradeModeChange?: (mode: TradeMode) => void;
 }
 
-const INDICATORS = [
-  { value: "gdp", label: "GDP" },
-  { value: "trade_balance", label: "Trade Balance" },
-  { value: "current_account", label: "Current Account" },
-  { value: "export_value", label: "Export Intensity" },
-  { value: "trade_openness", label: "Trade Openness" },
-  { value: "import_dependency", label: "Import Dependency" },
+const INDICATOR_GROUPS = [
+  {
+    group: "Macro",
+    items: [
+      { value: "gdp", label: "GDP (US$)" },
+      { value: "gdp_per_capita", label: "GDP per Capita" },
+      { value: "gdp_growth", label: "GDP Growth %" },
+      { value: "gdp_per_capita_ppp", label: "GDP/Capita PPP" },
+      { value: "gni", label: "GNI (US$)" },
+      { value: "inflation_cpi", label: "Inflation (CPI %)" },
+    ],
+  },
+  {
+    group: "Trade",
+    items: [
+      { value: "trade_balance", label: "Trade Balance" },
+      { value: "current_account", label: "Current Account" },
+      { value: "export_value", label: "Exports (US$)" },
+      { value: "import_value", label: "Imports (US$)" },
+      { value: "trade_pct_gdp", label: "Trade % of GDP" },
+      { value: "trade_openness", label: "Trade Openness" },
+      { value: "import_dependency", label: "Import Dependency" },
+      { value: "external_balance_pct_gdp", label: "Ext. Balance % GDP" },
+      { value: "high_tech_exports_pct", label: "High-Tech Exports %" },
+      { value: "merch_exports", label: "Merch. Exports (US$)" },
+      { value: "merch_imports", label: "Merch. Imports (US$)" },
+    ],
+  },
+  {
+    group: "Investment & Finance",
+    items: [
+      { value: "fdi_inflows_pct_gdp", label: "FDI Inflows % GDP" },
+      { value: "fdi_inflows_usd", label: "FDI Inflows (US$)" },
+      { value: "gross_capital_formation_pct", label: "Capital Formation %" },
+      { value: "gross_savings_pct", label: "Savings % GDP" },
+      { value: "total_reserves_usd", label: "Reserves incl Gold" },
+      { value: "external_debt_pct_gni", label: "Ext. Debt % GNI" },
+      { value: "external_debt_usd", label: "Ext. Debt (US$)" },
+      { value: "remittances_usd", label: "Remittances (US$)" },
+      { value: "broad_money_pct_gdp", label: "Broad Money % GDP" },
+      { value: "domestic_credit_pct_gdp", label: "Dom. Credit % GDP" },
+    ],
+  },
+  {
+    group: "Fiscal",
+    items: [
+      { value: "govt_revenue_pct_gdp", label: "Revenue % GDP" },
+      { value: "govt_expense_pct_gdp", label: "Expense % GDP" },
+      { value: "govt_debt_pct_gdp", label: "Govt Debt % GDP" },
+    ],
+  },
+  {
+    group: "Demographics & Labor",
+    items: [
+      { value: "population", label: "Population" },
+      { value: "urban_population_pct", label: "Urban Pop. %" },
+      { value: "unemployment_pct", label: "Unemployment %" },
+      { value: "labor_force_participation_pct", label: "Labor Participation %" },
+      { value: "life_expectancy", label: "Life Expectancy" },
+      { value: "gini_index", label: "GINI Index" },
+      { value: "poverty_headcount_pct", label: "Poverty < $2.15/day %" },
+      { value: "education_expenditure_pct_gdp", label: "Education Spend % GDP" },
+    ],
+  },
+  {
+    group: "Energy & Environment",
+    items: [
+      { value: "energy_use_per_capita", label: "Energy Use/Capita" },
+      { value: "electricity_access_pct", label: "Electricity Access %" },
+      { value: "co2_per_capita", label: "CO₂/Capita (tons)" },
+      { value: "renewable_energy_pct", label: "Renewable Energy %" },
+      { value: "electric_power_consumption", label: "Power Consump. kWh" },
+    ],
+  },
+  {
+    group: "Military & Governance",
+    items: [
+      { value: "military_expenditure_pct_gdp", label: "Military % GDP" },
+      { value: "military_expenditure_usd", label: "Military Spend (US$)" },
+      { value: "control_corruption", label: "Control of Corruption" },
+      { value: "govt_effectiveness", label: "Govt Effectiveness" },
+      { value: "regulatory_quality", label: "Regulatory Quality" },
+      { value: "rule_of_law", label: "Rule of Law" },
+      { value: "political_stability", label: "Political Stability" },
+      { value: "voice_accountability", label: "Voice & Accountability" },
+    ],
+  },
+  {
+    group: "Technology",
+    items: [
+      { value: "internet_users_pct", label: "Internet Users %" },
+      { value: "mobile_subscriptions_per100", label: "Mobile Subs /100" },
+      { value: "rd_expenditure_pct_gdp", label: "R&D Spend % GDP" },
+      { value: "patent_applications", label: "Patent Applications" },
+    ],
+  },
+  {
+    group: "Natural Resources",
+    items: [
+      { value: "natural_resource_rents_pct", label: "Resource Rents % GDP" },
+      { value: "oil_rents_pct", label: "Oil Rents % GDP" },
+      { value: "gas_rents_pct", label: "Gas Rents % GDP" },
+      { value: "mineral_rents_pct", label: "Mineral Rents % GDP" },
+      { value: "coal_rents_pct", label: "Coal Rents % GDP" },
+      { value: "forest_rents_pct", label: "Forest Rents % GDP" },
+    ],
+  },
+  {
+    group: "Economic Structure",
+    items: [
+      { value: "agriculture_pct_gdp", label: "Agriculture % GDP" },
+      { value: "industry_pct_gdp", label: "Industry % GDP" },
+      { value: "services_pct_gdp", label: "Services % GDP" },
+      { value: "arable_land_pct", label: "Arable Land %" },
+    ],
+  },
+  {
+    group: "Misc",
+    items: [
+      { value: "exchange_rate", label: "Exchange Rate (LCU/$)" },
+      { value: "tariff_rate_weighted", label: "Tariff Weighted %" },
+      { value: "tariff_rate_simple", label: "Tariff Simple %" },
+    ],
+  },
 ];
 
 
@@ -178,10 +295,14 @@ export default function LayerControl({
             onChange={(e) => onIndicatorChange(e.target.value)}
             className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
-            {INDICATORS.map((ind) => (
-              <option key={ind.value} value={ind.value}>
-                {ind.label}
-              </option>
+            {INDICATOR_GROUPS.map((g) => (
+              <optgroup key={g.group} label={g.group}>
+                {g.items.map((ind) => (
+                  <option key={ind.value} value={ind.value}>
+                    {ind.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

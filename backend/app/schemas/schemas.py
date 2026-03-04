@@ -12,15 +12,96 @@ class CountryBase(BaseModel):
 
 
 class CountryMacro(CountryBase):
-    gdp: Optional[float] = None
-    gdp_per_capita: Optional[float] = None
-    trade_balance: Optional[float] = None
-    current_account: Optional[float] = None
-    export_value: Optional[float] = None
-    import_value: Optional[float] = None
-    population: Optional[float] = None
     centroid_lat: Optional[float] = None
     centroid_lon: Optional[float] = None
+
+    # Macro
+    gdp: Optional[float] = None
+    gdp_per_capita: Optional[float] = None
+    gdp_growth: Optional[float] = None
+    gdp_per_capita_ppp: Optional[float] = None
+    gni: Optional[float] = None
+    inflation_cpi: Optional[float] = None
+
+    # Trade
+    export_value: Optional[float] = None
+    import_value: Optional[float] = None
+    trade_balance: Optional[float] = None
+    current_account: Optional[float] = None
+    trade_pct_gdp: Optional[float] = None
+    external_balance_pct_gdp: Optional[float] = None
+    high_tech_exports_pct: Optional[float] = None
+    merch_exports: Optional[float] = None
+    merch_imports: Optional[float] = None
+
+    # Investment & Finance
+    fdi_inflows_pct_gdp: Optional[float] = None
+    fdi_inflows_usd: Optional[float] = None
+    gross_capital_formation_pct: Optional[float] = None
+    gross_savings_pct: Optional[float] = None
+    total_reserves_usd: Optional[float] = None
+    external_debt_pct_gni: Optional[float] = None
+    external_debt_usd: Optional[float] = None
+    remittances_usd: Optional[float] = None
+    broad_money_pct_gdp: Optional[float] = None
+    domestic_credit_pct_gdp: Optional[float] = None
+
+    # Fiscal
+    govt_revenue_pct_gdp: Optional[float] = None
+    govt_expense_pct_gdp: Optional[float] = None
+    govt_debt_pct_gdp: Optional[float] = None
+
+    # Demographics & Labor
+    population: Optional[float] = None
+    urban_population_pct: Optional[float] = None
+    unemployment_pct: Optional[float] = None
+    labor_force_participation_pct: Optional[float] = None
+    life_expectancy: Optional[float] = None
+    gini_index: Optional[float] = None
+    poverty_headcount_pct: Optional[float] = None
+    education_expenditure_pct_gdp: Optional[float] = None
+
+    # Energy & Environment
+    energy_use_per_capita: Optional[float] = None
+    electricity_access_pct: Optional[float] = None
+    co2_per_capita: Optional[float] = None
+    renewable_energy_pct: Optional[float] = None
+    electric_power_consumption: Optional[float] = None
+
+    # Military & Governance
+    military_expenditure_pct_gdp: Optional[float] = None
+    military_expenditure_usd: Optional[float] = None
+    control_corruption: Optional[float] = None
+    govt_effectiveness: Optional[float] = None
+    regulatory_quality: Optional[float] = None
+    rule_of_law: Optional[float] = None
+    political_stability: Optional[float] = None
+    voice_accountability: Optional[float] = None
+
+    # Technology
+    internet_users_pct: Optional[float] = None
+    mobile_subscriptions_per100: Optional[float] = None
+    rd_expenditure_pct_gdp: Optional[float] = None
+    patent_applications: Optional[float] = None
+
+    # Natural Resources
+    natural_resource_rents_pct: Optional[float] = None
+    oil_rents_pct: Optional[float] = None
+    gas_rents_pct: Optional[float] = None
+    mineral_rents_pct: Optional[float] = None
+    coal_rents_pct: Optional[float] = None
+    forest_rents_pct: Optional[float] = None
+
+    # Economic Structure
+    agriculture_pct_gdp: Optional[float] = None
+    industry_pct_gdp: Optional[float] = None
+    services_pct_gdp: Optional[float] = None
+    arable_land_pct: Optional[float] = None
+
+    # Misc
+    exchange_rate: Optional[float] = None
+    tariff_rate_weighted: Optional[float] = None
+    tariff_rate_simple: Optional[float] = None
 
     class Config:
         from_attributes = True

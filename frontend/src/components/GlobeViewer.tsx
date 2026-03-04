@@ -529,24 +529,57 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!layers.countries || countries.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // Calculate value range for color mapping
+
+    // Indicators that are percentages or indices (not USD)
+    const PCT_INDICATORS = new Set([
+      "gdp_growth", "inflation_cpi", "trade_pct_gdp", "external_balance_pct_gdp",
+      "high_tech_exports_pct", "fdi_inflows_pct_gdp", "gross_capital_formation_pct",
+      "gross_savings_pct", "external_debt_pct_gni", "broad_money_pct_gdp",
+      "domestic_credit_pct_gdp", "govt_revenue_pct_gdp", "govt_expense_pct_gdp",
+      "govt_debt_pct_gdp", "urban_population_pct", "unemployment_pct",
+      "labor_force_participation_pct", "poverty_headcount_pct",
+      "education_expenditure_pct_gdp", "electricity_access_pct",
+      "renewable_energy_pct", "military_expenditure_pct_gdp",
+      "internet_users_pct", "rd_expenditure_pct_gdp",
+      "natural_resource_rents_pct", "oil_rents_pct", "gas_rents_pct",
+      "mineral_rents_pct", "coal_rents_pct", "forest_rents_pct",
+      "agriculture_pct_gdp", "industry_pct_gdp", "services_pct_gdp",
+      "arable_land_pct", "tariff_rate_weighted", "tariff_rate_simple",
+      "trade_openness", "import_dependency",
+    ]);
+
+    // Indicators that can be negative (diverging color scale)
+    const DIVERGING_INDICATORS = new Set([
+      "trade_balance", "current_account", "external_balance_pct_gdp",
+      "gdp_growth", "inflation_cpi",
+      "control_corruption", "govt_effectiveness", "regulatory_quality",
+      "rule_of_law", "political_stability", "voice_accountability",
+    ]);
+
+    // Plain-number indicators (no $ or %)
+    const PLAIN_INDICATORS = new Set([
+      "population", "life_expectancy", "gini_index", "energy_use_per_capita",
+      "co2_per_capita", "electric_power_consumption", "mobile_subscriptions_per100",
+      "patent_applications", "exchange_rate",
+      "control_corruption", "govt_effectiveness", "regulatory_quality",
+      "rule_of_law", "political_stability", "voice_accountability",
+    ]);
+
     const computeValue = (c: CountryMacro): number | null | undefined => {
-      switch (indicator) {
-        case "gdp": return c.gdp;
-        case "trade_balance": return c.trade_balance;
-        case "current_account": return c.current_account;
-        case "export_value": return c.export_value;
-        case "trade_openness": {
-          if (c.gdp && c.export_value != null && c.import_value != null && c.gdp > 0)
-            return ((c.export_value + c.import_value) / c.gdp) * 100;
-          return null;
-        }
-        case "import_dependency": {
-          if (c.gdp && c.import_value != null && c.gdp > 0)
-            return (c.import_value / c.gdp) * 100;
-          return null;
-        }
-        default: return c.gdp;
+      // Computed indicators
+      if (indicator === "trade_openness") {
+        if (c.gdp && c.export_value != null && c.import_value != null && c.gdp > 0)
+          return ((c.export_value + c.import_value) / c.gdp) * 100;
+        return null;
       }
+      if (indicator === "import_dependency") {
+        if (c.gdp && c.import_value != null && c.gdp > 0)
+          return (c.import_value / c.gdp) * 100;
+        return null;
+      }
+      // Direct field lookup
+      const val = (c as unknown as Record<string, unknown>)[indicator];
+      return typeof val === "number" ? val : null;
     };
 
     const values = countries
@@ -564,7 +597,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       if (rawValue == null) return;
 
       // Normalize to 0-1
-      const isDiverging = indicator === "trade_balance" || indicator === "current_account";
+      const isDiverging = DIVERGING_INDICATORS.has(indicator);
       let normalized: number;
       if (isDiverging) {
         // Diverging: red for negative, green for positive
@@ -591,8 +624,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const extrudeHeight = 80000 + normalized * 2500000; // tall 3D column (up to ~2.5M meters)
 
       const formattedValue =
-        indicator === "trade_openness" || indicator === "import_dependency"
+        PCT_INDICATORS.has(indicator)
           ? `${rawValue.toFixed(1)}%`
+          : PLAIN_INDICATORS.has(indicator)
+          ? rawValue >= 1e9 ? `${(rawValue / 1e9).toFixed(1)}B`
+            : rawValue >= 1e6 ? `${(rawValue / 1e6).toFixed(1)}M`
+            : rawValue.toFixed(1)
+          : Math.abs(rawValue) >= 1e12
+          ? `$${(rawValue / 1e12).toFixed(1)}T`
           : Math.abs(rawValue) >= 1e9
           ? `$${(rawValue / 1e9).toFixed(1)}B`
           : Math.abs(rawValue) >= 1e6

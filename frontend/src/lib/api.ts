@@ -34,15 +34,96 @@ export interface CountryMacro {
   name: string;
   region?: string;
   sub_region?: string;
-  gdp?: number;
-  gdp_per_capita?: number;
-  trade_balance?: number;
-  current_account?: number;
-  export_value?: number;
-  import_value?: number;
-  population?: number;
   centroid_lat?: number;
   centroid_lon?: number;
+
+  // Macro
+  gdp?: number;
+  gdp_per_capita?: number;
+  gdp_growth?: number;
+  gdp_per_capita_ppp?: number;
+  gni?: number;
+  inflation_cpi?: number;
+
+  // Trade
+  export_value?: number;
+  import_value?: number;
+  trade_balance?: number;
+  current_account?: number;
+  trade_pct_gdp?: number;
+  external_balance_pct_gdp?: number;
+  high_tech_exports_pct?: number;
+  merch_exports?: number;
+  merch_imports?: number;
+
+  // Investment & Finance
+  fdi_inflows_pct_gdp?: number;
+  fdi_inflows_usd?: number;
+  gross_capital_formation_pct?: number;
+  gross_savings_pct?: number;
+  total_reserves_usd?: number;
+  external_debt_pct_gni?: number;
+  external_debt_usd?: number;
+  remittances_usd?: number;
+  broad_money_pct_gdp?: number;
+  domestic_credit_pct_gdp?: number;
+
+  // Fiscal
+  govt_revenue_pct_gdp?: number;
+  govt_expense_pct_gdp?: number;
+  govt_debt_pct_gdp?: number;
+
+  // Demographics & Labor
+  population?: number;
+  urban_population_pct?: number;
+  unemployment_pct?: number;
+  labor_force_participation_pct?: number;
+  life_expectancy?: number;
+  gini_index?: number;
+  poverty_headcount_pct?: number;
+  education_expenditure_pct_gdp?: number;
+
+  // Energy & Environment
+  energy_use_per_capita?: number;
+  electricity_access_pct?: number;
+  co2_per_capita?: number;
+  renewable_energy_pct?: number;
+  electric_power_consumption?: number;
+
+  // Military & Governance
+  military_expenditure_pct_gdp?: number;
+  military_expenditure_usd?: number;
+  control_corruption?: number;
+  govt_effectiveness?: number;
+  regulatory_quality?: number;
+  rule_of_law?: number;
+  political_stability?: number;
+  voice_accountability?: number;
+
+  // Technology
+  internet_users_pct?: number;
+  mobile_subscriptions_per100?: number;
+  rd_expenditure_pct_gdp?: number;
+  patent_applications?: number;
+
+  // Natural Resources
+  natural_resource_rents_pct?: number;
+  oil_rents_pct?: number;
+  gas_rents_pct?: number;
+  mineral_rents_pct?: number;
+  coal_rents_pct?: number;
+  forest_rents_pct?: number;
+
+  // Economic Structure
+  agriculture_pct_gdp?: number;
+  industry_pct_gdp?: number;
+  services_pct_gdp?: number;
+  arable_land_pct?: number;
+
+  // Misc
+  exchange_rate?: number;
+  tariff_rate_weighted?: number;
+  tariff_rate_simple?: number;
 }
 
 export interface TradeFlowAggregated {

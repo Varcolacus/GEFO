@@ -1,11 +1,12 @@
 """
 World Bank API Data Ingestion Script
-Fetches macroeconomic indicators for all countries.
+Fetches 63 macroeconomic/geoeconomic indicators for all countries.
 Free API, no key required.
 """
 import httpx
 import logging
-from typing import Optional, List, Dict
+import time
+from typing import List, Dict
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -15,78 +16,158 @@ logger = logging.getLogger(__name__)
 
 WORLD_BANK_URL = "https://api.worldbank.org/v2"
 
-# World Bank indicator codes
+# World Bank indicator codes mapped to Country model field names
+# Format: {db_column: (wb_indicator_code, description)}
 INDICATORS = {
-    "gdp": "NY.GDP.MKTP.CD",             # GDP (current US$)
-    "gdp_per_capita": "NY.GDP.PCAP.CD",  # GDP per capita (current US$)
-    "exports": "NE.EXP.GNFS.CD",         # Exports of goods and services (current US$)
-    "imports": "NE.IMP.GNFS.CD",          # Imports of goods and services (current US$)
-    "current_account": "BN.CAB.XOKA.CD",  # Current account balance (BoP, current US$)
-    "population": "SP.POP.TOTL",          # Population, total
-    "trade_pct_gdp": "NE.TRD.GNFS.ZS",   # Trade (% of GDP)
+    # Macro
+    "gdp":                          ("NY.GDP.MKTP.CD",       "GDP (current US$)"),
+    "gdp_per_capita":               ("NY.GDP.PCAP.CD",       "GDP per capita (current US$)"),
+    "gdp_growth":                   ("NY.GDP.MKTP.KD.ZG",    "GDP growth (annual %)"),
+    "gdp_per_capita_ppp":           ("NY.GDP.PCAP.PP.CD",    "GDP per capita, PPP (current intl $)"),
+    "gni":                          ("NY.GNP.MKTP.CD",       "GNI (current US$)"),
+    "inflation_cpi":                ("FP.CPI.TOTL.ZG",       "Inflation, consumer prices (annual %)"),
+
+    # Trade
+    "export_value":                 ("NE.EXP.GNFS.CD",       "Exports of goods and services (current US$)"),
+    "import_value":                 ("NE.IMP.GNFS.CD",       "Imports of goods and services (current US$)"),
+    "current_account":              ("BN.CAB.XOKA.CD",       "Current account balance (BoP, current US$)"),
+    "trade_pct_gdp":                ("NE.TRD.GNFS.ZS",       "Trade (% of GDP)"),
+    "external_balance_pct_gdp":     ("NE.RSB.GNFS.ZS",       "External balance on goods and services (% of GDP)"),
+    "high_tech_exports_pct":        ("TX.VAL.TECH.MF.ZS",    "High-technology exports (% of manufactured exports)"),
+    "merch_exports":                ("BX.GSR.MRCH.CD",       "Merchandise exports (current US$)"),
+    "merch_imports":                ("BM.GSR.MRCH.CD",       "Merchandise imports (current US$)"),
+
+    # Investment & Finance
+    "fdi_inflows_pct_gdp":          ("BX.KLT.DINV.WD.GD.ZS", "FDI net inflows (% of GDP)"),
+    "fdi_inflows_usd":              ("BX.KLT.DINV.CD.WD",    "FDI net inflows (BoP, current US$)"),
+    "gross_capital_formation_pct":  ("NE.GDI.TOTL.ZS",       "Gross capital formation (% of GDP)"),
+    "gross_savings_pct":            ("NY.GNS.ICTR.ZS",       "Gross savings (% of GDP)"),
+    "total_reserves_usd":           ("BN.RES.INCL.CD",       "Total reserves incl gold (current US$)"),
+    "external_debt_pct_gni":        ("DT.DOD.DECT.GN.ZS",    "External debt stocks (% of GNI)"),
+    "external_debt_usd":            ("DT.DOD.DECT.CD",        "External debt stocks (current US$)"),
+    "remittances_usd":              ("BX.TRF.PWKR.CD.DT",    "Personal remittances received (current US$)"),
+    "broad_money_pct_gdp":          ("FM.LBL.BMNY.GD.ZS",    "Broad money (% of GDP)"),
+    "domestic_credit_pct_gdp":      ("FS.AST.PRVT.GD.ZS",    "Domestic credit to private sector (% of GDP)"),
+
+    # Fiscal
+    "govt_revenue_pct_gdp":         ("GC.REV.XGRT.GD.ZS",    "Revenue, excluding grants (% of GDP)"),
+    "govt_expense_pct_gdp":         ("GC.XPN.TOTL.GD.ZS",    "Expense (% of GDP)"),
+    "govt_debt_pct_gdp":            ("GC.DOD.TOTL.GD.ZS",    "Central government debt (% of GDP)"),
+
+    # Demographics & Labor
+    "population":                   ("SP.POP.TOTL",           "Population, total"),
+    "urban_population_pct":         ("SP.URB.TOTL.IN.ZS",    "Urban population (% of total)"),
+    "unemployment_pct":             ("SL.UEM.TOTL.ZS",       "Unemployment (% of labor force)"),
+    "labor_force_participation_pct":("SL.TLF.CACT.ZS",       "Labor force participation rate (% of pop 15+)"),
+    "life_expectancy":              ("SP.DYN.LE00.IN",        "Life expectancy at birth (years)"),
+    "gini_index":                   ("SI.POV.GINI",           "GINI index"),
+    "poverty_headcount_pct":        ("SI.POV.DDAY",           "Poverty headcount at $2.15/day (%)"),
+    "education_expenditure_pct_gdp":("SE.XPD.TOTL.GD.ZS",    "Education expenditure (% of GDP)"),
+
+    # Energy & Environment
+    "energy_use_per_capita":        ("EG.USE.PCAP.KG.OE",    "Energy use (kg oil eq per capita)"),
+    "electricity_access_pct":       ("EG.ELC.ACCS.ZS",       "Access to electricity (%)"),
+    "co2_per_capita":               ("EN.GHG.CO2.PC.CE.AR5",  "CO2 emissions per capita (t CO2e/capita)"),
+    "renewable_energy_pct":         ("EG.FEC.RNEW.ZS",       "Renewable energy (% of total)"),
+    "electric_power_consumption":   ("EG.USE.ELEC.KH.PC",    "Electric power consumption (kWh per capita)"),
+
+    # Military & Governance
+    "military_expenditure_pct_gdp": ("MS.MIL.XPND.GD.ZS",    "Military expenditure (% of GDP)"),
+    "military_expenditure_usd":     ("MS.MIL.XPND.CD",        "Military expenditure (current US$)"),
+    "control_corruption":           ("CC.EST",                "Control of Corruption"),
+    "govt_effectiveness":           ("GE.EST",                "Government Effectiveness"),
+    "regulatory_quality":           ("RQ.EST",                "Regulatory Quality"),
+    "rule_of_law":                  ("RL.EST",                "Rule of Law"),
+    "political_stability":          ("PV.EST",                "Political Stability"),
+    "voice_accountability":         ("VA.EST",                "Voice and Accountability"),
+
+    # Technology
+    "internet_users_pct":           ("IT.NET.USER.ZS",        "Internet users (% of population)"),
+    "mobile_subscriptions_per100":  ("IT.CEL.SETS.P2",        "Mobile subscriptions (per 100 people)"),
+    "rd_expenditure_pct_gdp":       ("GB.XPD.RSDV.GD.ZS",    "R&D expenditure (% of GDP)"),
+    "patent_applications":          ("IP.PAT.RESD",           "Patent applications, residents"),
+
+    # Natural Resources
+    "natural_resource_rents_pct":   ("NY.GDP.TOTL.RT.ZS",    "Total natural resource rents (% of GDP)"),
+    "oil_rents_pct":                ("NY.GDP.PETR.RT.ZS",    "Oil rents (% of GDP)"),
+    "gas_rents_pct":                ("NY.GDP.NGAS.RT.ZS",    "Natural gas rents (% of GDP)"),
+    "mineral_rents_pct":            ("NY.GDP.MINR.RT.ZS",    "Mineral rents (% of GDP)"),
+    "coal_rents_pct":               ("NY.GDP.COAL.RT.ZS",    "Coal rents (% of GDP)"),
+    "forest_rents_pct":             ("NY.GDP.FRST.RT.ZS",    "Forest rents (% of GDP)"),
+
+    # Economic Structure
+    "agriculture_pct_gdp":          ("NV.AGR.TOTL.ZS",       "Agriculture value added (% of GDP)"),
+    "industry_pct_gdp":             ("NV.IND.TOTL.ZS",       "Industry value added (% of GDP)"),
+    "services_pct_gdp":             ("NV.SRV.TOTL.ZS",       "Services value added (% of GDP)"),
+    "arable_land_pct":              ("AG.LND.ARBL.ZS",       "Arable land (% of land area)"),
+
+    # Misc
+    "exchange_rate":                ("PA.NUS.FCRF",           "Official exchange rate (LCU per US$)"),
+    "tariff_rate_weighted":         ("TM.TAX.MRCH.WM.AR.ZS", "Tariff rate, weighted mean (%)"),
+    "tariff_rate_simple":           ("TM.TAX.MRCH.SM.AR.ZS", "Tariff rate, simple mean (%)"),
 }
 
 
-def fetch_indicator(indicator_code: str, year: int, per_page: int = 300) -> List[dict]:
-    """
-    Fetch a single indicator for all countries from World Bank API.
-    """
+def fetch_indicator(indicator_code: str, year_range: str = "2020:2023", per_page: int = 2000) -> List[dict]:
+    """Fetch a single indicator for all countries from World Bank API."""
     url = f"{WORLD_BANK_URL}/country/all/indicator/{indicator_code}"
-    params = {
-        "date": str(year),
-        "format": "json",
-        "per_page": per_page,
-    }
+    params = {"date": year_range, "format": "json", "per_page": per_page}
 
     try:
         with httpx.Client(timeout=30.0) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-
             if isinstance(data, list) and len(data) > 1:
-                records = data[1]
-                logger.info(f"Fetched {len(records)} records for {indicator_code}/{year}")
-                return records
-            else:
-                logger.warning(f"Unexpected response format for {indicator_code}")
-                return []
-
+                return data[1]
+            return []
     except Exception as e:
         logger.error(f"Error fetching {indicator_code}: {e}")
         return []
 
 
-def build_country_data(year: int) -> Dict[str, dict]:
+def build_country_data(year: int = 2023) -> Dict[str, dict]:
     """
     Fetch all indicators and assemble into country-level dict.
-    Returns: {iso_code: {gdp: ..., exports: ..., ...}}
+    Uses a 4-year window to maximize coverage, keeping most recent value.
     """
     country_data: Dict[str, dict] = {}
+    year_range = f"{year - 3}:{year}"
+    total = len(INDICATORS)
 
-    for field_name, indicator_code in INDICATORS.items():
-        logger.info(f"Fetching {field_name} ({indicator_code}) for {year}...")
-        records = fetch_indicator(indicator_code, year)
+    for idx, (field_name, (indicator_code, description)) in enumerate(INDICATORS.items(), 1):
+        logger.info(f"[{idx}/{total}] Fetching {field_name} ({indicator_code})...")
+        records = fetch_indicator(indicator_code, year_range)
 
+        # Keep most recent value per country
+        best: Dict[str, tuple] = {}
         for record in records:
             iso = record.get("countryiso3code", "")
             value = record.get("value")
+            rec_year = int(record.get("date", "0"))
 
-            if not iso or value is None:
+            if not iso or len(iso) != 3 or value is None:
                 continue
 
-            if iso not in country_data:
-                country_data[iso] = {"name": record.get("country", {}).get("value", "")}
+            if iso not in best or rec_year > best[iso][0]:
+                best[iso] = (rec_year, value)
 
+        for iso, (_, value) in best.items():
+            if iso not in country_data:
+                country_data[iso] = {}
             country_data[iso][field_name] = value
+
+        logger.info(f"  -> {len(best)} countries with data")
+
+        # Small delay every 10 requests to be polite
+        if idx % 10 == 0:
+            time.sleep(0.5)
 
     return country_data
 
 
 def ingest_world_bank_data(year: int = 2023):
-    """
-    Ingest World Bank macroeconomic data into countries table.
-    """
+    """Ingest World Bank macroeconomic data into countries table."""
     db = SessionLocal()
 
     try:
@@ -97,41 +178,25 @@ def ingest_world_bank_data(year: int = 2023):
             if len(iso_code) != 3:
                 continue
 
-            # Check if country exists
             country = db.query(Country).filter(Country.iso_code == iso_code).first()
+            if not country:
+                continue
 
-            exports = data.get("exports", 0) or 0
-            imports = data.get("imports", 0) or 0
-            trade_balance = exports - imports
+            # Compute derived trade_balance
+            exports = data.get("export_value", 0) or 0
+            imports = data.get("import_value", 0) or 0
+            if exports or imports:
+                data["trade_balance"] = exports - imports
 
-            if country:
-                # Update existing
-                country.gdp = data.get("gdp")
-                country.gdp_per_capita = data.get("gdp_per_capita")
-                country.trade_balance = trade_balance if exports or imports else None
-                country.current_account = data.get("current_account")
-                country.export_value = exports or None
-                country.import_value = imports or None
-                country.population = data.get("population")
-            else:
-                # Create new
-                country = Country(
-                    iso_code=iso_code,
-                    name=data.get("name", iso_code),
-                    gdp=data.get("gdp"),
-                    gdp_per_capita=data.get("gdp_per_capita"),
-                    trade_balance=trade_balance if exports or imports else None,
-                    current_account=data.get("current_account"),
-                    export_value=exports or None,
-                    import_value=imports or None,
-                    population=data.get("population"),
-                )
-                db.add(country)
+            # Set all indicator fields
+            for field_name, value in data.items():
+                if hasattr(country, field_name):
+                    setattr(country, field_name, value)
 
             count += 1
 
         db.commit()
-        logger.info(f"World Bank ingestion complete. Updated {count} countries for {year}.")
+        logger.info(f"World Bank ingestion complete. Updated {count} countries with {len(INDICATORS)} indicators.")
 
     finally:
         db.close()
