@@ -22,6 +22,7 @@ import DataSourcePanel from "@/components/DataSourcePanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/lib/auth-context";
 import type { GlobeViewerHandle } from "@/components/GlobeViewer";
+import type { TradeMode } from "@/lib/trade-modes";
 import {
   fetchCountries,
   fetchTradeFlows,
@@ -182,6 +183,7 @@ export default function Home() {
     airports: false,
   });
   const [indicator, setIndicator] = useState("gdp");
+  const [tradeMode, setTradeMode] = useState<TradeMode>("all");
   const [year, setYear] = useState(2023);
 
   const [countries, setCountries] = useState<CountryMacro[]>(DEMO_COUNTRIES);
@@ -325,6 +327,7 @@ export default function Home() {
         flyToCountry={flyToCountry}
         flyToPosition={flyToPosition}
         highlightCountryIso={selectedCountry?.iso_code ?? null}
+        tradeMode={tradeMode}
       />
 
       <SearchBar
@@ -498,6 +501,8 @@ export default function Home() {
         onToggleAll={toggleAllLayers}
         indicator={indicator}
         onIndicatorChange={setIndicator}
+        tradeMode={tradeMode}
+        onTradeModeChange={setTradeMode}
         onRegionClick={(lon, lat, altitude) =>
           setFlyToPosition({ lon, lat, altitude })
         }

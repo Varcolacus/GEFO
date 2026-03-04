@@ -1,5 +1,8 @@
 "use client";
 
+import type { TradeMode } from "@/lib/trade-modes";
+import { TRADE_MODES } from "@/lib/trade-modes";
+
 interface LayerControlProps {
   layers: {
     countries: boolean;
@@ -14,6 +17,8 @@ interface LayerControlProps {
   onToggleAll?: (on: boolean) => void;
   indicator: string;
   onIndicatorChange: (indicator: string) => void;
+  tradeMode?: TradeMode;
+  onTradeModeChange?: (mode: TradeMode) => void;
   onRegionClick?: (lon: number, lat: number, altitude: number) => void;
 }
 
@@ -41,6 +46,8 @@ export default function LayerControl({
   onToggleAll,
   indicator,
   onIndicatorChange,
+  tradeMode = "all",
+  onTradeModeChange,
   onRegionClick,
 }: LayerControlProps) {
   const allOn = Object.values(layers).every(Boolean);
@@ -100,6 +107,28 @@ export default function LayerControl({
           color="bg-cyan-500"
           onToggle={() => onToggle("tradeFlows")}
         />
+
+        {/* Trade Mode Selector — visible when Trade layer is active */}
+        {layers.tradeFlows && (
+          <div className="ml-4 mb-1">
+            <div className="flex flex-wrap gap-1">
+              {TRADE_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => onTradeModeChange?.(m.value)}
+                  title={m.description}
+                  className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${
+                    tradeMode === m.value
+                      ? "bg-cyan-500/30 border-cyan-500/60 text-cyan-300"
+                      : "bg-gray-800/60 border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500"
+                  }`}
+                >
+                  {m.icon} {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <ToggleSwitch
           label="Ports"

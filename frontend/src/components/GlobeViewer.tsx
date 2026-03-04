@@ -42,6 +42,7 @@ import type {
   CommodityFlowEdge,
   VesselPosition,
 } from "@/lib/api";
+import type { TradeMode } from "@/lib/trade-modes";
 import { MAJOR_AIRPORTS } from "@/lib/airports";
 import { SHIPPING_CORRIDORS } from "@/lib/shipping-corridors";
 
@@ -117,6 +118,7 @@ interface GlobeViewerProps {
   flyToCountry?: CountryMacro | null;
   flyToPosition?: { lon: number; lat: number; altitude: number } | null;
   highlightCountryIso?: string | null;
+  tradeMode?: TradeMode;
 }
 
 export interface GlobeViewerHandle {
@@ -138,6 +140,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   flyToCountry,
   flyToPosition,
   highlightCountryIso,
+  tradeMode = "all",
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -644,7 +647,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.resumeEvents();
   }, [countries, layers.countries, indicator]);
 
-  // ─── Render Trade Flow Lines (only when a country is selected) ───
+  // ─── Render Trade Flow Lines (mode-aware) ───
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -658,18 +661,245 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     if (!layers.tradeFlows || tradeFlows.length === 0) { viewer.entities.resumeEvents(); return; }
 
-    // If a country is selected, filter to its flows; otherwise show all globally
-    const isCountryMode = !!highlightCountryIso;
-    const visibleFlows = isCountryMode
-      ? tradeFlows.filter(
-          (f) =>
-            f.exporter_iso === highlightCountryIso ||
-            f.importer_iso === highlightCountryIso
-        )
-      : tradeFlows;
+    const iso = highlightCountryIso;
+    const isCountryMode = !!iso;
 
-    if (visibleFlows.length === 0) return;
+    // ── Filter flows based on trade mode ──
+    let visibleFlows: TradeFlowAggregated[];
+    if (!isCountryMode) {
+      visibleFlows = tradeFlows;
+    } else if (tradeMode === "exports") {
+      visibleFlows = tradeFlows.filter((f) => f.exporter_iso === iso);
+    } else if (tradeMode === "imports") {
+      visibleFlows = tradeFlows.filter((f) => f.importer_iso === iso);
+    } else if (tradeMode === "balance") {
+      // Show both directions — we'll compute net per partner below
+      visibleFlows = tradeFlows.filter(
+        (f) => f.exporter_iso === iso || f.importer_iso === iso
+      );
+    } else if (tradeMode === "volume") {
+      visibleFlows = tradeFlows.filter(
+        (f) => f.exporter_iso === iso || f.importer_iso === iso
+      );
+    } else {
+      // "all"
+      visibleFlows = tradeFlows.filter(
+        (f) => f.exporter_iso === iso || f.importer_iso === iso
+      );
+    }
 
+    if (visibleFlows.length === 0) { viewer.entities.resumeEvents(); return; }
+
+    // ── For balance mode, aggregate net per partner ──
+    type BalanceEntry = {
+      partner: string;
+      net: number; // positive = surplus, negative = deficit
+      exportVal: number;
+      importVal: number;
+      lat: number;
+      lon: number;
+    };
+    let balanceMap: Map<string, BalanceEntry> | null = null;
+
+    if (isCountryMode && tradeMode === "balance") {
+      balanceMap = new Map();
+      for (const f of visibleFlows) {
+        const isExport = f.exporter_iso === iso;
+        const partner = isExport ? f.importer_iso : f.exporter_iso;
+        const pLat = isExport ? f.importer_lat : f.exporter_lat;
+        const pLon = isExport ? f.importer_lon : f.exporter_lon;
+        if (!pLat || !pLon) continue;
+        const existing = balanceMap.get(partner) || {
+          partner,
+          net: 0,
+          exportVal: 0,
+          importVal: 0,
+          lat: pLat,
+          lon: pLon,
+        };
+        if (isExport) {
+          existing.exportVal += f.total_value_usd;
+          existing.net += f.total_value_usd;
+        } else {
+          existing.importVal += f.total_value_usd;
+          existing.net -= f.total_value_usd;
+        }
+        balanceMap.set(partner, existing);
+      }
+    }
+
+    // ── For volume mode, aggregate total per partner ──
+    type VolumeEntry = {
+      partner: string;
+      total: number;
+      lat: number;
+      lon: number;
+    };
+    let volumeMap: Map<string, VolumeEntry> | null = null;
+
+    if (isCountryMode && tradeMode === "volume") {
+      volumeMap = new Map();
+      for (const f of visibleFlows) {
+        const isExport = f.exporter_iso === iso;
+        const partner = isExport ? f.importer_iso : f.exporter_iso;
+        const pLat = isExport ? f.importer_lat : f.exporter_lat;
+        const pLon = isExport ? f.importer_lon : f.exporter_lon;
+        if (!pLat || !pLon) continue;
+        const existing = volumeMap.get(partner) || { partner, total: 0, lat: pLat, lon: pLon };
+        existing.total += f.total_value_usd;
+        volumeMap.set(partner, existing);
+      }
+    }
+
+    // ── Color schemes per mode ──
+    const getArcColors = (
+      flow: TradeFlowAggregated,
+      alpha: number
+    ): { startColor: Color; endColor: Color } => {
+      if (!isCountryMode) {
+        // Global view: green→red gradient
+        return {
+          startColor: new Color(30 / 255, 200 / 255, 80 / 255, alpha),
+          endColor: new Color(220 / 255, 50 / 255, 50 / 255, alpha),
+        };
+      }
+      const isExport = flow.exporter_iso === iso;
+      switch (tradeMode) {
+        case "exports":
+          // Green arcs outward
+          return {
+            startColor: new Color(20 / 255, 230 / 255, 100 / 255, alpha * 1.2),
+            endColor: new Color(20 / 255, 180 / 255, 80 / 255, alpha * 0.6),
+          };
+        case "imports":
+          // Red/orange arcs inward
+          return {
+            startColor: new Color(255 / 255, 100 / 255, 50 / 255, alpha * 0.6),
+            endColor: new Color(220 / 255, 40 / 255, 40 / 255, alpha * 1.2),
+          };
+        case "all":
+        default:
+          if (isExport) {
+            return {
+              startColor: new Color(30 / 255, 200 / 255, 80 / 255, alpha),
+              endColor: new Color(30 / 255, 160 / 255, 60 / 255, alpha * 0.5),
+            };
+          } else {
+            return {
+              startColor: new Color(220 / 255, 80 / 255, 50 / 255, alpha * 0.5),
+              endColor: new Color(220 / 255, 50 / 255, 50 / 255, alpha),
+            };
+          }
+      }
+    };
+
+    // ── Get selected country centroid ──
+    const selectedCountryData = isCountryMode
+      ? countries.find((c) => c.iso_code === iso)
+      : null;
+    const sLat = selectedCountryData?.centroid_lat || 0;
+    const sLon = selectedCountryData?.centroid_lon || 0;
+
+    // ── Render BALANCE mode ──
+    if (balanceMap) {
+      const entries = Array.from(balanceMap.values());
+      const maxAbs = Math.max(...entries.map((e) => Math.abs(e.net)), 1);
+
+      entries.forEach((entry, index) => {
+        const logNorm = Math.log10(1 + Math.abs(entry.net)) / Math.log10(1 + maxAbs);
+        const width = 0.5 + logNorm * 3;
+        const alpha = 0.2 + logNorm * 0.4;
+        const isSurplus = entry.net >= 0;
+
+        // Surplus = green arc from country to partner; deficit = red from partner to country
+        const color = isSurplus
+          ? new Color(30 / 255, 220 / 255, 100 / 255, alpha)
+          : new Color(240 / 255, 60 / 255, 60 / 255, alpha);
+
+        const arcPoints = isSurplus
+          ? computeArcPositions(sLon, sLat, entry.lon, entry.lat, 40, 0.08 + logNorm * 0.18)
+          : computeArcPositions(entry.lon, entry.lat, sLon, sLat, 40, 0.08 + logNorm * 0.18);
+
+        const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+        const pulseLen = Math.max(10, arcCartesian.length);
+        const animSpeed = 90000;
+        const stagger = index * 317;
+
+        const netB = (entry.net / 1e9).toFixed(2);
+        const expB = (entry.exportVal / 1e9).toFixed(2);
+        const impB = (entry.importVal / 1e9).toFixed(2);
+
+        viewer.entities.add({
+          name: `flow_balance_${index}`,
+          polyline: {
+            positions: new CallbackProperty(() => {
+              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+              const startIdx = Math.floor(t * maxStart);
+              return arcCartesian.slice(startIdx, startIdx + pulseLen);
+            }, false),
+            width,
+            material: new ColorMaterialProperty(color),
+            arcType: ArcType.NONE,
+          },
+          description: `
+            <h3>Trade Balance: ${iso} ↔ ${entry.partner}</h3>
+            <p>${isSurplus ? "🟢 Surplus" : "🔴 Deficit"}: $${netB}B</p>
+            <p>Exports: $${expB}B | Imports: $${impB}B</p>
+          `,
+        });
+      });
+
+      viewer.entities.resumeEvents();
+      return;
+    }
+
+    // ── Render VOLUME mode ──
+    if (volumeMap) {
+      const entries = Array.from(volumeMap.values());
+      const maxVol = Math.max(...entries.map((e) => e.total), 1);
+
+      entries.forEach((entry, index) => {
+        const logNorm = Math.log10(1 + entry.total) / Math.log10(1 + maxVol);
+        const width = 0.5 + logNorm * 4;
+        const alpha = 0.15 + logNorm * 0.45;
+
+        // Purple hue for volume
+        const color = new Color(160 / 255, 100 / 255, 255 / 255, alpha);
+
+        const arcPoints = computeArcPositions(
+          sLon, sLat, entry.lon, entry.lat, 40, 0.08 + logNorm * 0.18
+        );
+        const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+        const pulseLen = Math.max(10, arcCartesian.length);
+        const animSpeed = 90000;
+        const stagger = index * 317;
+
+        viewer.entities.add({
+          name: `flow_volume_${index}`,
+          polyline: {
+            positions: new CallbackProperty(() => {
+              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
+              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
+              const startIdx = Math.floor(t * maxStart);
+              return arcCartesian.slice(startIdx, startIdx + pulseLen);
+            }, false),
+            width,
+            material: new ColorMaterialProperty(color),
+            arcType: ArcType.NONE,
+          },
+          description: `
+            <h3>Trade Volume: ${iso} ↔ ${entry.partner}</h3>
+            <p>Total: $${(entry.total / 1e9).toFixed(2)}B</p>
+          `,
+        });
+      });
+
+      viewer.entities.resumeEvents();
+      return;
+    }
+
+    // ── Render ALL / EXPORTS / IMPORTS modes ──
     const maxValue = Math.max(...visibleFlows.map((f) => f.total_value_usd));
 
     visibleFlows.forEach((flow, index) => {
@@ -681,40 +911,40 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       )
         return;
 
-      // Logarithmic scale: compresses huge range so small flows stay visible
       const logValue = Math.log10(1 + flow.total_value_usd);
       const logMax = Math.log10(1 + maxValue);
-      const logNorm = logMax > 0 ? logValue / logMax : 0; // 0-1 log-normalised
+      const logNorm = logMax > 0 ? logValue / logMax : 0;
 
-      // Width: thin for small flows, slightly bolder for large ones (log scale)
-      const width = isCountryMode
-        ? 0.3 + logNorm * 3
-        : 0.3 + logNorm * 2.5;
+      const width = isCountryMode ? 0.3 + logNorm * 3 : 0.3 + logNorm * 2.5;
+      const alpha = isCountryMode ? 0.15 + logNorm * 0.3 : 0.08 + logNorm * 0.25;
 
-      // Alpha for the arrow color (also log-scaled)
-      const alpha = isCountryMode
-        ? 0.15 + logNorm * 0.3
-        : 0.08 + logNorm * 0.25;
-
-      // Green at exporter, smoothly transitions to red at importer
-      const greenBase = new Color(30/255, 200/255, 80/255, alpha);
-      const redBase = new Color(220/255, 50/255, 50/255, alpha);
+      const { startColor, endColor } = getArcColors(flow, alpha);
       const lerpScratch = new Color();
 
-      // 3D elevated arc positions — height also scales with magnitude (log)
       const arcPoints = computeArcPositions(
         flow.exporter_lon, flow.exporter_lat,
         flow.importer_lon, flow.importer_lat,
         40, 0.08 + logNorm * 0.18
       );
 
-      const isExportLabel =
-        isCountryMode && flow.exporter_iso === highlightCountryIso;
+      const isExportFromSelected =
+        isCountryMode && flow.exporter_iso === iso;
 
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
       const pulseLen = Math.max(10, Math.floor(arcCartesian.length * 1.0));
       const animSpeed = 90000;
       const stagger = index * 317;
+
+      const modeLabel =
+        tradeMode === "exports"
+          ? "Export"
+          : tradeMode === "imports"
+          ? "Import"
+          : isCountryMode
+          ? isExportFromSelected
+            ? "Export"
+            : "Import"
+          : "Trade Flow";
 
       viewer.entities.add({
         name: `flow_body_${index}`,
@@ -729,13 +959,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           material: new ColorMaterialProperty(
             new CallbackProperty(() => {
               const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              return Color.lerp(greenBase, redBase, t, lerpScratch);
+              return Color.lerp(startColor, endColor, t, lerpScratch);
             }, false)
           ),
           arcType: ArcType.NONE,
         },
         description: `
-          <h3>${isCountryMode ? (isExportLabel ? "Export" : "Import") : "Trade Flow"}</h3>
+          <h3>${modeLabel}</h3>
           <p>${flow.exporter_iso} → ${flow.importer_iso}</p>
           <p>Value: $${(flow.total_value_usd / 1e9).toFixed(2)}B</p>
         `,
@@ -743,7 +973,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
 
     viewer.entities.resumeEvents();
-  }, [tradeFlows, layers.tradeFlows, highlightCountryIso]);
+  }, [tradeFlows, layers.tradeFlows, highlightCountryIso, tradeMode, countries]);
 
   // ─── Render Port Markers ───
   useEffect(() => {

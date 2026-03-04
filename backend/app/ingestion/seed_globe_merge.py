@@ -81,6 +81,55 @@ ISO3_TO_ISO2 = {v: k for k, v in ISO2_TO_ISO3.items() if v}
 REGION_MAP = {"Europe": "Europe", "Asie": "Asia", "Afrique": "Africa",
               "Amériques": "Americas", "Océanie": "Oceania"}
 
+# ISO3 → proper country name (avoid using capital as country name)
+ISO3_TO_NAME = {
+    "FRA": "France", "AFG": "Afghanistan", "ALB": "Albania", "DZA": "Algeria",
+    "AND": "Andorra", "AGO": "Angola", "ARG": "Argentina", "ARM": "Armenia",
+    "AUS": "Australia", "AUT": "Austria", "AZE": "Azerbaijan", "BHS": "Bahamas",
+    "BHR": "Bahrain", "BGD": "Bangladesh", "BRB": "Barbados", "BLR": "Belarus",
+    "BEL": "Belgium", "BLZ": "Belize", "BEN": "Benin", "BTN": "Bhutan",
+    "BOL": "Bolivia", "BIH": "Bosnia and Herzegovina", "BWA": "Botswana",
+    "BRA": "Brazil", "BRN": "Brunei", "BGR": "Bulgaria", "BFA": "Burkina Faso",
+    "BDI": "Burundi", "KHM": "Cambodia", "CMR": "Cameroon", "CAN": "Canada",
+    "CPV": "Cape Verde", "CAF": "Central African Republic", "TCD": "Chad",
+    "CHL": "Chile", "CHN": "China", "COL": "Colombia", "COM": "Comoros",
+    "COG": "Congo", "COD": "DR Congo", "CRI": "Costa Rica", "CIV": "Ivory Coast",
+    "HRV": "Croatia", "CUB": "Cuba", "CYP": "Cyprus", "CZE": "Czechia",
+    "DNK": "Denmark", "DJI": "Djibouti", "DOM": "Dominican Republic",
+    "ECU": "Ecuador", "EGY": "Egypt", "SLV": "El Salvador", "GNQ": "Equatorial Guinea",
+    "ERI": "Eritrea", "EST": "Estonia", "SWZ": "Eswatini", "ETH": "Ethiopia",
+    "FJI": "Fiji", "FIN": "Finland", "GAB": "Gabon", "GMB": "Gambia",
+    "GEO": "Georgia", "DEU": "Germany", "GHA": "Ghana", "GRC": "Greece",
+    "GTM": "Guatemala", "GIN": "Guinea", "GNB": "Guinea-Bissau", "GUY": "Guyana",
+    "HTI": "Haiti", "HND": "Honduras", "HUN": "Hungary", "ISL": "Iceland",
+    "IND": "India", "IDN": "Indonesia", "IRN": "Iran", "IRQ": "Iraq",
+    "IRL": "Ireland", "ISR": "Israel", "ITA": "Italy", "JAM": "Jamaica",
+    "JPN": "Japan", "JOR": "Jordan", "KAZ": "Kazakhstan", "KEN": "Kenya",
+    "KWT": "Kuwait", "KGZ": "Kyrgyzstan", "LAO": "Laos", "LVA": "Latvia",
+    "LBN": "Lebanon", "LSO": "Lesotho", "LBR": "Liberia", "LBY": "Libya",
+    "LTU": "Lithuania", "LUX": "Luxembourg", "MDG": "Madagascar", "MWI": "Malawi",
+    "MYS": "Malaysia", "MDV": "Maldives", "MLI": "Mali", "MLT": "Malta",
+    "MRT": "Mauritania", "MUS": "Mauritius", "MEX": "Mexico", "MDA": "Moldova",
+    "MNG": "Mongolia", "MNE": "Montenegro", "MAR": "Morocco", "MOZ": "Mozambique",
+    "MMR": "Myanmar", "NAM": "Namibia", "NPL": "Nepal", "NLD": "Netherlands",
+    "NZL": "New Zealand", "NIC": "Nicaragua", "NER": "Niger", "NGA": "Nigeria",
+    "PRK": "North Korea", "MKD": "North Macedonia", "NOR": "Norway", "OMN": "Oman",
+    "PAK": "Pakistan", "PAN": "Panama", "PNG": "Papua New Guinea", "PRY": "Paraguay",
+    "PER": "Peru", "PHL": "Philippines", "POL": "Poland", "PRT": "Portugal",
+    "QAT": "Qatar", "ROU": "Romania", "RUS": "Russia", "RWA": "Rwanda",
+    "SAU": "Saudi Arabia", "SEN": "Senegal", "SRB": "Serbia", "SLE": "Sierra Leone",
+    "SGP": "Singapore", "SVK": "Slovakia", "SVN": "Slovenia", "SOM": "Somalia",
+    "ZAF": "South Africa", "KOR": "South Korea", "SSD": "South Sudan",
+    "ESP": "Spain", "LKA": "Sri Lanka", "SDN": "Sudan", "SUR": "Suriname",
+    "SWE": "Sweden", "CHE": "Switzerland", "SYR": "Syria", "TWN": "Taiwan",
+    "TJK": "Tajikistan", "TZA": "Tanzania", "THA": "Thailand", "TLS": "Timor-Leste",
+    "TGO": "Togo", "TTO": "Trinidad and Tobago", "TUN": "Tunisia", "TUR": "Turkey",
+    "TKM": "Turkmenistan", "UGA": "Uganda", "UKR": "Ukraine", "ARE": "UAE",
+    "GBR": "United Kingdom", "USA": "United States of America", "URY": "Uruguay",
+    "UZB": "Uzbekistan", "VEN": "Venezuela", "VNM": "Vietnam", "YEM": "Yemen",
+    "ZMB": "Zambia", "ZWE": "Zimbabwe",
+}
+
 GLOBE_COUNTRIES = [
     ("FR", "🇫🇷", "Paris", 46.2276, 2.2137, "Europe"),
     ("AF", "🇦🇫", "Kabul", 33.9391, 67.7100, "Asia"),
@@ -435,10 +484,12 @@ def enrich_countries(db):
         country = db.query(Country).filter(Country.iso_code == iso3).first()
         if not country:
             # Create the country so trade-flow FKs don't break
+            # Use ISO3→name mapping instead of capital for the country name
+            proper_name = ISO3_TO_NAME.get(iso3, capital)
             country = Country(
                 iso_code=iso3,
                 iso_code_2=iso2,
-                name=capital,  # temporary; overwritten below if present
+                name=proper_name,
                 region=region,
                 flag_emoji=flag,
                 capital=capital,
