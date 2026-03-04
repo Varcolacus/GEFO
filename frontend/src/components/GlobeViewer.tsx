@@ -860,7 +860,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       }
     ) => {
       const totalPts = arcCartesian.length;
-      const tailFrac = opts.particleFrac ?? 0.25;
+      const tailFrac = opts.particleFrac ?? 0.66;
       const tailLen = Math.max(4, Math.floor(totalPts * tailFrac));
 
       // 1) Exhaust trail — fading line behind the missile head
@@ -941,7 +941,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
         const baseAlpha = 0.06 + logNorm * 0.12;
         const particleAlpha = 0.4 + logNorm * 0.5;
-        const speed = Math.max(6000, 24000 - logNorm * 16000); // 6-24s, bigger=faster
+        const speed = Math.max(18000, 72000 - logNorm * 48000); // 18-72s
 
         const trailColor = isSurplus
           ? new Color(30 / 255, 220 / 255, 100 / 255, baseAlpha)
@@ -976,7 +976,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           particleWidth: wParticle,
           speed,
           stagger: index * 731,
-          particleFrac: 0.35 + logNorm * 0.15,
+          particleFrac: 0.55 + logNorm * 0.12,
           description: `
             <h3>Trade Balance: ${iso} ↔ ${entry.partner}</h3>
             <p>${isSurplus ? "🟢 Surplus" : "🔴 Deficit"}: $${netB}B</p>
@@ -996,7 +996,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       entries.forEach((entry, index) => {
         const logNorm = Math.log10(1 + entry.total) / Math.log10(1 + maxVol);
-        const speed = Math.max(6000, 24000 - logNorm * 16000);
+        const speed = Math.max(18000, 72000 - logNorm * 48000);
 
         const trailColor = new Color(130 / 255, 80 / 255, 220 / 255, 0.05 + logNorm * 0.1);
         const particleColor = new Color(180 / 255, 120 / 255, 255 / 255, 0.4 + logNorm * 0.5);
@@ -1021,7 +1021,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           particleWidth: wParticle,
           speed,
           stagger: index * 731,
-          particleFrac: 0.35 + logNorm * 0.15,
+          particleFrac: 0.55 + logNorm * 0.12,
           description: `
             <h3>Trade Volume: ${iso} ↔ ${entry.partner}</h3>
             <p>Total: $${(entry.total / 1e9).toFixed(2)}B</p>
@@ -1050,7 +1050,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const logNorm = logMax > 0 ? logValue / logMax : 0;
 
       const isExportFromSelected = isCountryMode && flow.exporter_iso === iso;
-      const speed = Math.max(6000, 28000 - logNorm * 20000); // 6-28s
+      const speed = Math.max(18000, 84000 - logNorm * 60000); // 18-84s
       const trailAlpha = isCountryMode ? 0.04 + logNorm * 0.1 : 0.03 + logNorm * 0.07;
       const particleAlpha = isCountryMode ? 0.3 + logNorm * 0.5 : 0.2 + logNorm * 0.4;
 
@@ -1105,7 +1105,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         particleWidth: wParticle,
         speed,
         stagger: index * 731,
-        particleFrac: 0.35 + logNorm * 0.15,
+        particleFrac: 0.55 + logNorm * 0.12,
         description: `
           <h3>${modeLabel}</h3>
           <p>${flow.exporter_iso} → ${flow.importer_iso}</p>
