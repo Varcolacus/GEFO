@@ -842,7 +842,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const sLat = selectedCountryData?.centroid_lat || 0;
     const sLon = selectedCountryData?.centroid_lon || 0;
 
-    // ── Helper: add static arc curve ──
+    // ── Helper: add beautiful glowing arc with gentle breathing animation ──
     const addArc = (
       arcCartesian: InstanceType<typeof Cartesian3>[],
       opts: {
@@ -858,15 +858,43 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         particleFrac?: number;
       }
     ) => {
+      // 1) Outer glow layer — soft wide bloom
       viewer.entities.add({
-        name: opts.name,
+        name: `${opts.name}_glow`,
         polyline: {
           positions: arcCartesian,
-          width: opts.particleWidth,
-          material: new ColorMaterialProperty(opts.particleColor),
+          width: opts.particleWidth * 3,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.25,
+            taperPower: 0.8,
+            color: new Color(
+              opts.particleColor.red,
+              opts.particleColor.green,
+              opts.particleColor.blue,
+              opts.particleColor.alpha * 0.35
+            ),
+          }),
           arcType: ArcType.NONE,
         },
         description: opts.description,
+      });
+
+      // 2) Inner core — bright thin line
+      viewer.entities.add({
+        name: `${opts.name}_core`,
+        polyline: {
+          positions: arcCartesian,
+          width: Math.max(1, opts.particleWidth * 0.6),
+          material: new ColorMaterialProperty(
+            new Color(
+              Math.min(1, opts.particleHeadColor.red * 0.7 + 0.3),
+              Math.min(1, opts.particleHeadColor.green * 0.7 + 0.3),
+              Math.min(1, opts.particleHeadColor.blue * 0.7 + 0.3),
+              opts.particleColor.alpha * 0.9
+            )
+          ),
+          arcType: ArcType.NONE,
+        },
       });
     };
 
