@@ -800,6 +800,68 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const sLat = selectedCountryData?.centroid_lat || 0;
     const sLon = selectedCountryData?.centroid_lon || 0;
 
+    // ── Helper: add animated arc (ghost trail + moving particle) ──
+    const addAnimatedArc = (
+      arcCartesian: InstanceType<typeof Cartesian3>[],
+      opts: {
+        name: string;
+        trailColor: InstanceType<typeof Color>;
+        particleColor: InstanceType<typeof Color>;
+        particleHeadColor: InstanceType<typeof Color>;
+        trailWidth: number;
+        particleWidth: number;
+        speed: number;         // ms for full cycle (lower = faster)
+        stagger: number;
+        description: string;
+        particleFrac?: number; // fraction of arc for particle length (0.15-0.35)
+      }
+    ) => {
+      const pFrac = opts.particleFrac ?? 0.25;
+      const pulseLen = Math.max(6, Math.floor(arcCartesian.length * pFrac));
+
+      // 1) Static ghost trail — shows the full path dimly
+      viewer.entities.add({
+        name: `${opts.name}_trail`,
+        polyline: {
+          positions: arcCartesian,
+          width: opts.trailWidth,
+          material: new ColorMaterialProperty(opts.trailColor),
+          arcType: ArcType.NONE,
+        },
+        description: opts.description,
+      });
+
+      // 2) Moving bright particle
+      const headScratch = new Color();
+      viewer.entities.add({
+        name: `${opts.name}_particle`,
+        polyline: {
+          positions: new CallbackProperty(() => {
+            const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
+            // Ease-in-out for more natural motion
+            const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            const maxStart = Math.max(1, arcCartesian.length - pulseLen);
+            const startIdx = Math.floor(eased * maxStart);
+            return arcCartesian.slice(startIdx, startIdx + pulseLen);
+          }, false),
+          width: new CallbackProperty(() => {
+            // Subtle width pulsing
+            const breathe = Math.sin(Date.now() / 400) * 0.3 + 1;
+            return opts.particleWidth * breathe;
+          }, false),
+          material: new ColorMaterialProperty(
+            new CallbackProperty(() => {
+              const t = ((Date.now() + opts.stagger) % opts.speed) / opts.speed;
+              // Lerp between particle body and bright head
+              const headT = Math.sin(t * Math.PI); // brightest at middle of journey
+              return Color.lerp(opts.particleColor, opts.particleHeadColor, headT * 0.6, headScratch);
+            }, false)
+          ),
+          arcType: ArcType.NONE,
+        },
+      });
+    };
+
     // ── Render BALANCE mode ──
     if (balanceMap) {
       const entries = Array.from(balanceMap.values());
@@ -807,41 +869,41 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       entries.forEach((entry, index) => {
         const logNorm = Math.log10(1 + Math.abs(entry.net)) / Math.log10(1 + maxAbs);
-        const width = 0.5 + logNorm * 3;
-        const alpha = 0.2 + logNorm * 0.4;
         const isSurplus = entry.net >= 0;
 
-        // Surplus = green arc from country to partner; deficit = red from partner to country
-        const color = isSurplus
-          ? new Color(30 / 255, 220 / 255, 100 / 255, alpha)
-          : new Color(240 / 255, 60 / 255, 60 / 255, alpha);
+        const baseAlpha = 0.06 + logNorm * 0.12;
+        const particleAlpha = 0.4 + logNorm * 0.5;
+        const speed = Math.max(3000, 12000 - logNorm * 8000); // 3-12s, bigger=faster
+
+        const trailColor = isSurplus
+          ? new Color(30 / 255, 220 / 255, 100 / 255, baseAlpha)
+          : new Color(240 / 255, 60 / 255, 60 / 255, baseAlpha);
+        const particleColor = isSurplus
+          ? new Color(50 / 255, 255 / 255, 130 / 255, particleAlpha)
+          : new Color(255 / 255, 80 / 255, 80 / 255, particleAlpha);
+        const headColor = isSurplus
+          ? new Color(180 / 255, 255 / 255, 200 / 255, Math.min(1, particleAlpha * 1.5))
+          : new Color(255 / 255, 180 / 255, 180 / 255, Math.min(1, particleAlpha * 1.5));
 
         const arcPoints = isSurplus
-          ? computeArcPositions(sLon, sLat, entry.lon, entry.lat, 40, 0.08 + logNorm * 0.18)
-          : computeArcPositions(entry.lon, entry.lat, sLon, sLat, 40, 0.08 + logNorm * 0.18);
-
+          ? computeArcPositions(sLon, sLat, entry.lon, entry.lat, 50, 0.08 + logNorm * 0.2)
+          : computeArcPositions(entry.lon, entry.lat, sLon, sLat, 50, 0.08 + logNorm * 0.2);
         const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-        const pulseLen = Math.max(10, arcCartesian.length);
-        const animSpeed = 90000;
-        const stagger = index * 317;
 
         const netB = (entry.net / 1e9).toFixed(2);
         const expB = (entry.exportVal / 1e9).toFixed(2);
         const impB = (entry.importVal / 1e9).toFixed(2);
 
-        viewer.entities.add({
+        addAnimatedArc(arcCartesian, {
           name: `flow_balance_${index}`,
-          polyline: {
-            positions: new CallbackProperty(() => {
-              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-              const startIdx = Math.floor(t * maxStart);
-              return arcCartesian.slice(startIdx, startIdx + pulseLen);
-            }, false),
-            width,
-            material: new ColorMaterialProperty(color),
-            arcType: ArcType.NONE,
-          },
+          trailColor,
+          particleColor,
+          particleHeadColor: headColor,
+          trailWidth: 0.5 + logNorm * 1.5,
+          particleWidth: 1.5 + logNorm * 3.5,
+          speed,
+          stagger: index * 731,
+          particleFrac: 0.2 + logNorm * 0.1,
           description: `
             <h3>Trade Balance: ${iso} ↔ ${entry.partner}</h3>
             <p>${isSurplus ? "🟢 Surplus" : "🔴 Deficit"}: $${netB}B</p>
@@ -861,33 +923,27 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       entries.forEach((entry, index) => {
         const logNorm = Math.log10(1 + entry.total) / Math.log10(1 + maxVol);
-        const width = 0.5 + logNorm * 4;
-        const alpha = 0.15 + logNorm * 0.45;
+        const speed = Math.max(3000, 12000 - logNorm * 8000);
 
-        // Purple hue for volume
-        const color = new Color(160 / 255, 100 / 255, 255 / 255, alpha);
+        const trailColor = new Color(130 / 255, 80 / 255, 220 / 255, 0.05 + logNorm * 0.1);
+        const particleColor = new Color(180 / 255, 120 / 255, 255 / 255, 0.4 + logNorm * 0.5);
+        const headColor = new Color(220 / 255, 200 / 255, 255 / 255, Math.min(1, 0.7 + logNorm * 0.3));
 
         const arcPoints = computeArcPositions(
-          sLon, sLat, entry.lon, entry.lat, 40, 0.08 + logNorm * 0.18
+          sLon, sLat, entry.lon, entry.lat, 50, 0.08 + logNorm * 0.2
         );
         const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-        const pulseLen = Math.max(10, arcCartesian.length);
-        const animSpeed = 90000;
-        const stagger = index * 317;
 
-        viewer.entities.add({
+        addAnimatedArc(arcCartesian, {
           name: `flow_volume_${index}`,
-          polyline: {
-            positions: new CallbackProperty(() => {
-              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-              const startIdx = Math.floor(t * maxStart);
-              return arcCartesian.slice(startIdx, startIdx + pulseLen);
-            }, false),
-            width,
-            material: new ColorMaterialProperty(color),
-            arcType: ArcType.NONE,
-          },
+          trailColor,
+          particleColor,
+          particleHeadColor: headColor,
+          trailWidth: 0.5 + logNorm * 2,
+          particleWidth: 1.5 + logNorm * 4,
+          speed,
+          stagger: index * 731,
+          particleFrac: 0.2 + logNorm * 0.1,
           description: `
             <h3>Trade Volume: ${iso} ↔ ${entry.partner}</h3>
             <p>Total: $${(entry.total / 1e9).toFixed(2)}B</p>
@@ -915,25 +971,36 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const logMax = Math.log10(1 + maxValue);
       const logNorm = logMax > 0 ? logValue / logMax : 0;
 
-      const width = isCountryMode ? 0.3 + logNorm * 3 : 0.3 + logNorm * 2.5;
-      const alpha = isCountryMode ? 0.15 + logNorm * 0.3 : 0.08 + logNorm * 0.25;
+      const isExportFromSelected = isCountryMode && flow.exporter_iso === iso;
+      const speed = Math.max(3000, 14000 - logNorm * 10000); // 3-14s
+      const trailAlpha = isCountryMode ? 0.04 + logNorm * 0.1 : 0.03 + logNorm * 0.07;
+      const particleAlpha = isCountryMode ? 0.3 + logNorm * 0.5 : 0.2 + logNorm * 0.4;
 
-      const { startColor, endColor } = getArcColors(flow, alpha);
-      const lerpScratch = new Color();
+      const { startColor: scRaw, endColor: ecRaw } = getArcColors(flow, 1);
+
+      // Trail uses raw color with low alpha
+      const trailColor = new Color(scRaw.red, scRaw.green, scRaw.blue, trailAlpha);
+      // Particle uses raw color with higher alpha
+      const particleColor = new Color(
+        (scRaw.red + ecRaw.red) / 2,
+        (scRaw.green + ecRaw.green) / 2,
+        (scRaw.blue + ecRaw.blue) / 2,
+        particleAlpha
+      );
+      // Bright white-tinted head
+      const headColor = new Color(
+        Math.min(1, scRaw.red * 0.5 + 0.5),
+        Math.min(1, scRaw.green * 0.5 + 0.5),
+        Math.min(1, scRaw.blue * 0.5 + 0.5),
+        Math.min(1, particleAlpha * 1.4)
+      );
 
       const arcPoints = computeArcPositions(
         flow.exporter_lon, flow.exporter_lat,
         flow.importer_lon, flow.importer_lat,
-        40, 0.08 + logNorm * 0.18
+        50, 0.08 + logNorm * 0.2
       );
-
-      const isExportFromSelected =
-        isCountryMode && flow.exporter_iso === iso;
-
       const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
-      const pulseLen = Math.max(10, Math.floor(arcCartesian.length * 1.0));
-      const animSpeed = 90000;
-      const stagger = index * 317;
 
       const modeLabel =
         tradeMode === "exports"
@@ -946,24 +1013,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             : "Import"
           : "Trade Flow";
 
-      viewer.entities.add({
+      addAnimatedArc(arcCartesian, {
         name: `flow_body_${index}`,
-        polyline: {
-          positions: new CallbackProperty(() => {
-            const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-            const maxStart = Math.max(0, arcCartesian.length - pulseLen);
-            const startIdx = Math.floor(t * maxStart);
-            return arcCartesian.slice(startIdx, startIdx + pulseLen);
-          }, false),
-          width: width,
-          material: new ColorMaterialProperty(
-            new CallbackProperty(() => {
-              const t = ((Date.now() + stagger) % animSpeed) / animSpeed;
-              return Color.lerp(startColor, endColor, t, lerpScratch);
-            }, false)
-          ),
-          arcType: ArcType.NONE,
-        },
+        trailColor,
+        particleColor,
+        particleHeadColor: headColor,
+        trailWidth: isCountryMode ? 0.3 + logNorm * 1.2 : 0.2 + logNorm * 1,
+        particleWidth: isCountryMode ? 1 + logNorm * 3.5 : 0.8 + logNorm * 2.5,
+        speed,
+        stagger: index * 731,
+        particleFrac: 0.2 + logNorm * 0.1,
         description: `
           <h3>${modeLabel}</h3>
           <p>${flow.exporter_iso} → ${flow.importer_iso}</p>
