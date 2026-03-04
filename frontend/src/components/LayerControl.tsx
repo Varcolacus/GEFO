@@ -19,7 +19,6 @@ interface LayerControlProps {
   onIndicatorChange: (indicator: string) => void;
   tradeMode?: TradeMode;
   onTradeModeChange?: (mode: TradeMode) => void;
-  onRegionClick?: (lon: number, lat: number, altitude: number) => void;
 }
 
 const INDICATORS = [
@@ -31,14 +30,6 @@ const INDICATORS = [
   { value: "import_dependency", label: "Import Dependency" },
 ];
 
-const REGIONS = [
-  { label: "🌍 World", lon: 20, lat: 20, alt: 20000000 },
-  { label: "🇪🇺 Europe", lon: 15, lat: 50, alt: 6000000 },
-  { label: "🇺🇸 Americas", lon: -80, lat: 15, alt: 12000000 },
-  { label: "🌏 Asia-Pacific", lon: 105, lat: 25, alt: 10000000 },
-  { label: "🌍 Africa", lon: 20, lat: 0, alt: 10000000 },
-  { label: "🛢️ Middle East", lon: 48, lat: 26, alt: 5000000 },
-];
 
 export default function LayerControl({
   layers,
@@ -48,7 +39,6 @@ export default function LayerControl({
   onIndicatorChange,
   tradeMode = "all",
   onTradeModeChange,
-  onRegionClick,
 }: LayerControlProps) {
   const allOn = Object.values(layers).every(Boolean);
 
@@ -210,26 +200,7 @@ export default function LayerControl({
         </div>
       </div>
 
-      {/* Region Quick Nav */}
-      {onRegionClick && (
-        <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-          <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
-            Regions
-          </h3>
-          <div className="grid grid-cols-2 gap-1">
-            {REGIONS.map((r) => (
-              <button
-                key={r.label}
-                onClick={() => onRegionClick(r.lon, r.lat, r.alt)}
-                className="text-xs px-2 py-1.5 rounded bg-gray-800 hover:bg-gray-700
-                           text-gray-300 hover:text-white transition-colors text-left"
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Status */}
       <div className="px-4 pb-3 text-xs text-gray-500">

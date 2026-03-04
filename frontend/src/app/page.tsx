@@ -503,9 +503,6 @@ export default function Home() {
         onIndicatorChange={setIndicator}
         tradeMode={tradeMode}
         onTradeModeChange={setTradeMode}
-        onRegionClick={(lon, lat, altitude) =>
-          setFlyToPosition({ lon, lat, altitude })
-        }
       />
 
       <TimeSlider
