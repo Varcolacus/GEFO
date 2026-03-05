@@ -564,6 +564,10 @@ export default function Home() {
           <span className="text-right font-medium text-sky-400">
             {vessels.length} <span className="text-[9px] text-gray-500">({vesselMode})</span>
           </span>
+          <span className="text-gray-400">Aircraft</span>
+          <span className="text-right font-medium text-amber-400">
+            {aircraftList.length} <span className="text-[9px] text-gray-500">(live)</span>
+          </span>
         </div>
 
 
