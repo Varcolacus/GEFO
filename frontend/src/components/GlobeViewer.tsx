@@ -761,7 +761,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
             const sqrtNorm = Math.sqrt(Math.abs(data.net)) / Math.sqrt(maxAbs);
             const isSurplus = data.net >= 0;
-            const alpha = 0.05 + sqrtNorm * 0.45;
+            const alpha = 0.15 + sqrtNorm * 0.35;
             const color = isSurplus
               ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
               : new Color(220 / 255, 50 / 255, 40 / 255, alpha);
