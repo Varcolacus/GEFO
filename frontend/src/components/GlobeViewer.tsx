@@ -29,6 +29,7 @@ import {
   ScreenSpaceEventType,
   defined,
   Cartesian2,
+  PolygonHierarchy,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
@@ -46,6 +47,7 @@ import type {
 import type { TradeMode } from "@/lib/trade-modes";
 import { MAJOR_AIRPORTS } from "@/lib/airports";
 import { SHIPPING_CORRIDORS } from "@/lib/shipping-corridors";
+import { fetchCountriesGeoJSON } from "@/lib/api";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -148,6 +150,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const geoJsonRef = useRef<any>(null);
 
   // Expose screenshot method to parent
   useImperativeHandle(ref, () => ({
@@ -707,17 +711,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const iso = highlightCountryIso;
     const isCountryMode = !!iso;
 
-    // ── GLOBAL MODE: color countries by trade balance (no country selected) ──
+    // ── GLOBAL MODE: color country polygons by trade balance (no country selected) ──
     if (!isCountryMode) {
       // Compute net balance per country: exports - imports
       const balanceByCountry = new Map<string, { net: number; exports: number; imports: number }>();
       for (const f of tradeFlows) {
-        // Exporter side
         const exp = balanceByCountry.get(f.exporter_iso) || { net: 0, exports: 0, imports: 0 };
         exp.exports += f.total_value_usd;
         exp.net += f.total_value_usd;
         balanceByCountry.set(f.exporter_iso, exp);
-        // Importer side
         const imp = balanceByCountry.get(f.importer_iso) || { net: 0, exports: 0, imports: 0 };
         imp.imports += f.total_value_usd;
         imp.net -= f.total_value_usd;
@@ -729,61 +731,101 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         1
       );
 
-      for (const [countryIso, data] of balanceByCountry) {
-        const country = countries.find((c) => c.iso_code === countryIso);
-        if (!country?.centroid_lat || !country?.centroid_lon) continue;
+      // Async IIFE to load GeoJSON and render polygons
+      (async () => {
+        try {
+          // Cache GeoJSON in ref to avoid re-fetching
+          if (!geoJsonRef.current) {
+            geoJsonRef.current = await fetchCountriesGeoJSON("gdp");
+          }
+          const geojson = geoJsonRef.current;
+          if (!geojson?.features) { viewer.entities.resumeEvents(); return; }
 
-        const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
-        const isSurplus = data.net >= 0; // exports > imports
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const coordsToHierarchy = (coords: number[][]): PolygonHierarchy => {
+            const positions = coords.map(([lon, lat]) => Cartesian3.fromDegrees(lon, lat));
+            return new PolygonHierarchy(positions);
+          };
 
-        // User request: red = excédentaire (surplus), green = déficitaire (deficit)
-        const alpha = 0.15 + logNorm * 0.55;
-        const color = isSurplus
-          ? new Color(220 / 255, 50 / 255, 40 / 255, alpha)  // red for surplus
-          : new Color(30 / 255, 200 / 255, 80 / 255, alpha);  // green for deficit
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          for (const feature of geojson.features as any[]) {
+            const iso = feature.properties?.iso_code;
+            if (!iso) continue;
+            const data = balanceByCountry.get(iso);
+            if (!data) continue;
+            const geom = feature.geometry;
+            if (!geom) continue;
 
-        const outlineColor = isSurplus
-          ? new Color(255 / 255, 100 / 255, 80 / 255, alpha * 0.8)
-          : new Color(80 / 255, 255 / 255, 130 / 255, alpha * 0.8);
+            const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
+            const isSurplus = data.net >= 0;
+            const alpha = 0.15 + logNorm * 0.55;
+            const color = isSurplus
+              ? new Color(220 / 255, 50 / 255, 40 / 255, alpha)
+              : new Color(30 / 255, 200 / 255, 80 / 255, alpha);
+            const outlineColor = isSurplus
+              ? new Color(255 / 255, 100 / 255, 80 / 255, Math.min(alpha + 0.2, 1))
+              : new Color(80 / 255, 255 / 255, 130 / 255, Math.min(alpha + 0.2, 1));
 
-        const radius = 120000 + logNorm * 350000;
+            const netB = (data.net / 1e9).toFixed(1);
+            const expB = (data.exports / 1e9).toFixed(1);
+            const impB = (data.imports / 1e9).toFixed(1);
+            const country = countries.find((c) => c.iso_code === iso);
+            const countryName = country?.name || iso;
 
-        const netB = (data.net / 1e9).toFixed(1);
-        const expB = (data.exports / 1e9).toFixed(1);
-        const impB = (data.imports / 1e9).toFixed(1);
+            // Handle both Polygon and MultiPolygon
+            const polygons: number[][][] = [];
+            if (geom.type === "Polygon") {
+              polygons.push(geom.coordinates[0]);
+            } else if (geom.type === "MultiPolygon") {
+              for (const poly of geom.coordinates) {
+                polygons.push(poly[0]);
+              }
+            }
 
-        viewer.entities.add({
-          name: `flow_balance_disc_${countryIso}`,
-          position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
-          ellipse: {
-            semiMajorAxis: radius,
-            semiMinorAxis: radius,
-            height: 0,
-            material: color,
-            outline: true,
-            outlineColor: outlineColor,
-            outlineWidth: 1,
-          },
-          label: {
-            text: `${countryIso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
-            font: "bold 11px 'Segoe UI', sans-serif",
-            fillColor: Color.WHITE,
-            outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
-            outlineWidth: 3,
-            style: LabelStyle.FILL_AND_OUTLINE,
-            verticalOrigin: VerticalOrigin.CENTER,
-            scaleByDistance: new NearFarScalar(1e6, 1, 8e6, 0.3),
-            translucencyByDistance: new NearFarScalar(1e6, 1, 1.5e7, 0),
-          },
-          description: `
-            <h3>${country.name} (${countryIso})</h3>
-            <p>${isSurplus ? "🔴 Trade Surplus" : "🟢 Trade Deficit"}: $${netB}B</p>
-            <p>Exports: $${expB}B | Imports: $${impB}B</p>
-          `,
-        });
-      }
+            polygons.forEach((ring: number[][], pi: number) => {
+              viewer.entities.add({
+                name: `flow_balance_poly_${iso}_${pi}`,
+                polygon: {
+                  hierarchy: coordsToHierarchy(ring),
+                  material: color,
+                  outline: true,
+                  outlineColor: outlineColor,
+                  outlineWidth: 1,
+                  height: 0,
+                },
+                description: `
+                  <h3>${countryName} (${iso})</h3>
+                  <p>${isSurplus ? "🔴 Trade Surplus" : "🟢 Trade Deficit"}: $${netB}B</p>
+                  <p>Exports: $${expB}B | Imports: $${impB}B</p>
+                `,
+              });
+            });
 
-      viewer.entities.resumeEvents();
+            // Add label at centroid
+            if (country?.centroid_lat && country?.centroid_lon) {
+              viewer.entities.add({
+                name: `flow_balance_label_${iso}`,
+                position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
+                label: {
+                  text: `${iso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
+                  font: "bold 11px 'Segoe UI', sans-serif",
+                  fillColor: Color.WHITE,
+                  outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+                  outlineWidth: 3,
+                  style: LabelStyle.FILL_AND_OUTLINE,
+                  verticalOrigin: VerticalOrigin.CENTER,
+                  scaleByDistance: new NearFarScalar(1e6, 1, 8e6, 0.3),
+                  translucencyByDistance: new NearFarScalar(1e6, 1, 1.5e7, 0),
+                },
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load GeoJSON for trade choropleth:", err);
+        } finally {
+          viewer.entities.resumeEvents();
+        }
+      })();
       return;
     }
 

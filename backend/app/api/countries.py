@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, List
+import json
 import logging
 
 from app.core.database import get_db
+from geoalchemy2.functions import ST_AsGeoJSON, ST_SimplifyPreserveTopology
 
 logger = logging.getLogger("gefo.api.countries")
 from app.models.country import Country
@@ -35,10 +37,19 @@ def get_countries_geojson(
     db: Session = Depends(get_db),
 ):
     """Get countries as GeoJSON with selected indicator for choropleth."""
-    countries = db.query(Country).filter(Country.geometry.isnot(None)).all()
+    rows = (
+        db.query(
+            Country,
+            ST_AsGeoJSON(
+                ST_SimplifyPreserveTopology(Country.geometry, 0.5)
+            ).label("geojson"),
+        )
+        .filter(Country.geometry.isnot(None))
+        .all()
+    )
 
     features = []
-    for c in countries:
+    for c, geojson_str in rows:
         feature = {
             "type": "Feature",
             "properties": {
@@ -54,7 +65,7 @@ def get_countries_geojson(
                 "import_value": c.import_value,
                 "population": c.population,
             },
-            "geometry": None,  # Will be populated from PostGIS
+            "geometry": json.loads(geojson_str) if geojson_str else None,
         }
         features.append(feature)
 
