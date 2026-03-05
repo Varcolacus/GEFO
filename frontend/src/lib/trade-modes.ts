@@ -3,7 +3,7 @@
  * Controls how trade flow arcs are filtered and colored when a country is selected.
  */
 
-export type TradeMode = "exports" | "imports" | "balance" | "volume";
+export type TradeMode = "all" | "exports" | "imports" | "balance" | "volume";
 
 export interface TradeModeInfo {
   value: TradeMode;
@@ -15,6 +15,13 @@ export interface TradeModeInfo {
 }
 
 export const TRADE_MODES: TradeModeInfo[] = [
+  {
+    value: "all",
+    label: "All Flows",
+    icon: "🔄",
+    description: "All bilateral trade flows",
+    arcColor: "cyan",
+  },
   {
     value: "exports",
     label: "Exports",

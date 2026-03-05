@@ -188,7 +188,7 @@ export default function Home() {
     airports: false,
   });
   const [indicator, setIndicator] = useState("gdp");
-  const [tradeMode, setTradeMode] = useState<TradeMode>("balance");
+  const [tradeMode, setTradeMode] = useState<TradeMode>("all");
   const [year, setYear] = useState(2023);
   const [yearRange, setYearRange] = useState<YearRangeInfo | null>(null);
 

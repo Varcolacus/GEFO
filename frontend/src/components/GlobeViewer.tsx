@@ -146,7 +146,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   flyToCountry,
   flyToPosition,
   highlightCountryIso,
-  tradeMode = "balance",
+  tradeMode = "all",
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -733,16 +733,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         dataByCountry.set(f.importer_iso, imp);
       }
 
-      // Compute maxAbs based on current trade mode
+      // Compute max based on current trade mode
       const metricValue = (d: { net: number; exports: number; imports: number }) => {
         switch (tradeMode) {
           case "exports": return d.exports;
           case "imports": return d.imports;
           case "volume": return d.exports + d.imports;
-          default: return Math.abs(d.net); // balance
+          default: return Math.abs(d.net);
         }
       };
-      const maxAbs = Math.max(
+      const maxVal = Math.max(
         ...Array.from(dataByCountry.values()).map((v) => metricValue(v)),
         1
       );
@@ -769,7 +769,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             if (!geom) continue;
 
             const val = metricValue(data);
-            const sqrtNorm = Math.sqrt(val) / Math.sqrt(maxAbs);
+            const sqrtNorm = Math.sqrt(val) / Math.sqrt(maxVal);
             const alpha = 0.25 + sqrtNorm * 0.35;
 
             let color: Color;
@@ -788,7 +788,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
                 labelPrefix = `$${((data.exports + data.imports) / 1e9).toFixed(1)}B`;
                 break;
               default: {
-                // balance: green=surplus, red=deficit
                 const isSurplus = data.net >= 0;
                 color = isSurplus
                   ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
@@ -877,6 +876,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         (f) => f.exporter_iso === iso || f.importer_iso === iso
       );
     } else if (tradeMode === "volume") {
+      visibleFlows = tradeFlows.filter(
+        (f) => f.exporter_iso === iso || f.importer_iso === iso
+      );
+    } else {
+      // "all"
       visibleFlows = tradeFlows.filter(
         (f) => f.exporter_iso === iso || f.importer_iso === iso
       );
@@ -971,6 +975,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             startColor: new Color(255 / 255, 100 / 255, 50 / 255, alpha * 0.6),
             endColor: new Color(220 / 255, 40 / 255, 40 / 255, alpha * 1.2),
           };
+        case "all":
         default:
           if (isExport) {
             return {

@@ -61,7 +61,7 @@ function formatPopulation(val: number): string {
 export default function CountryDetailPanel({
   selectedCountry,
   onClose,
-  tradeMode = "balance",
+  tradeMode = "all",
   onTradeModeChange,
 }: CountryDetailPanelProps) {
   const [profile, setProfile] = useState<CountryProfile | null>(null);

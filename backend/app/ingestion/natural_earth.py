@@ -89,26 +89,15 @@ def ingest_natural_earth():
                 continue
 
             geom = row.geometry
-
-            # Use LABEL_X/LABEL_Y from Natural Earth (positioned on mainland)
-            # instead of geometry centroid which is skewed by overseas territories
-            label_x = row.get("LABEL_X", None)
-            label_y = row.get("LABEL_Y", None)
-            if label_x is not None and label_y is not None:
-                centroid_lon = float(label_x)
-                centroid_lat = float(label_y)
-            else:
-                centroid = geom.centroid
-                centroid_lat = centroid.y
-                centroid_lon = centroid.x
+            centroid = geom.centroid
 
             # Check if country exists
             country = db.query(Country).filter(Country.iso_code == iso_code).first()
 
             if country:
                 country.geometry = from_shape(geom, srid=4326)
-                country.centroid_lat = centroid_lat
-                country.centroid_lon = centroid_lon
+                country.centroid_lat = centroid.y
+                country.centroid_lon = centroid.x
                 if not country.name or country.name == iso_code:
                     country.name = name
                 country.region = row.get("REGION_WB", row.get("CONTINENT", None))
@@ -120,8 +109,8 @@ def ingest_natural_earth():
                     region=row.get("REGION_WB", row.get("CONTINENT", None)),
                     sub_region=row.get("SUBREGION", None),
                     geometry=from_shape(geom, srid=4326),
-                    centroid_lat=centroid_lat,
-                    centroid_lon=centroid_lon,
+                    centroid_lat=centroid.y,
+                    centroid_lon=centroid.x,
                 )
                 db.add(country)
 

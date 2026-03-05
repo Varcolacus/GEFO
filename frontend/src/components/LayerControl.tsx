@@ -155,7 +155,7 @@ export default function LayerControl({
   onToggleAll,
   indicator,
   onIndicatorChange,
-  tradeMode = "balance",
+  tradeMode = "all",
   onTradeModeChange,
 }: LayerControlProps) {
   const allOn = Object.values(layers).every(Boolean);
