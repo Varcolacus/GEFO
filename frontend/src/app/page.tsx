@@ -295,7 +295,13 @@ export default function Home() {
         if (statsData) setTradeFlowStats(statsData);
         if (portsData.length > 0) setPorts(portsData);
         if (densityData.data.length > 0) setShippingDensity(densityData.data);
-        if (yearsData) setYearRange(yearsData);
+        if (yearsData) {
+          setYearRange(yearsData);
+          if (yearsData.max_year && yearsData.max_year !== year) {
+            setYear(yearsData.max_year);
+            return; // will re-run with correct year
+          }
+        }
         setDataSource("live");
       } catch {
         console.log("Backend not available, using demo data");
