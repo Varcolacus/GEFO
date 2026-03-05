@@ -718,23 +718,32 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const iso = highlightCountryIso;
     const isCountryMode = !!iso;
 
-    // ── GLOBAL MODE: color country polygons by trade balance (no country selected) ──
+    // ── GLOBAL MODE: color country polygons by trade metric (no country selected) ──
     if (!isCountryMode) {
-      // Compute net balance per country: exports - imports
-      const balanceByCountry = new Map<string, { net: number; exports: number; imports: number }>();
+      // Aggregate per country: exports, imports, net
+      const dataByCountry = new Map<string, { net: number; exports: number; imports: number }>();
       for (const f of tradeFlows) {
-        const exp = balanceByCountry.get(f.exporter_iso) || { net: 0, exports: 0, imports: 0 };
+        const exp = dataByCountry.get(f.exporter_iso) || { net: 0, exports: 0, imports: 0 };
         exp.exports += f.total_value_usd;
         exp.net += f.total_value_usd;
-        balanceByCountry.set(f.exporter_iso, exp);
-        const imp = balanceByCountry.get(f.importer_iso) || { net: 0, exports: 0, imports: 0 };
+        dataByCountry.set(f.exporter_iso, exp);
+        const imp = dataByCountry.get(f.importer_iso) || { net: 0, exports: 0, imports: 0 };
         imp.imports += f.total_value_usd;
         imp.net -= f.total_value_usd;
-        balanceByCountry.set(f.importer_iso, imp);
+        dataByCountry.set(f.importer_iso, imp);
       }
 
+      // Compute maxAbs based on current trade mode
+      const metricValue = (d: { net: number; exports: number; imports: number }) => {
+        switch (tradeMode) {
+          case "exports": return d.exports;
+          case "imports": return d.imports;
+          case "volume": return d.exports + d.imports;
+          default: return Math.abs(d.net); // balance
+        }
+      };
       const maxAbs = Math.max(
-        ...Array.from(balanceByCountry.values()).map((v) => Math.abs(v.net)),
+        ...Array.from(dataByCountry.values()).map((v) => metricValue(v)),
         1
       );
 
@@ -754,21 +763,45 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           for (const feature of geojson.features as any[]) {
             const fIso = feature.properties?.iso_code;
             if (!fIso) continue;
-            const data = balanceByCountry.get(fIso);
+            const data = dataByCountry.get(fIso);
             if (!data) continue;
             const geom = feature.geometry;
             if (!geom) continue;
 
-            const sqrtNorm = Math.sqrt(Math.abs(data.net)) / Math.sqrt(maxAbs);
-            const isSurplus = data.net >= 0;
+            const val = metricValue(data);
+            const sqrtNorm = Math.sqrt(val) / Math.sqrt(maxAbs);
             const alpha = 0.25 + sqrtNorm * 0.35;
-            const color = isSurplus
-              ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
-              : new Color(220 / 255, 50 / 255, 40 / 255, alpha);
+
+            let color: Color;
+            let labelPrefix: string;
+            switch (tradeMode) {
+              case "exports":
+                color = new Color(30 / 255, 200 / 255, 80 / 255, alpha);
+                labelPrefix = `$${(data.exports / 1e9).toFixed(1)}B`;
+                break;
+              case "imports":
+                color = new Color(220 / 255, 120 / 255, 40 / 255, alpha);
+                labelPrefix = `$${(data.imports / 1e9).toFixed(1)}B`;
+                break;
+              case "volume":
+                color = new Color(40 / 255, 180 / 255, 220 / 255, alpha);
+                labelPrefix = `$${((data.exports + data.imports) / 1e9).toFixed(1)}B`;
+                break;
+              default: {
+                // balance: green=surplus, red=deficit
+                const isSurplus = data.net >= 0;
+                color = isSurplus
+                  ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
+                  : new Color(220 / 255, 50 / 255, 40 / 255, alpha);
+                labelPrefix = `${data.net >= 0 ? "+" : ""}${(data.net / 1e9).toFixed(1)}B`;
+                break;
+              }
+            }
 
             const netB = (data.net / 1e9).toFixed(1);
             const expB = (data.exports / 1e9).toFixed(1);
             const impB = (data.imports / 1e9).toFixed(1);
+            const volB = ((data.exports + data.imports) / 1e9).toFixed(1);
             const country = countryMap.get(fIso);
             const countryName = country?.name || fIso;
 
@@ -782,7 +815,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
               }
             }
 
-            const desc = `<h3>${countryName} (${fIso})</h3><p>${isSurplus ? "Surplus" : "Deficit"}: $${netB}B</p><p>Exp: $${expB}B | Imp: $${impB}B</p>`;
+            const desc = `<h3>${countryName} (${fIso})</h3><p>Balance: $${netB}B</p><p>Exp: $${expB}B | Imp: $${impB}B | Vol: $${volB}B</p>`;
 
             // Batch-convert coords via fromDegreesArray (no outline for perf)
             for (let pi = 0; pi < rings.length; pi++) {
@@ -810,7 +843,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
                 name: `flow_balance_label_${fIso}`,
                 position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
                 label: {
-                  text: `${fIso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
+                  text: `${fIso}\n${labelPrefix}`,
                   font: "bold 11px 'Segoe UI', sans-serif",
                   fillColor: Color.WHITE,
                   outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
