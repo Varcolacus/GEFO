@@ -153,6 +153,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonRef = useRef<any>(null);
 
+  // Pre-fetch GeoJSON on mount so trade choropleth renders instantly
+  useEffect(() => {
+    if (!geoJsonRef.current) {
+      fetchCountriesGeoJSON("gdp").then((data) => { geoJsonRef.current = data; }).catch(() => {});
+    }
+  }, []);
+
   // Expose screenshot method to parent
   useImperativeHandle(ref, () => ({
     captureScreenshot: () => {
@@ -731,10 +738,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         1
       );
 
-      // Async IIFE to load GeoJSON and render polygons
+      // Load GeoJSON (already pre-fetched on mount) and render polygons
       (async () => {
         try {
-          // Cache GeoJSON in ref to avoid re-fetching
           if (!geoJsonRef.current) {
             geoJsonRef.current = await fetchCountriesGeoJSON("gdp");
           }

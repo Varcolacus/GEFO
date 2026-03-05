@@ -41,7 +41,7 @@ def get_countries_geojson(
         db.query(
             Country,
             ST_AsGeoJSON(
-                ST_SimplifyPreserveTopology(Country.geometry, 0.5)
+                ST_SimplifyPreserveTopology(Country.geometry, 1.0)
             ).label("geojson"),
         )
         .filter(Country.geometry.isnot(None))
