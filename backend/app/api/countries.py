@@ -6,7 +6,7 @@ import json
 import logging
 
 from app.core.database import get_db
-from geoalchemy2.functions import ST_AsGeoJSON, ST_SimplifyPreserveTopology
+from geoalchemy2.functions import ST_AsGeoJSON
 
 logger = logging.getLogger("gefo.api.countries")
 from app.models.country import Country
@@ -40,9 +40,7 @@ def get_countries_geojson(
     rows = (
         db.query(
             Country,
-            ST_AsGeoJSON(
-                ST_SimplifyPreserveTopology(Country.geometry, 1.0)
-            ).label("geojson"),
+            ST_AsGeoJSON(Country.geometry, maxdecimaldigits=6).label("geojson"),
         )
         .filter(Country.geometry.isnot(None))
         .all()
