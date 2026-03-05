@@ -707,11 +707,89 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     const iso = highlightCountryIso;
     const isCountryMode = !!iso;
 
-    // ── Filter flows based on trade mode ──
-    let visibleFlows: TradeFlowAggregated[];
+    // ── GLOBAL MODE: color countries by trade balance (no country selected) ──
     if (!isCountryMode) {
-      visibleFlows = tradeFlows;
-    } else if (tradeMode === "exports") {
+      // Compute net balance per country: exports - imports
+      const balanceByCountry = new Map<string, { net: number; exports: number; imports: number }>();
+      for (const f of tradeFlows) {
+        // Exporter side
+        const exp = balanceByCountry.get(f.exporter_iso) || { net: 0, exports: 0, imports: 0 };
+        exp.exports += f.total_value_usd;
+        exp.net += f.total_value_usd;
+        balanceByCountry.set(f.exporter_iso, exp);
+        // Importer side
+        const imp = balanceByCountry.get(f.importer_iso) || { net: 0, exports: 0, imports: 0 };
+        imp.imports += f.total_value_usd;
+        imp.net -= f.total_value_usd;
+        balanceByCountry.set(f.importer_iso, imp);
+      }
+
+      const maxAbs = Math.max(
+        ...Array.from(balanceByCountry.values()).map((v) => Math.abs(v.net)),
+        1
+      );
+
+      for (const [countryIso, data] of balanceByCountry) {
+        const country = countries.find((c) => c.iso_code === countryIso);
+        if (!country?.centroid_lat || !country?.centroid_lon) continue;
+
+        const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
+        const isSurplus = data.net >= 0; // exports > imports
+
+        // User request: red = excédentaire (surplus), green = déficitaire (deficit)
+        const alpha = 0.15 + logNorm * 0.55;
+        const color = isSurplus
+          ? new Color(220 / 255, 50 / 255, 40 / 255, alpha)  // red for surplus
+          : new Color(30 / 255, 200 / 255, 80 / 255, alpha);  // green for deficit
+
+        const outlineColor = isSurplus
+          ? new Color(255 / 255, 100 / 255, 80 / 255, alpha * 0.8)
+          : new Color(80 / 255, 255 / 255, 130 / 255, alpha * 0.8);
+
+        const radius = 120000 + logNorm * 350000;
+
+        const netB = (data.net / 1e9).toFixed(1);
+        const expB = (data.exports / 1e9).toFixed(1);
+        const impB = (data.imports / 1e9).toFixed(1);
+
+        viewer.entities.add({
+          name: `flow_balance_disc_${countryIso}`,
+          position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
+          ellipse: {
+            semiMajorAxis: radius,
+            semiMinorAxis: radius,
+            height: 0,
+            material: color,
+            outline: true,
+            outlineColor: outlineColor,
+            outlineWidth: 1,
+          },
+          label: {
+            text: `${countryIso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
+            font: "bold 11px 'Segoe UI', sans-serif",
+            fillColor: Color.WHITE,
+            outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+            outlineWidth: 3,
+            style: LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: VerticalOrigin.CENTER,
+            scaleByDistance: new NearFarScalar(1e6, 1, 8e6, 0.3),
+            translucencyByDistance: new NearFarScalar(1e6, 1, 1.5e7, 0),
+          },
+          description: `
+            <h3>${country.name} (${countryIso})</h3>
+            <p>${isSurplus ? "🔴 Trade Surplus" : "🟢 Trade Deficit"}: $${netB}B</p>
+            <p>Exports: $${expB}B | Imports: $${impB}B</p>
+          `,
+        });
+      }
+
+      viewer.entities.resumeEvents();
+      return;
+    }
+
+    // ── COUNTRY MODE: show arcs for selected country ──
+    let visibleFlows: TradeFlowAggregated[];
+    if (tradeMode === "exports") {
       visibleFlows = tradeFlows.filter((f) => f.exporter_iso === iso);
     } else if (tradeMode === "imports") {
       visibleFlows = tradeFlows.filter((f) => f.importer_iso === iso);
