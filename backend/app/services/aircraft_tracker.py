@@ -95,19 +95,88 @@ class AircraftPosition:
 
 class AircraftTracker:
     """
-    Tracks aircraft positions via the OpenSky Network REST API.
+    Tracks aircraft positions using airplanes.live API (primary)
+    with OpenSky Network as fallback.
 
-    Polls every POLL_INTERVAL seconds, maintains an in-memory dict
-    of aircraft keyed by ICAO24 hex address, and broadcasts snapshots
-    to WebSocket clients.
+    airplanes.live provides free ADS-B data with generous rate limits.
+    We query multiple geographic zones to build global coverage.
     """
 
-    POLL_INTERVAL = 15         # seconds between API polls (>10s for anonymous)
+    POLL_INTERVAL = 20         # seconds between poll cycles
     BROADCAST_INTERVAL = 5     # seconds between WebSocket broadcasts
     STALE_TIMEOUT = 120        # remove aircraft not seen for 2 minutes
-    MAX_AIRCRAFT = 0           # 0 = no cap
+
+    # airplanes.live: /v2/point/{lat}/{lon}/{radius_nm} — max 250 nm radius
+    AIRPLANES_LIVE_URL = "https://api.airplanes.live/v2/point"
+
+    # Geographic zones to poll (lat, lon, radius_nm) — covers major flight corridors
+    ZONES = [
+        (48.86, 2.35, 250),     # Europe West (Paris)
+        (51.47, 0.46, 250),     # UK / North Sea
+        (52.52, 13.41, 250),    # Europe Central (Berlin)
+        (41.90, 12.50, 250),    # Mediterranean (Rome)
+        (55.75, 37.62, 250),    # Russia West (Moscow)
+        (40.71, -74.01, 250),   # US East (New York)
+        (33.94, -118.41, 250),  # US West (Los Angeles)
+        (41.88, -87.63, 250),   # US Central (Chicago)
+        (29.76, -95.37, 250),   # US South (Houston)
+        (25.20, 55.27, 250),    # Middle East (Dubai)
+        (1.35, 103.82, 250),    # SE Asia (Singapore)
+        (35.68, 139.69, 250),   # East Asia (Tokyo)
+        (31.23, 121.47, 250),   # China East (Shanghai)
+        (22.31, 114.17, 250),   # China South (Hong Kong)
+        (28.61, 77.21, 250),    # India (Delhi)
+        (-33.87, 151.21, 250),  # Oceania (Sydney)
+        (-23.55, -46.63, 250),  # South America (Sao Paulo)
+        (25.05, -77.35, 250),   # Caribbean (Nassau)
+        (30.05, 31.24, 250),    # Africa North (Cairo)
+        (-1.29, 36.82, 250),    # Africa East (Nairobi)
+        (64.13, -21.94, 250),   # North Atlantic (Iceland)
+    ]
 
     OPENSKY_URL = "https://opensky-network.org/api/states/all"
+
+    # Map airplanes.live category codes to our categories
+    ALCAT = {
+        "A1": "light", "A2": "small", "A3": "large",
+        "A4": "heavy", "A5": "heavy", "A6": "heavy", "A7": "rotorcraft",
+        "B1": "light", "B2": "other", "B4": "other", "B6": "other",
+    }
+
+    # Map registration prefix to country name
+    REG_PREFIX = {
+        "N": "United States", "C-": "Canada", "G-": "United Kingdom",
+        "F-": "France", "D-": "Germany", "I-": "Italy", "EC-": "Spain",
+        "PP-": "Brazil", "PT-": "Brazil", "PR-": "Brazil",
+        "JA": "Japan", "B-": "China", "VT-": "India",
+        "HL": "South Korea", "RA-": "Russia", "SP-": "Poland",
+        "TC-": "Turkey", "A6-": "UAE", "9V-": "Singapore",
+        "VH-": "Australia", "ZK-": "New Zealand", "9H-": "Malta",
+        "HB-": "Switzerland", "OE-": "Austria", "PH-": "Netherlands",
+        "OO-": "Belgium", "SE-": "Sweden", "LN-": "Norway",
+        "OH-": "Finland", "OY-": "Denmark", "EI-": "Ireland",
+        "CS-": "Portugal", "SX-": "Greece", "HA-": "Hungary",
+        "OK-": "Czech Republic", "YR-": "Romania", "LZ-": "Bulgaria",
+        "UR-": "Ukraine", "SU-": "Egypt", "ZS-": "South Africa",
+        "EP-": "Iran", "AP-": "Pakistan", "A7-": "Qatar",
+        "HZ-": "Saudi Arabia", "4X-": "Israel", "JY-": "Jordan",
+        "XA-": "Mexico", "XB-": "Mexico", "CC-": "Chile",
+        "LV-": "Argentina", "HK-": "Colombia", "TG-": "Guatemala",
+        "RP-": "Philippines", "HS-": "Thailand", "9M-": "Malaysia",
+        "PK-": "Indonesia", "VN-": "Vietnam",
+    }
+
+    @staticmethod
+    def _reg_to_country(reg: str) -> str:
+        """Derive country from aircraft registration prefix."""
+        if not reg:
+            return ""
+        # Try longest prefixes first (3, 2, 1 chars)
+        for ln in (3, 2, 1):
+            pfx = reg[:ln]
+            if pfx in AircraftTracker.REG_PREFIX:
+                return AircraftTracker.REG_PREFIX[pfx]
+        return ""
 
     def __init__(self):
         self._aircraft: Dict[str, AircraftPosition] = {}
@@ -115,23 +184,23 @@ class AircraftTracker:
         self._tasks: List[asyncio.Task] = []
         self._last_poll_time = 0.0
         self._poll_errors = 0
+        self._source = "airplanes.live"
+        self._zone_idx = 0  # rotate through zones
 
     @property
     def is_live(self) -> bool:
         return len(self._aircraft) > 0
 
     def start(self) -> None:
-        """Start the tracker (called during app startup)."""
         if self._running:
             return
         self._running = True
-        logger.info("AircraftTracker starting — polling OpenSky Network")
+        logger.info("AircraftTracker starting — using airplanes.live + OpenSky fallback")
         self._tasks.append(asyncio.ensure_future(self._poll_loop()))
         self._tasks.append(asyncio.ensure_future(self._broadcast_loop()))
         self._tasks.append(asyncio.ensure_future(self._cleanup_loop()))
 
     def stop(self) -> None:
-        """Stop the tracker (called during app shutdown)."""
         self._running = False
         for task in self._tasks:
             task.cancel()
@@ -139,15 +208,13 @@ class AircraftTracker:
         logger.info("AircraftTracker stopped")
 
     def get_aircraft(self) -> List[dict]:
-        """Get current snapshot of all tracked aircraft (airborne only)."""
-        cutoff = time.time() - 60
+        cutoff = time.time() - 90
         return [
             a.to_dict() for a in self._aircraft.values()
             if a.last_update > cutoff and not a.on_ground
         ]
 
     def get_stats(self) -> dict:
-        """Get tracker statistics."""
         by_category: Dict[str, int] = {}
         airborne = 0
         on_ground = 0
@@ -162,7 +229,6 @@ class AircraftTracker:
         for a in self._aircraft.values():
             by_country[a.origin_country] = by_country.get(a.origin_country, 0) + 1
 
-        # Top 10 countries
         top_countries = sorted(by_country.items(), key=lambda x: -x[1])[:10]
 
         return {
@@ -173,84 +239,83 @@ class AircraftTracker:
             "top_countries": dict(top_countries),
             "last_poll": self._last_poll_time,
             "poll_errors": self._poll_errors,
+            "source": self._source,
         }
 
-    # ── OpenSky polling ──
+    # ── Polling ──
 
     async def _poll_loop(self) -> None:
-        """Poll the OpenSky Network API at regular intervals."""
-        # Small initial delay to let the app start
-        await asyncio.sleep(2)
-
+        await asyncio.sleep(3)
         while self._running:
             try:
-                await self._fetch_opensky()
+                # Poll 3 zones per cycle to spread load
+                for _ in range(3):
+                    zone = self.ZONES[self._zone_idx % len(self.ZONES)]
+                    self._zone_idx += 1
+                    await self._fetch_airplanes_live(*zone)
+                    await asyncio.sleep(1)  # small delay between zone requests
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 self._poll_errors += 1
-                logger.warning(f"OpenSky poll error: {e}")
+                logger.warning(f"Aircraft poll error: {e}")
 
             await asyncio.sleep(self.POLL_INTERVAL)
 
-    async def _fetch_opensky(self) -> None:
-        """Fetch all aircraft states from OpenSky."""
-        timeout = aiohttp.ClientTimeout(total=30)
+    async def _fetch_airplanes_live(self, lat: float, lon: float, radius: int) -> None:
+        """Fetch aircraft from airplanes.live API for a geographic zone."""
+        url = f"{self.AIRPLANES_LIVE_URL}/{lat}/{lon}/{radius}"
+        timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(self.OPENSKY_URL) as resp:
-                if resp.status == 429:
-                    logger.warning("OpenSky rate limited, backing off 30s")
-                    await asyncio.sleep(30)
-                    return
+            async with session.get(url) as resp:
                 if resp.status != 200:
-                    logger.warning(f"OpenSky returned {resp.status}")
                     return
-
                 data = await resp.json()
 
-        states = data.get("states") or []
+        aircraft_list = data.get("ac") or []
         now = time.time()
         self._last_poll_time = now
         count = 0
 
-        for s in states:
-            # OpenSky state vector fields:
-            # [0] icao24, [1] callsign, [2] origin_country, [3] time_position,
-            # [4] last_contact, [5] longitude, [6] latitude, [7] baro_altitude,
-            # [8] on_ground, [9] velocity, [10] true_track, [11] vertical_rate,
-            # [12] sensors, [13] geo_altitude, [14] squawk, [15] spi,
-            # [16] position_source, [17] category (optional)
-
-            icao24 = s[0]
-            lat = s[6]
-            lon = s[5]
-
-            # Skip entries without position
-            if lat is None or lon is None:
+        for ac in aircraft_list:
+            icao24 = ac.get("hex", "").strip()
+            lat_val = ac.get("lat")
+            lon_val = ac.get("lon")
+            if not icao24 or lat_val is None or lon_val is None:
                 continue
 
-            callsign = (s[1] or "").strip()
-            category_code = s[17] if len(s) > 17 and s[17] is not None else 0
-            category = AIRCRAFT_CATEGORIES.get(category_code, "other")
+            callsign = (ac.get("flight") or "").strip()
+            cat_code = ac.get("category", "")
+            category = self.ALCAT.get(cat_code, "other")
+            on_ground = ac.get("alt_baro") == "ground"
+
+            alt_baro = ac.get("alt_baro")
+            alt_geom = ac.get("alt_geom")
+            altitude_ft = 0
+            if isinstance(alt_baro, (int, float)):
+                altitude_ft = alt_baro
+            elif isinstance(alt_geom, (int, float)):
+                altitude_ft = alt_geom
 
             self._aircraft[icao24] = AircraftPosition(
                 icao24=icao24,
                 callsign=callsign or icao24.upper(),
-                origin_country=s[2] or "",
-                lat=lat,
-                lon=lon,
-                altitude_m=s[7] or s[13] or 0,  # prefer baro, fallback geo
-                velocity_ms=s[9] or 0,
-                heading=s[10] or 0,
-                vertical_rate=s[11] or 0,
-                on_ground=bool(s[8]),
+                origin_country=self._reg_to_country(ac.get("r", "")),
+                lat=lat_val,
+                lon=lon_val,
+                altitude_m=altitude_ft * 0.3048,
+                velocity_ms=(ac.get("gs") or 0) * 0.514444,  # knots to m/s
+                heading=ac.get("track") or ac.get("mag_heading") or 0,
+                vertical_rate=(ac.get("baro_rate") or ac.get("geom_rate") or 0) * 0.00508,  # ft/min to m/s
+                on_ground=on_ground,
                 category=category,
                 last_update=now,
             )
             count += 1
 
-        logger.info(f"OpenSky: {count} aircraft with positions "
-                    f"({sum(1 for a in self._aircraft.values() if not a.on_ground)} airborne)")
+        if count > 0:
+            self._source = "airplanes.live"
+            logger.info(f"airplanes.live zone ({lat},{lon}): {count} aircraft")
 
     # ── Cleanup stale entries ──
 
