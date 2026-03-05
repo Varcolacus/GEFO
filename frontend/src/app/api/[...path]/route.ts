@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8888";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
 // Only forward these safe headers to the backend
 const FORWARD_HEADERS = [

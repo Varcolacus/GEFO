@@ -60,8 +60,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     // Derive WS URL — WebSocket must go directly to the backend
     // because Next.js API routes can't proxy WebSocket upgrades.
-    // The backend port is injected at build time via NEXT_PUBLIC_WS_PORT (default 8888).
-    const backendPort = process.env.NEXT_PUBLIC_WS_PORT || "8888";
+    // The backend port is injected at build time via NEXT_PUBLIC_WS_PORT (default 8000).
+    const backendPort = process.env.NEXT_PUBLIC_WS_PORT || "8000";
     let wsUrl = "";
     if (typeof window !== "undefined") {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
