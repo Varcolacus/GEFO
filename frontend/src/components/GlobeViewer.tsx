@@ -759,12 +759,13 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
             const isSurplus = data.net >= 0;
             const alpha = 0.15 + logNorm * 0.55;
+            // Green = excédentaire (surplus), Red = déficitaire (deficit)
             const color = isSurplus
-              ? new Color(220 / 255, 50 / 255, 40 / 255, alpha)
-              : new Color(30 / 255, 200 / 255, 80 / 255, alpha);
+              ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
+              : new Color(220 / 255, 50 / 255, 40 / 255, alpha);
             const outlineColor = isSurplus
-              ? new Color(255 / 255, 100 / 255, 80 / 255, Math.min(alpha + 0.2, 1))
-              : new Color(80 / 255, 255 / 255, 130 / 255, Math.min(alpha + 0.2, 1));
+              ? new Color(80 / 255, 255 / 255, 130 / 255, Math.min(alpha + 0.2, 1))
+              : new Color(255 / 255, 100 / 255, 80 / 255, Math.min(alpha + 0.2, 1));
 
             const netB = (data.net / 1e9).toFixed(1);
             const expB = (data.exports / 1e9).toFixed(1);
@@ -795,7 +796,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
                 },
                 description: `
                   <h3>${countryName} (${iso})</h3>
-                  <p>${isSurplus ? "🔴 Trade Surplus" : "🟢 Trade Deficit"}: $${netB}B</p>
+                  <p>${isSurplus ? "� Trade Surplus" : "🔴 Trade Deficit"}: $${netB}B</p>
                   <p>Exports: $${expB}B | Imports: $${impB}B</p>
                 `,
               });
