@@ -76,7 +76,13 @@ def ingest_natural_earth():
 
         count = 0
         for _, row in gdf.iterrows():
-            iso_code = row.get("ISO_A3", row.get("ADM0_A3", ""))
+            # ISO_A3 is "-99" for some countries (France, Norway, etc.)
+            # Fall back to ISO_A3_EH then ADM0_A3
+            iso_code = row.get("ISO_A3", "")
+            if not iso_code or iso_code == "-99":
+                iso_code = row.get("ISO_A3_EH", "")
+            if not iso_code or iso_code == "-99":
+                iso_code = row.get("ADM0_A3", "")
             name = row.get("NAME", row.get("ADMIN", ""))
 
             if not iso_code or iso_code == "-99" or len(iso_code) != 3:
