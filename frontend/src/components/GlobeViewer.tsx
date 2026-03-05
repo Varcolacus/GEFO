@@ -146,7 +146,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   flyToCountry,
   flyToPosition,
   highlightCountryIso,
-  tradeMode = "all",
+  tradeMode = "balance",
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -847,11 +847,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       visibleFlows = tradeFlows.filter(
         (f) => f.exporter_iso === iso || f.importer_iso === iso
       );
-    } else {
-      // "all"
-      visibleFlows = tradeFlows.filter(
-        (f) => f.exporter_iso === iso || f.importer_iso === iso
-      );
     }
 
     if (visibleFlows.length === 0) { viewer.entities.resumeEvents(); return; }
@@ -943,7 +938,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             startColor: new Color(255 / 255, 100 / 255, 50 / 255, alpha * 0.6),
             endColor: new Color(220 / 255, 40 / 255, 40 / 255, alpha * 1.2),
           };
-        case "all":
         default:
           if (isExport) {
             return {
