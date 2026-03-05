@@ -738,6 +738,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
         1
       );
 
+      // Pre-build O(1) country lookup
+      const countryMap = new Map(countries.map((c) => [c.iso_code, c]));
+
       // Load GeoJSON (already pre-fetched on mount) and render polygons
       (async () => {
         try {
@@ -748,16 +751,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           if (!geojson?.features) { viewer.entities.resumeEvents(); return; }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const coordsToHierarchy = (coords: number[][]): PolygonHierarchy => {
-            const positions = coords.map(([lon, lat]) => Cartesian3.fromDegrees(lon, lat));
-            return new PolygonHierarchy(positions);
-          };
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           for (const feature of geojson.features as any[]) {
-            const iso = feature.properties?.iso_code;
-            if (!iso) continue;
-            const data = balanceByCountry.get(iso);
+            const fIso = feature.properties?.iso_code;
+            if (!fIso) continue;
+            const data = balanceByCountry.get(fIso);
             if (!data) continue;
             const geom = feature.geometry;
             if (!geom) continue;
@@ -765,56 +762,55 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
             const isSurplus = data.net >= 0;
             const alpha = 0.05 + logNorm * 0.45;
-            // Green = excédentaire (surplus), Red = déficitaire (deficit)
             const color = isSurplus
               ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
               : new Color(220 / 255, 50 / 255, 40 / 255, alpha);
-            const outlineColor = isSurplus
-              ? new Color(80 / 255, 255 / 255, 130 / 255, Math.min(alpha + 0.2, 1))
-              : new Color(255 / 255, 100 / 255, 80 / 255, Math.min(alpha + 0.2, 1));
 
             const netB = (data.net / 1e9).toFixed(1);
             const expB = (data.exports / 1e9).toFixed(1);
             const impB = (data.imports / 1e9).toFixed(1);
-            const country = countries.find((c) => c.iso_code === iso);
-            const countryName = country?.name || iso;
+            const country = countryMap.get(fIso);
+            const countryName = country?.name || fIso;
 
-            // Handle both Polygon and MultiPolygon
-            const polygons: number[][][] = [];
+            // Collect polygon outer rings
+            const rings: number[][][] = [];
             if (geom.type === "Polygon") {
-              polygons.push(geom.coordinates[0]);
+              rings.push(geom.coordinates[0]);
             } else if (geom.type === "MultiPolygon") {
               for (const poly of geom.coordinates) {
-                polygons.push(poly[0]);
+                rings.push(poly[0]);
               }
             }
 
-            polygons.forEach((ring: number[][], pi: number) => {
+            const desc = `<h3>${countryName} (${fIso})</h3><p>${isSurplus ? "Surplus" : "Deficit"}: $${netB}B</p><p>Exp: $${expB}B | Imp: $${impB}B</p>`;
+
+            // Batch-convert coords via fromDegreesArray (no outline for perf)
+            for (let pi = 0; pi < rings.length; pi++) {
+              const ring = rings[pi];
+              const flat = new Array(ring.length * 2);
+              for (let i = 0; i < ring.length; i++) {
+                flat[i * 2] = ring[i][0];
+                flat[i * 2 + 1] = ring[i][1];
+              }
               viewer.entities.add({
-                name: `flow_balance_poly_${iso}_${pi}`,
+                name: `flow_balance_poly_${fIso}_${pi}`,
                 polygon: {
-                  hierarchy: coordsToHierarchy(ring),
+                  hierarchy: new PolygonHierarchy(Cartesian3.fromDegreesArray(flat)),
                   material: color,
-                  outline: true,
-                  outlineColor: outlineColor,
-                  outlineWidth: 1,
+                  outline: false,
                   height: 0,
                 },
-                description: `
-                  <h3>${countryName} (${iso})</h3>
-                  <p>${isSurplus ? "� Trade Surplus" : "🔴 Trade Deficit"}: $${netB}B</p>
-                  <p>Exports: $${expB}B | Imports: $${impB}B</p>
-                `,
+                description: desc,
               });
-            });
+            }
 
-            // Add label at centroid
+            // Label at centroid
             if (country?.centroid_lat && country?.centroid_lon) {
               viewer.entities.add({
-                name: `flow_balance_label_${iso}`,
+                name: `flow_balance_label_${fIso}`,
                 position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
                 label: {
-                  text: `${iso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
+                  text: `${fIso}\n${data.net >= 0 ? "+" : ""}${netB}B`,
                   font: "bold 11px 'Segoe UI', sans-serif",
                   fillColor: Color.WHITE,
                   outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
