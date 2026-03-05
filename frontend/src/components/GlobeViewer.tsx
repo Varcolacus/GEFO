@@ -764,7 +764,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
             const logNorm = Math.log10(1 + Math.abs(data.net)) / Math.log10(1 + maxAbs);
             const isSurplus = data.net >= 0;
-            const alpha = 0.15 + logNorm * 0.55;
+            const alpha = 0.05 + logNorm * 0.45;
             // Green = excédentaire (surplus), Red = déficitaire (deficit)
             const color = isSurplus
               ? new Color(30 / 255, 200 / 255, 80 / 255, alpha)
