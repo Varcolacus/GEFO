@@ -780,7 +780,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
                 labelPrefix = `$${(data.exports / 1e9).toFixed(1)}B`;
                 break;
               case "imports":
-                color = new Color(220 / 255, 120 / 255, 40 / 255, alpha);
+                color = new Color(220 / 255, 50 / 255, 40 / 255, alpha);
                 labelPrefix = `$${(data.imports / 1e9).toFixed(1)}B`;
                 break;
               case "volume":
