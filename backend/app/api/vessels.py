@@ -18,7 +18,7 @@ def get_vessels():
     """Get current snapshot of all tracked vessels."""
     vessels = vessel_tracker.get_vessels()
     return {
-        "mode": "live" if vessel_tracker.is_live else "simulation",
+        "mode": "live" if vessel_tracker.is_live else "disabled",
         "count": len(vessels),
         "vessels": vessels,
     }

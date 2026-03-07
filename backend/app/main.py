@@ -18,7 +18,6 @@ from app.api import vessels as vessels_router
 from app.api import tiles as tiles_router
 from app.api import aircraft as aircraft_router
 from app.core.usage_middleware import UsageTrackingMiddleware
-from app.services.live_feed import simulator as live_feed_simulator
 from app.services.vessel_tracker import vessel_tracker
 from app.services.aircraft_tracker import aircraft_tracker
 
@@ -38,14 +37,12 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
     logger.info("GEFO API starting up…")
     start_scheduler()
-    live_feed_simulator.start()
     vessel_tracker.start()
     aircraft_tracker.start()
     yield
     logger.info("GEFO API shutting down…")
     aircraft_tracker.stop()
     vessel_tracker.stop()
-    live_feed_simulator.stop()
     stop_scheduler()
 
 
