@@ -86,18 +86,21 @@ def get_rail_freight(
         return q.order_by(RailFreight.tonnes.desc()).all()
 
     def _latest_year(is_us: bool) -> Optional[int]:
-        q = db.query(func.max(RailFreight.year))
-        if is_us:
-            q = q.filter(
-                RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA")
-            )
-        else:
-            q = q.filter(
-                ~RailFreight.origin_iso.like("US-%"),
-                RailFreight.origin_iso != "CA",
-            )
-        row = q.scalar()
-        return row
+        """Find the best fallback year — the one with the most flows."""
+        region_filter = (
+            (RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA"))
+            if is_us
+            else (~RailFreight.origin_iso.like("US-%") & (RailFreight.origin_iso != "CA"))
+        )
+        # Pick year with most flows above the threshold
+        row = (
+            db.query(RailFreight.year, func.count(RailFreight.id).label("cnt"))
+            .filter(region_filter, RailFreight.tonnes >= min_tonnes)
+            .group_by(RailFreight.year)
+            .order_by(func.count(RailFreight.id).desc())
+            .first()
+        )
+        return row[0] if row else None
 
     # Determine which regions to fetch
     regions_to_fetch: list[bool] = []  # True = US, False = EU

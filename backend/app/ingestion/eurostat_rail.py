@@ -78,7 +78,14 @@ def parse_and_ingest(csv_text: str):
         # geo = reporting country (origin/loader), c_unload = destination
 
         from collections import defaultdict
-        agg: dict[tuple[str, str, int], float] = defaultdict(float)
+
+        # Two-tier aggregation:
+        # 1) annual_agg: annual records (TIME_PERIOD is just "YYYY") — use max per OD-year
+        #    (handles transport-coverage breakdowns where "total" >= sub-category)
+        # 2) monthly_agg: monthly records ("YYYY-MM") — sum per OD-year
+        #    (when no annual total exists, sum months to approximate annual)
+        annual_agg: dict[tuple[str, str, int], float] = defaultdict(float)
+        monthly_agg: dict[tuple[str, str, int], float] = defaultdict(float)
         skipped = 0
         total = 0
 
@@ -120,13 +127,28 @@ def parse_and_ingest(csv_text: str):
             if tonnes <= 0:
                 continue
 
-            # Aggregate: dataset may have multiple rows per OD-year (transport coverage etc.)
-            # Keep the max value per OD-year to avoid double-counting
+            is_annual = len(time_period) == 4  # "2001" vs "2001-03"
             key = (origin_iso, dest_iso, year)
-            if tonnes > agg[key]:
-                agg[key] = tonnes
 
-        log.info(f"Parsed {total:,} rows, skipped {skipped:,}, aggregated to {len(agg):,} OD-year pairs")
+            if is_annual:
+                # Keep max of annual rows (handles total vs sub-coverage)
+                if tonnes > annual_agg[key]:
+                    annual_agg[key] = tonnes
+            else:
+                # Sum monthly values
+                monthly_agg[key] += tonnes
+
+        # Merge: prefer annual, fall back to summed monthly
+        agg: dict[tuple[str, str, int], float] = {}
+        all_keys = set(annual_agg.keys()) | set(monthly_agg.keys())
+        for key in all_keys:
+            if key in annual_agg and annual_agg[key] > 0:
+                agg[key] = annual_agg[key]
+            elif key in monthly_agg:
+                agg[key] = monthly_agg[key]
+
+        log.info(f"Parsed {total:,} rows, skipped {skipped:,}")
+        log.info(f"  Annual OD-year pairs: {len(annual_agg):,}, monthly-only: {len(agg) - len(annual_agg):,}, total: {len(agg):,}")
 
         # Log TUR/RUS coverage
         tur_flows = {k: v for k, v in agg.items() if 'TUR' in k[:2]}
