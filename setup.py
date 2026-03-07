@@ -117,7 +117,7 @@ def print_counts():
 
 # ── setup steps ──────────────────────────────────────────────────────────────
 
-TOTAL_STEPS = 9
+TOTAL_STEPS = 7
 
 
 def run_init_schema():
@@ -155,34 +155,18 @@ def run_seed_airports():
         seed_airports()
 
 
-def run_seed_shipping():
-    step(6, TOTAL_STEPS, "Seed shipping density data")
-    with _timer("shipping density"):
-        from app.ingestion.shipping_density_seed import seed_shipping_density
-        seed_shipping_density()
-
-
-def run_seed_trade():
-    step(7, TOTAL_STEPS, "Seed trade flows (comprehensive gravity model)")
-    with _timer("trade flows"):
-        from app.ingestion.trade_flows_seed import seed_trade_flows
-        seed_trade_flows()
-        from app.ingestion.seed_trade_comprehensive import seed_comprehensive_trade
-        seed_comprehensive_trade()
-
-
-def run_seed_commodities():
-    step(8, TOTAL_STEPS, "Seed commodities & supply dependencies")
-    with _timer("commodities"):
-        from app.ingestion.seed_commodities import seed_commodities
-        seed_commodities()
-
-
 def run_seed_geopolitical():
-    step(9, TOTAL_STEPS, "Seed geopolitical data (sanctions, conflicts, risk scores)")
+    step(6, TOTAL_STEPS, "Seed geopolitical data (sanctions, conflicts, risk scores)")
     with _timer("geopolitical"):
         from app.ingestion.seed_geopolitical import seed_geopolitical
         seed_geopolitical()
+
+
+def run_seed_worldbank():
+    step(7, TOTAL_STEPS, "Fetch World Bank indicators (GDP, population, etc.)")
+    with _timer("world bank"):
+        from app.ingestion.worldbank import ingest_world_bank_data
+        ingest_world_bank_data()
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -221,10 +205,8 @@ def main():
     run_seed_globe_merge()
     run_seed_ports()
     run_seed_airports()
-    run_seed_shipping()
-    run_seed_trade()
-    run_seed_commodities()
     run_seed_geopolitical()
+    run_seed_worldbank()
 
     elapsed = time.perf_counter() - t0
     log.info("")
@@ -233,9 +215,11 @@ def main():
     print_counts()
     log.info("")
     log.info("Next steps:")
-    log.info("  1. Start backend:  cd backend && uvicorn app.main:app --reload")
-    log.info("  2. Start frontend: cd frontend && npm run dev")
-    log.info("  3. Open http://localhost:3000")
+    log.info("  1. Fetch real trade data:")
+    log.info("     cd backend && python -m app.ingestion.fetch_comtrade --years 2018,2019,2020,2021,2022,2023,2024")
+    log.info("  2. Start backend:  cd backend && uvicorn app.main:app --reload")
+    log.info("  3. Start frontend: cd frontend && npm run dev")
+    log.info("  4. Open http://localhost:3000")
 
 
 if __name__ == "__main__":
