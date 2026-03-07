@@ -17,6 +17,7 @@ from app.api import economic_groups as economic_groups_router
 from app.api import vessels as vessels_router
 from app.api import tiles as tiles_router
 from app.api import aircraft as aircraft_router
+from app.api import rail_freight as rail_freight_router
 from app.core.usage_middleware import UsageTrackingMiddleware
 from app.services.vessel_tracker import vessel_tracker
 from app.services.aircraft_tracker import aircraft_tracker
@@ -90,6 +91,7 @@ app.include_router(data_sources_router.router)
 app.include_router(economic_groups_router.router)
 app.include_router(vessels_router.router)
 app.include_router(aircraft_router.router)
+app.include_router(rail_freight_router.router)
 app.include_router(tiles_router.router)
 
 # Rate limiting

@@ -139,6 +139,16 @@ const INDICATOR_GROUPS = [
     ],
   },
   {
+    group: "Transport",
+    items: [
+      { value: "rail_freight_mtkm", label: "Rail Freight (M ton-km)" },
+      { value: "rail_passengers_mkm", label: "Rail Passengers (M p-km)" },
+      { value: "air_freight_mtkm", label: "Air Freight (M ton-km)" },
+      { value: "air_passengers", label: "Air Passengers" },
+      { value: "container_port_traffic", label: "Container Port (TEU)" },
+    ],
+  },
+  {
     group: "Misc",
     items: [
       { value: "exchange_rate", label: "Exchange Rate (LCU/$)" },
@@ -155,7 +165,7 @@ export default function LayerControl({
   onToggleAll,
   indicator,
   onIndicatorChange,
-  tradeMode = "all",
+  tradeMode = "balance",
   onTradeModeChange,
 }: LayerControlProps) {
   const allOn = Object.values(layers).every(Boolean);
@@ -207,6 +217,27 @@ export default function LayerControl({
           color="bg-emerald-500"
           onToggle={() => onToggle("countries")}
         />
+
+        {/* Indicator Selector — visible when Country Indicators layer is active */}
+        {layers.countries && (
+          <div className="ml-4 mb-1">
+            <select
+              value={indicator}
+              onChange={(e) => onIndicatorChange(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
+              {INDICATOR_GROUPS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.items.map((ind) => (
+                    <option key={ind.value} value={ind.value}>
+                      {ind.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
 
         <ToggleSwitch
           label="Trade"
@@ -292,30 +323,6 @@ export default function LayerControl({
           />
         </div>
       </div>
-
-      {/* Indicator Selector */}
-      {layers.countries && (
-        <div className="px-4 pb-3">
-          <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
-            Macro Indicator
-          </h3>
-          <select
-            value={indicator}
-            onChange={(e) => onIndicatorChange(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          >
-            {INDICATOR_GROUPS.map((g) => (
-              <optgroup key={g.group} label={g.group}>
-                {g.items.map((ind) => (
-                  <option key={ind.value} value={ind.value}>
-                    {ind.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Legend */}
       <div className="px-4 pb-4 border-t border-gray-700 pt-3">

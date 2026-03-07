@@ -100,6 +100,13 @@ class Country(Base):
     services_pct_gdp = Column(Float, nullable=True)
     arable_land_pct = Column(Float, nullable=True)
 
+    # ── Transport ──
+    rail_freight_mtkm = Column(Float, nullable=True)
+    rail_passengers_mkm = Column(Float, nullable=True)
+    air_freight_mtkm = Column(Float, nullable=True)
+    air_passengers = Column(Float, nullable=True)
+    container_port_traffic = Column(Float, nullable=True)
+
     # ── Misc ──
     exchange_rate = Column(Float, nullable=True)
     tariff_rate_weighted = Column(Float, nullable=True)

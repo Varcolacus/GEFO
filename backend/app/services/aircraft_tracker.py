@@ -102,9 +102,9 @@ class AircraftTracker:
     We query multiple geographic zones to build global coverage.
     """
 
-    POLL_INTERVAL = 20         # seconds between poll cycles
+    POLL_INTERVAL = 30         # seconds between poll cycles
     BROADCAST_INTERVAL = 5     # seconds between WebSocket broadcasts
-    STALE_TIMEOUT = 120        # remove aircraft not seen for 2 minutes
+    STALE_TIMEOUT = 180        # remove aircraft not seen for 3 minutes
 
     # airplanes.live: /v2/point/{lat}/{lon}/{radius_nm} — max 250 nm radius
     AIRPLANES_LIVE_URL = "https://api.airplanes.live/v2/point"
@@ -268,7 +268,12 @@ class AircraftTracker:
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url) as resp:
+                if resp.status == 429:
+                    logger.warning("airplanes.live rate-limited (429) — backing off")
+                    await asyncio.sleep(30)
+                    return
                 if resp.status != 200:
+                    logger.debug(f"airplanes.live returned {resp.status}")
                     return
                 data = await resp.json()
 

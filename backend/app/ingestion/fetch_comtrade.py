@@ -114,7 +114,7 @@ def fetch_reporter_exports(reporter_m49: int, year: int, subscription_key: str |
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch UN Comtrade bilateral trade data")
-    parser.add_argument("--years", default="2024,2023,2022,2021,2020,2019,2018",
+    parser.add_argument("--years", default="2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012,2011,2010,2009,2008,2007,2006,2005,2004,2003,2002,2001,2000,1999,1998,1997,1996",
                         help="Comma-separated years to fetch")
     parser.add_argument("--clean", action="store_true",
                         help="Clear ALL existing aggregate trade flows before importing")
@@ -238,7 +238,7 @@ def main():
 
                 if batch:
                     db.bulk_save_objects(batch)
-                    db.flush()
+                    db.commit()
                     year_total += len(batch)
                     log.info(f"  [{idx+1}/{len(reporter_list)}] {iso3} ({name}): {len(batch)} trade flows")
                 else:
@@ -247,7 +247,6 @@ def main():
                 # Rate limiting
                 time.sleep(rate_delay)
 
-            db.commit()
             grand_total += year_total
             total_skipped += year_skipped
             log.info(f"  ✅ {year}: {year_total} bilateral trade flows imported "

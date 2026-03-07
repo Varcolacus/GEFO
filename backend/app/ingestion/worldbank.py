@@ -6,11 +6,14 @@ Free API, no key required.
 import httpx
 import logging
 import time
+import argparse
 from typing import List, Dict
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.database import SessionLocal
 from app.models.country import Country
+from app.models.country_indicator import CountryIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +104,13 @@ INDICATORS = {
     "services_pct_gdp":             ("NV.SRV.TOTL.ZS",       "Services value added (% of GDP)"),
     "arable_land_pct":              ("AG.LND.ARBL.ZS",       "Arable land (% of land area)"),
 
+    # Transport
+    "rail_freight_mtkm":            ("IS.RRS.GOOD.MT.K6",    "Rail freight (million ton-km)"),
+    "rail_passengers_mkm":          ("IS.RRS.PASG.KM",       "Rail passengers (million passenger-km)"),
+    "air_freight_mtkm":             ("IS.AIR.GOOD.MT.K1",    "Air freight (million ton-km)"),
+    "air_passengers":               ("IS.AIR.PSGR",          "Air passengers carried"),
+    "container_port_traffic":       ("IS.SHP.GOOD.TU",       "Container port traffic (TEU)"),
+
     # Misc
     "exchange_rate":                ("PA.NUS.FCRF",           "Official exchange rate (LCU per US$)"),
     "tariff_rate_weighted":         ("TM.TAX.MRCH.WM.AR.ZS", "Tariff rate, weighted mean (%)"),
@@ -108,22 +118,36 @@ INDICATORS = {
 }
 
 
-def fetch_indicator(indicator_code: str, year_range: str = "2020:2023", per_page: int = 2000) -> List[dict]:
-    """Fetch a single indicator for all countries from World Bank API."""
+def fetch_indicator(indicator_code: str, year_range: str = "2020:2023", per_page: int = 20000) -> List[dict]:
+    """Fetch a single indicator for all countries from World Bank API.
+    Handles pagination automatically.
+    """
     url = f"{WORLD_BANK_URL}/country/all/indicator/{indicator_code}"
     params = {"date": year_range, "format": "json", "per_page": per_page}
+    all_records = []
 
     try:
-        with httpx.Client(timeout=30.0) as client:
-            response = client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            if isinstance(data, list) and len(data) > 1:
-                return data[1]
-            return []
+        with httpx.Client(timeout=60.0) as client:
+            page = 1
+            while True:
+                params["page"] = page
+                response = client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                if isinstance(data, list) and len(data) > 1:
+                    records = data[1]
+                    all_records.extend(records)
+                    total_pages = data[0].get("pages", 1)
+                    if page >= total_pages:
+                        break
+                    page += 1
+                    time.sleep(0.3)
+                else:
+                    break
     except Exception as e:
         logger.error(f"Error fetching {indicator_code}: {e}")
-        return []
+
+    return all_records
 
 
 def build_country_data(year: int = 2023) -> Dict[str, dict]:
@@ -204,6 +228,92 @@ def ingest_world_bank_data(year: int = 2023):
     return count
 
 
+def ingest_world_bank_historical(start_year: int = 1960, end_year: int = 2024):
+    """Ingest World Bank data for ALL years into country_indicators table."""
+    from app.core.database import engine
+    from app.models.country_indicator import CountryIndicator
+    CountryIndicator.__table__.create(engine, checkfirst=True)
+
+    db = SessionLocal()
+    year_range = f"{start_year}:{end_year}"
+
+    try:
+        # Get valid ISO codes from our DB
+        valid_isos = {c.iso_code for c in db.query(Country.iso_code).all()}
+        logger.info(f"Fetching {len(INDICATORS)} indicators for years {start_year}-{end_year} ({len(valid_isos)} countries)")
+
+        total_rows = 0
+        total_indicators = len(INDICATORS)
+
+        for idx, (field_name, (indicator_code, description)) in enumerate(INDICATORS.items(), 1):
+            logger.info(f"[{idx}/{total_indicators}] Fetching {field_name} ({indicator_code}) {year_range}...")
+            records = fetch_indicator(indicator_code, year_range)
+
+            batch = []
+            for record in records:
+                iso = record.get("countryiso3code", "")
+                value = record.get("value")
+                rec_year = record.get("date", "")
+
+                if not iso or len(iso) != 3 or value is None or not rec_year:
+                    continue
+                if iso not in valid_isos:
+                    continue
+
+                try:
+                    year_int = int(rec_year)
+                except ValueError:
+                    continue
+
+                batch.append({
+                    "iso_code": iso,
+                    "year": year_int,
+                    "indicator": field_name,
+                    "value": float(value),
+                })
+
+            if batch:
+                # Upsert in chunks
+                for i in range(0, len(batch), 1000):
+                    chunk = batch[i:i+1000]
+                    stmt = pg_insert(CountryIndicator).values(chunk)
+                    stmt = stmt.on_conflict_do_update(
+                        constraint="uq_country_year_indicator",
+                        set_={"value": stmt.excluded.value},
+                    )
+                    db.execute(stmt)
+                db.commit()
+                total_rows += len(batch)
+                logger.info(f"  -> {len(batch)} data points stored")
+            else:
+                logger.info(f"  -> 0 data points")
+
+            # Be polite
+            if idx % 5 == 0:
+                time.sleep(0.5)
+
+        logger.info(f"Historical ingestion complete. {total_rows:,} total data points across {total_indicators} indicators.")
+
+    finally:
+        db.close()
+
+    return total_rows
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    ingest_world_bank_data(2023)
+    parser = argparse.ArgumentParser(description="Fetch World Bank indicators")
+    parser.add_argument("--historical", action="store_true",
+                        help="Fetch all years (1960-2024) into country_indicators table")
+    parser.add_argument("--start-year", type=int, default=1960,
+                        help="Start year for historical fetch (default: 1960)")
+    parser.add_argument("--end-year", type=int, default=2024,
+                        help="End year for historical fetch (default: 2024)")
+    parser.add_argument("--year", type=int, default=2023,
+                        help="Year for snapshot ingestion (default: 2023)")
+    args = parser.parse_args()
+
+    if args.historical:
+        ingest_world_bank_historical(args.start_year, args.end_year)
+    else:
+        ingest_world_bank_data(args.year)

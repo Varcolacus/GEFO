@@ -43,6 +43,7 @@ import type {
   CommodityFlowEdge,
   VesselPosition,
   AircraftPosition,
+  RailFreightFlow,
 } from "@/lib/api";
 import type { TradeMode } from "@/lib/trade-modes";
 import { MAJOR_AIRPORTS } from "@/lib/airports";
@@ -108,6 +109,7 @@ interface GlobeViewerProps {
   vessels?: VesselPosition[];
   aircraftList?: AircraftPosition[];
   airports?: AirportData[];
+  railFreight?: RailFreightFlow[];
   layers: {
     countries: boolean;
     tradeFlows: boolean;
@@ -119,6 +121,7 @@ interface GlobeViewerProps {
     aircraft: boolean;
   };
   indicator: string;
+  year?: number | null;
   onCountryClick?: (country: CountryMacro) => void;
   flyToCountry?: CountryMacro | null;
   flyToPosition?: { lon: number; lat: number; altitude: number } | null;
@@ -140,25 +143,43 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   vessels = [],
   aircraftList = [],
   airports: airportsProp = [],
+  railFreight = [],
   layers,
   indicator,
+  year = null,
   onCountryClick,
   flyToCountry,
   flyToPosition,
   highlightCountryIso,
-  tradeMode = "all",
+  tradeMode = "balance",
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonRef = useRef<any>(null);
+  const vesselsRef = useRef<VesselPosition[]>(vessels);
+  vesselsRef.current = vessels;
+  const countriesRef = useRef<CountryMacro[]>(countries);
+  countriesRef.current = countries;
+  const indicatorRef = useRef(indicator);
+  indicatorRef.current = indicator;
+  const yearRef = useRef(year);
+  yearRef.current = year;
+  const [vesselTooltip, setVesselTooltip] = useState<{
+    x: number; y: number; vessel: VesselPosition;
+  } | null>(null);
+  const [countryTooltip, setCountryTooltip] = useState<{
+    x: number; y: number; iso: string;
+  } | null>(null);
 
-  // Pre-fetch GeoJSON on mount so trade choropleth renders instantly
+  // Fetch GeoJSON (with year-aware indicator values) on mount and when year changes
+  const geoJsonYearRef = useRef<number | null | undefined>(undefined);
   useEffect(() => {
-    if (!geoJsonRef.current) {
-      fetchCountriesGeoJSON("gdp").then((data) => { geoJsonRef.current = data; }).catch(() => {});
+    if (geoJsonYearRef.current !== year || !geoJsonRef.current) {
+      geoJsonYearRef.current = year;
+      fetchCountriesGeoJSON("gdp", year).then((data) => { geoJsonRef.current = data; }).catch(() => {});
     }
-  }, []);
+  }, [year]);
 
   // Expose screenshot method to parent
   useImperativeHandle(ref, () => ({
@@ -441,7 +462,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       if (defined(picked) && picked.id && picked.id.name) {
         const entityName = picked.id.name as string;
         if (entityName.startsWith("country_")) {
-          const iso = entityName.replace("country_", "");
+          const iso = entityName.replace(/^country_/, "").replace(/_\d+$/, "");
           const country = countries.find((c) => c.iso_code === iso);
           if (country) onCountryClick(country);
         }
@@ -488,6 +509,41 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     return () => handler.destroy();
   }, []);
 
+  // ─── Vessel hover tooltip ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction((movement: { endPosition: Cartesian2 }) => {
+      const picked = viewer.scene.pick(movement.endPosition);
+      if (defined(picked) && picked.id && typeof picked.id.name === "string") {
+        const eName = picked.id.name as string;
+        // Vessel hover
+        if (eName.startsWith("vessel_") && !eName.startsWith("vessel_hdg_")) {
+          const idx = parseInt(eName.replace("vessel_", ""), 10);
+          const v = vesselsRef.current[idx];
+          if (v) {
+            setVesselTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, vessel: v });
+            setCountryTooltip(null);
+            return;
+          }
+        }
+        // Country hover (polygon or label)
+        if (eName.startsWith("country_")) {
+          const iso = eName.replace(/^country_/, "").replace(/_\d+$/, "");
+          setCountryTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, iso });
+          setVesselTooltip(null);
+          return;
+        }
+      }
+      setVesselTooltip(null);
+      setCountryTooltip(null);
+    }, ScreenSpaceEventType.MOUSE_MOVE);
+
+    return () => handler.destroy();
+  }, []);
+
   // ─── Fly to country when requested ───
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -528,7 +584,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
   }, [flyToPosition]);
 
-  // ─── Render Country Points (with macro indicator coloring) ───
+  // ─── Render Country Polygons (transparent fill by macro indicator) ───
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -542,8 +598,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     toRemove.forEach((e) => viewer.entities.remove(e));
 
     if (!layers.countries || countries.length === 0) { viewer.entities.resumeEvents(); return; }
-
-    // Calculate value range for color mapping
 
     // Indicators that are percentages or indices (not USD)
     const PCT_INDICATORS = new Set([
@@ -581,7 +635,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     ]);
 
     const computeValue = (c: CountryMacro): number | null | undefined => {
-      // Computed indicators
       if (indicator === "trade_openness") {
         if (c.gdp && c.export_value != null && c.import_value != null && c.gdp > 0)
           return ((c.export_value + c.import_value) / c.gdp) * 100;
@@ -592,114 +645,157 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           return (c.import_value / c.gdp) * 100;
         return null;
       }
-      // Direct field lookup
       const val = (c as unknown as Record<string, unknown>)[indicator];
       return typeof val === "number" ? val : null;
     };
 
-    const values = countries
-      .map((c) => computeValue(c))
-      .filter((v): v is number => v != null && v !== 0);
+    // Build value map by ISO
+    const valueMap = new Map<string, number>();
+    for (const c of countries) {
+      const v = computeValue(c);
+      if (v != null) valueMap.set(c.iso_code, v);
+    }
+    const values = Array.from(valueMap.values()).filter((v) => v !== 0);
+    if (values.length === 0) { viewer.entities.resumeEvents(); return; }
 
     const maxVal = Math.max(...values);
     const minVal = Math.min(...values);
+    const isDiverging = DIVERGING_INDICATORS.has(indicator);
+    const countryMap = new Map(countries.map((c) => [c.iso_code, c]));
 
-    countries.forEach((country) => {
-      if (!country.centroid_lat || !country.centroid_lon) return;
+    const formatValue = (rawValue: number): string => {
+      if (PCT_INDICATORS.has(indicator)) return `${rawValue.toFixed(1)}%`;
+      if (PLAIN_INDICATORS.has(indicator)) {
+        if (rawValue >= 1e9) return `${(rawValue / 1e9).toFixed(1)}B`;
+        if (rawValue >= 1e6) return `${(rawValue / 1e6).toFixed(1)}M`;
+        return rawValue.toFixed(1);
+      }
+      if (Math.abs(rawValue) >= 1e12) return `$${(rawValue / 1e12).toFixed(1)}T`;
+      if (Math.abs(rawValue) >= 1e9) return `$${(rawValue / 1e9).toFixed(1)}B`;
+      if (Math.abs(rawValue) >= 1e6) return `$${(rawValue / 1e6).toFixed(1)}M`;
+      return `$${rawValue.toFixed(0)}`;
+    };
 
-      const rawValue = computeValue(country);
-
-      if (rawValue == null) return;
-
-      // Normalize to 0-1
-      const isDiverging = DIVERGING_INDICATORS.has(indicator);
+    const computeColor = (rawValue: number): Color => {
       let normalized: number;
       if (isDiverging) {
-        // Diverging: red for negative, green for positive
         const absMax = Math.max(Math.abs(minVal), Math.abs(maxVal));
-        normalized = (rawValue + absMax) / (2 * absMax);
+        normalized = absMax > 0 ? Math.abs(rawValue) / absMax : 0;
       } else {
         normalized = maxVal > minVal ? (rawValue - minVal) / (maxVal - minVal) : 0.5;
       }
+      const alpha = 0.12 + normalized * 0.55;
+      // Single cyan color — only transparency changes with value
+      return new Color(34 / 255, 211 / 255, 238 / 255, alpha);
+    };
 
-      // Color interpolation
-      let color: Color;
-      if (isDiverging) {
-        color = Color.fromCssColorString(
-          normalized < 0.5
-            ? `rgba(${Math.round(220 - normalized * 200)}, ${Math.round(50 + normalized * 150)}, 50, 0.8)`
-            : `rgba(50, ${Math.round(100 + normalized * 155)}, ${Math.round(50 + normalized * 100)}, 0.8)`
-        );
-      } else {
-        const hue = normalized * 0.35; // 0 (red) to 0.35 (green)
-        color = Color.fromHsl(hue, 0.8, 0.45 + normalized * 0.2, 0.85);
+    // Render using GeoJSON polygons (transparent fills)
+    (async () => {
+      try {
+        // Fetch year-aware GeoJSON (backend returns per-year indicator values)
+        geoJsonRef.current = await fetchCountriesGeoJSON(indicator, year);
+        const geojson = geoJsonRef.current;
+        if (!geojson?.features) { viewer.entities.resumeEvents(); return; }
+
+        // When we have year-aware GeoJSON, use its values instead of the countries array
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const features = geojson.features as any[];
+        const geoValueMap = new Map<string, number>();
+        for (const feature of features) {
+          const fIso = feature.properties?.iso_code;
+          const val = feature.properties?.value;
+          if (fIso && val != null) geoValueMap.set(fIso, val);
+        }
+        // Merge: prefer GeoJSON values (year-aware), fall back to computed valueMap
+        const mergedMap = new Map(valueMap);
+        for (const [iso, val] of geoValueMap) mergedMap.set(iso, val);
+
+        // Recompute min/max from merged values
+        const mergedValues = Array.from(mergedMap.values()).filter((v) => v !== 0);
+        if (mergedValues.length === 0) { viewer.entities.resumeEvents(); return; }
+        const mMax = Math.max(...mergedValues);
+        const mMin = Math.min(...mergedValues);
+
+        const computeColorFinal = (rawValue: number): Color => {
+          let normalized: number;
+          if (isDiverging) {
+            const absMax = Math.max(Math.abs(mMin), Math.abs(mMax));
+            normalized = absMax > 0 ? Math.abs(rawValue) / absMax : 0;
+          } else {
+            normalized = mMax > mMin ? (rawValue - mMin) / (mMax - mMin) : 0.5;
+          }
+          const alpha = 0.12 + normalized * 0.55;
+          return new Color(34 / 255, 211 / 255, 238 / 255, alpha);
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const feature of features) {
+          const fIso = feature.properties?.iso_code;
+          if (!fIso) continue;
+          const rawValue = mergedMap.get(fIso);
+          if (rawValue == null) continue;
+          const geom = feature.geometry;
+          if (!geom) continue;
+
+          const color = computeColorFinal(rawValue);
+
+          // Collect polygon outer rings
+          const rings: number[][][] = [];
+          if (geom.type === "Polygon") {
+            rings.push(geom.coordinates[0]);
+          } else if (geom.type === "MultiPolygon") {
+            for (const poly of geom.coordinates) {
+              rings.push(poly[0]);
+            }
+          }
+
+          for (let pi = 0; pi < rings.length; pi++) {
+            const ring = rings[pi];
+            const flat = new Array(ring.length * 2);
+            for (let i = 0; i < ring.length; i++) {
+              flat[i * 2] = ring[i][0];
+              flat[i * 2 + 1] = ring[i][1];
+            }
+            viewer.entities.add({
+              name: `country_${fIso}_${pi}`,
+              polygon: {
+                hierarchy: new PolygonHierarchy(Cartesian3.fromDegreesArray(flat)),
+                material: color,
+                outline: true,
+                outlineColor: color.withAlpha(0.7),
+                height: 0,
+              },
+            });
+          }
+
+          // Label at centroid
+          const country = countryMap.get(fIso);
+          if (country?.centroid_lat && country?.centroid_lon) {
+            const formattedValue = formatValue(rawValue);
+            viewer.entities.add({
+              name: `country_${fIso}`,
+              position: Cartesian3.fromDegrees(country.centroid_lon, country.centroid_lat),
+              label: {
+                text: `${fIso}\n${formattedValue}`,
+                font: "bold 11px 'Segoe UI', sans-serif",
+                fillColor: Color.WHITE,
+                outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+                outlineWidth: 3,
+                style: LabelStyle.FILL_AND_OUTLINE,
+                verticalOrigin: VerticalOrigin.CENTER,
+                scaleByDistance: new NearFarScalar(1e6, 1, 8e6, 0.3),
+                translucencyByDistance: new NearFarScalar(1e6, 1, 1.5e7, 0),
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load GeoJSON for indicator choropleth:", err);
+      } finally {
+        viewer.entities.resumeEvents();
       }
-
-      const radius = 55000 + normalized * 220000;
-      const extrudeHeight = 80000 + normalized * 2500000; // tall 3D column (up to ~2.5M meters)
-
-      const formattedValue =
-        PCT_INDICATORS.has(indicator)
-          ? `${rawValue.toFixed(1)}%`
-          : PLAIN_INDICATORS.has(indicator)
-          ? rawValue >= 1e9 ? `${(rawValue / 1e9).toFixed(1)}B`
-            : rawValue >= 1e6 ? `${(rawValue / 1e6).toFixed(1)}M`
-            : rawValue.toFixed(1)
-          : Math.abs(rawValue) >= 1e12
-          ? `$${(rawValue / 1e12).toFixed(1)}T`
-          : Math.abs(rawValue) >= 1e9
-          ? `$${(rawValue / 1e9).toFixed(1)}B`
-          : Math.abs(rawValue) >= 1e6
-          ? `$${(rawValue / 1e6).toFixed(1)}M`
-          : `$${rawValue.toFixed(0)}`;
-
-      // Brighter outline for glow effect
-      const outlineColor = Color.fromHsl(
-        isDiverging ? (normalized < 0.5 ? 0.0 : 0.33) : normalized * 0.35,
-        1.0, 0.65, 0.9
-      );
-
-      viewer.entities.add({
-        name: `country_${country.iso_code}`,
-        position: Cartesian3.fromDegrees(
-          country.centroid_lon,
-          country.centroid_lat
-        ),
-        ellipse: {
-          semiMajorAxis: radius,
-          semiMinorAxis: radius,
-          height: 0,
-          extrudedHeight: extrudeHeight,
-          material: color,
-          outline: true,
-          outlineColor: outlineColor,
-          outlineWidth: 1,
-        },
-        label: {
-          text: country.iso_code,
-          font: "bold 13px 'Segoe UI', sans-serif",
-          fillColor: Color.WHITE,
-          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
-          outlineWidth: 3,
-          style: LabelStyle.FILL_AND_OUTLINE,
-          verticalOrigin: VerticalOrigin.BOTTOM,
-          pixelOffset: new Cartesian3(0, -20, 0) as any,
-          scaleByDistance: new NearFarScalar(1e6, 1, 1e7, 0.4),
-          translucencyByDistance: new NearFarScalar(1e6, 1, 2e7, 0),
-        },
-        description: `
-          <h3>${country.name} (${country.iso_code})</h3>
-          <p><strong>${indicator.replace("_", " ")}:</strong> ${formattedValue}</p>
-          ${country.gdp ? `<p>GDP: $${(country.gdp / 1e9).toFixed(1)}B</p>` : ""}
-          ${country.population ? `<p>Population: ${(country.population / 1e6).toFixed(1)}M</p>` : ""}
-          ${country.export_value ? `<p>Exports: $${(country.export_value / 1e9).toFixed(1)}B</p>` : ""}
-          ${country.import_value ? `<p>Imports: $${(country.import_value / 1e9).toFixed(1)}B</p>` : ""}
-        `,
-      });
-    });
-
-    viewer.entities.resumeEvents();
-  }, [countries, layers.countries, indicator]);
+    })();
+  }, [countries, layers.countries, indicator, year]);
 
   // ─── Render Trade Flow Lines (mode-aware) ───
   useEffect(() => {
@@ -754,7 +850,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       (async () => {
         try {
           if (!geoJsonRef.current) {
-            geoJsonRef.current = await fetchCountriesGeoJSON("gdp");
+            geoJsonRef.current = await fetchCountriesGeoJSON("gdp", year);
           }
           const geojson = geoJsonRef.current;
           if (!geojson?.features) { viewer.entities.resumeEvents(); return; }
@@ -879,11 +975,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       visibleFlows = tradeFlows.filter(
         (f) => f.exporter_iso === iso || f.importer_iso === iso
       );
-    } else {
-      // "all"
-      visibleFlows = tradeFlows.filter(
-        (f) => f.exporter_iso === iso || f.importer_iso === iso
-      );
     }
 
     if (visibleFlows.length === 0) { viewer.entities.resumeEvents(); return; }
@@ -975,19 +1066,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             startColor: new Color(255 / 255, 100 / 255, 50 / 255, alpha * 0.6),
             endColor: new Color(220 / 255, 40 / 255, 40 / 255, alpha * 1.2),
           };
-        case "all":
         default:
-          if (isExport) {
-            return {
-              startColor: new Color(30 / 255, 200 / 255, 80 / 255, alpha),
-              endColor: new Color(30 / 255, 160 / 255, 60 / 255, alpha * 0.5),
-            };
-          } else {
-            return {
-              startColor: new Color(220 / 255, 80 / 255, 50 / 255, alpha * 0.5),
-              endColor: new Color(220 / 255, 50 / 255, 50 / 255, alpha),
-            };
-          }
+          return {
+            startColor: new Color(30 / 255, 200 / 255, 80 / 255, alpha),
+            endColor: new Color(220 / 255, 50 / 255, 50 / 255, alpha),
+          };
       }
     };
 
@@ -1578,11 +1661,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             <tr><td>MMSI</td><td>${v.mmsi}</td></tr>
             <tr><td>Type</td><td>${v.vessel_type.charAt(0).toUpperCase() + v.vessel_type.slice(1)}</td></tr>
             <tr><td>Flag</td><td>${v.flag_iso || "—"}</td></tr>
+            ${v.imo ? `<tr><td>IMO</td><td>${v.imo}</td></tr>` : ""}
+            ${v.callsign ? `<tr><td>Callsign</td><td>${v.callsign}</td></tr>` : ""}
             <tr><td>Speed</td><td>${v.speed_knots.toFixed(1)} kn</td></tr>
             <tr><td>Heading</td><td>${v.heading.toFixed(0)}°</td></tr>
             <tr><td>Destination</td><td>${v.destination || "—"}</td></tr>
-            ${v.length_m ? `<tr><td>Length</td><td>${v.length_m}m</td></tr>` : ""}
-            ${v.draught_m ? `<tr><td>Draught</td><td>${v.draught_m}m</td></tr>` : ""}
+            ${v.eta ? `<tr><td>ETA</td><td>${v.eta}</td></tr>` : ""}
+            ${v.length_m ? `<tr><td>Length</td><td>${v.length_m} m</td></tr>` : ""}
+            ${v.draught_m ? `<tr><td>Draught</td><td>${v.draught_m} m</td></tr>` : ""}
+            <tr><td>Position</td><td>${v.lat.toFixed(4)}°, ${v.lon.toFixed(4)}°</td></tr>
+            <tr><td>Last update</td><td>${new Date(v.last_update * 1000).toLocaleTimeString()}</td></tr>
           </table>
         `,
       });
@@ -1856,6 +1944,75 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.resumeEvents();
   }, [commodityFlows]);
 
+  // ─── Render Rail Freight Arcs (Orange/Amber) ───
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    viewer.entities.suspendEvents();
+
+    const toRemove = viewer.entities.values.filter(
+      (e) => e.name?.startsWith("rail_freight_")
+    );
+    toRemove.forEach((e) => viewer.entities.remove(e));
+
+    if (!layers.railroads || railFreight.length === 0) {
+      viewer.entities.resumeEvents();
+      return;
+    }
+
+    const maxTonnes = Math.max(...railFreight.map((f) => f.tonnes), 1);
+
+    railFreight.forEach((rf, i) => {
+      if (!rf.origin_lat || !rf.origin_lon || !rf.dest_lat || !rf.dest_lon) return;
+
+      const logNorm = Math.log10(1 + rf.tonnes) / Math.log10(1 + maxTonnes);
+      const width = 1.5 + logNorm * 5;
+      const alpha = 0.4 + logNorm * 0.5;
+
+      const arcPoints = computeArcPositions(
+        rf.origin_lon, rf.origin_lat,
+        rf.dest_lon, rf.dest_lat,
+        40, 0.06 + logNorm * 0.12
+      );
+      const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+
+      // Core line
+      viewer.entities.add({
+        name: `rail_freight_${i}`,
+        polyline: {
+          positions: arcCartesian,
+          width: width,
+          material: new PolylineArrowMaterialProperty(
+            new Color(255 / 255, 160 / 255, 40 / 255, alpha)
+          ),
+          arcType: ArcType.NONE,
+        },
+        description: `
+          <h3>Rail Freight: ${rf.origin_name} → ${rf.destination_name}</h3>
+          <p>Volume: ${(rf.tonnes / 1000).toFixed(0)} thousand tonnes</p>
+          <p>Year: ${rf.year}</p>
+        `,
+      });
+
+      // Glow underlay
+      viewer.entities.add({
+        name: `rail_freight_glow_${i}`,
+        polyline: {
+          positions: arcCartesian,
+          width: width + 6,
+          material: new PolylineGlowMaterialProperty({
+            glowPower: 0.3,
+            color: new Color(255 / 255, 140 / 255, 20 / 255, alpha * 0.3),
+          }),
+          arcType: ArcType.NONE,
+        },
+      });
+    });
+
+    viewer.entities.resumeEvents();
+  }, [railFreight, layers.railroads]);
+
   // ── Zoom helpers ──
   const zoomIn = useCallback(() => {
     const viewer = viewerRef.current;
@@ -1977,6 +2134,250 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           ⌂
         </button>
       </div>
+
+      {/* Vessel hover tooltip */}
+      {vesselTooltip && (
+        <div
+          style={{
+            position: "absolute",
+            left: vesselTooltip.x + 16,
+            top: vesselTooltip.y - 10,
+            zIndex: 60,
+            background: "rgba(8,12,28,0.94)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            color: "#e2e8f0",
+            fontSize: 12,
+            fontFamily: "'JetBrains Mono', monospace, sans-serif",
+            pointerEvents: "none",
+            backdropFilter: "blur(10px)",
+            maxWidth: 320,
+            lineHeight: 1.5,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          {(() => {
+            const v = vesselTooltip.vessel;
+            const typeLabel = v.vessel_type.charAt(0).toUpperCase() + v.vessel_type.slice(1);
+            const typeColorMap: Record<string, string> = {
+              cargo: "#22d3ee", tanker: "#f97316", container: "#10b981", bulk: "#a78bfa",
+              lng: "#38bdf8", passenger: "#f472b6", fishing: "#84cc16", military: "#ef4444", other: "#94a3b8",
+            };
+            const tColor = typeColorMap[v.vessel_type] || "#94a3b8";
+            const iconMap: Record<string, string> = {
+              cargo: "\u{1F6A2}", tanker: "\u{1F6E2}\uFE0F", container: "\u{1F4E6}", bulk: "\u26F4\uFE0F",
+              lng: "\u2744\uFE0F", passenger: "\u{1F6A4}", fishing: "\u{1F3A3}", military: "\u2693", other: "\u{1F539}",
+            };
+            const icon = iconMap[v.vessel_type] || "\u{1F6A2}";
+            return (
+              <>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, color: tColor }}>
+                  {icon} {v.name}
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>MMSI</td><td>{v.mmsi}</td></tr>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Type</td><td style={{ color: tColor }}>{typeLabel}</td></tr>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Flag</td><td>{v.flag_iso || "\u2014"}</td></tr>
+                    {v.imo ? <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>IMO</td><td>{v.imo}</td></tr> : null}
+                    {v.callsign ? <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Callsign</td><td>{v.callsign}</td></tr> : null}
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Speed</td><td>{v.speed_knots.toFixed(1)} kn</td></tr>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Heading</td><td>{v.heading.toFixed(0)}\u00B0</td></tr>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Destination</td><td>{v.destination || "\u2014"}</td></tr>
+                    {v.eta ? <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>ETA</td><td>{v.eta}</td></tr> : null}
+                    {v.length_m ? <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Length</td><td>{v.length_m} m</td></tr> : null}
+                    {v.draught_m ? <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Draught</td><td>{v.draught_m} m</td></tr> : null}
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Position</td><td>{v.lat.toFixed(4)}\u00B0, {v.lon.toFixed(4)}\u00B0</td></tr>
+                    <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Updated</td><td>{new Date(v.last_update * 1000).toLocaleTimeString()}</td></tr>
+                  </tbody>
+                </table>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Country hover tooltip */}
+      {countryTooltip && (() => {
+        const iso = countryTooltip.iso;
+        const c = countries.find((cc) => cc.iso_code === iso);
+        if (!c) return null;
+
+        // Indicator metadata lookup
+        const INDICATOR_META: Record<string, { label: string; group: string; source: string; unit: string }> = {
+          gdp: { label: "GDP (US$)", group: "Macro", source: "World Bank (NY.GDP.MKTP.CD)", unit: "$" },
+          gdp_per_capita: { label: "GDP per Capita", group: "Macro", source: "World Bank (NY.GDP.PCAP.CD)", unit: "$" },
+          gdp_growth: { label: "GDP Growth", group: "Macro", source: "World Bank (NY.GDP.MKTP.KD.ZG)", unit: "%" },
+          gdp_per_capita_ppp: { label: "GDP/Capita PPP", group: "Macro", source: "World Bank (NY.GDP.PCAP.PP.CD)", unit: "$" },
+          gni: { label: "GNI (US$)", group: "Macro", source: "World Bank (NY.GNP.MKTP.CD)", unit: "$" },
+          inflation_cpi: { label: "Inflation (CPI)", group: "Macro", source: "World Bank (FP.CPI.TOTL.ZG)", unit: "%" },
+          export_value: { label: "Exports", group: "Trade", source: "World Bank (NE.EXP.GNFS.CD)", unit: "$" },
+          import_value: { label: "Imports", group: "Trade", source: "World Bank (NE.IMP.GNFS.CD)", unit: "$" },
+          trade_balance: { label: "Trade Balance", group: "Trade", source: "World Bank (computed)", unit: "$" },
+          current_account: { label: "Current Account", group: "Trade", source: "World Bank (BN.CAB.XOKA.CD)", unit: "$" },
+          trade_pct_gdp: { label: "Trade % of GDP", group: "Trade", source: "World Bank (NE.TRD.GNFS.ZS)", unit: "%" },
+          trade_openness: { label: "Trade Openness", group: "Trade", source: "Computed (Exp+Imp)/GDP", unit: "%" },
+          import_dependency: { label: "Import Dependency", group: "Trade", source: "Computed Imp/GDP", unit: "%" },
+          external_balance_pct_gdp: { label: "Ext. Balance % GDP", group: "Trade", source: "World Bank (NE.RSB.GNFS.ZS)", unit: "%" },
+          high_tech_exports_pct: { label: "High-Tech Exports", group: "Trade", source: "World Bank (TX.VAL.TECH.MF.ZS)", unit: "%" },
+          population: { label: "Population", group: "Demographics", source: "World Bank (SP.POP.TOTL)", unit: "" },
+          life_expectancy: { label: "Life Expectancy", group: "Demographics", source: "World Bank (SP.DYN.LE00.IN)", unit: "years" },
+          unemployment_pct: { label: "Unemployment", group: "Demographics", source: "World Bank (SL.UEM.TOTL.ZS)", unit: "%" },
+          gini_index: { label: "GINI Index", group: "Demographics", source: "World Bank (SI.POV.GINI)", unit: "" },
+          fdi_inflows_pct_gdp: { label: "FDI Inflows % GDP", group: "Investment", source: "World Bank (BX.KLT.DINV.WD.GD.ZS)", unit: "%" },
+          military_expenditure_pct_gdp: { label: "Military % GDP", group: "Military", source: "World Bank (MS.MIL.XPND.GD.ZS)", unit: "%" },
+          co2_per_capita: { label: "CO\u2082/Capita", group: "Environment", source: "World Bank (EN.ATM.CO2E.PC)", unit: "tons" },
+          renewable_energy_pct: { label: "Renewable Energy", group: "Energy", source: "World Bank (EG.FEC.RNEW.ZS)", unit: "%" },
+          internet_users_pct: { label: "Internet Users", group: "Technology", source: "World Bank (IT.NET.USER.ZS)", unit: "%" },
+          control_corruption: { label: "Control of Corruption", group: "Governance", source: "World Bank (CC.EST)", unit: "index" },
+          political_stability: { label: "Political Stability", group: "Governance", source: "World Bank (PV.EST)", unit: "index" },
+          rule_of_law: { label: "Rule of Law", group: "Governance", source: "World Bank (RL.EST)", unit: "index" },
+        };
+
+        const meta = INDICATOR_META[indicator] || {
+          label: indicator.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          group: "Indicator",
+          source: "World Bank",
+          unit: "",
+        };
+
+        // Compute value
+        const computeVal = (): number | null => {
+          if (indicator === "trade_openness") {
+            if (c.gdp && c.export_value != null && c.import_value != null && c.gdp > 0)
+              return ((c.export_value + c.import_value) / c.gdp) * 100;
+            return null;
+          }
+          if (indicator === "import_dependency") {
+            if (c.gdp && c.import_value != null && c.gdp > 0) return (c.import_value / c.gdp) * 100;
+            return null;
+          }
+          const val = (c as unknown as Record<string, unknown>)[indicator];
+          return typeof val === "number" ? val : null;
+        };
+        const rawValue = computeVal();
+
+        const formatVal = (v: number): string => {
+          if (meta.unit === "%") return `${v.toFixed(1)}%`;
+          if (meta.unit === "$") {
+            if (Math.abs(v) >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+            if (Math.abs(v) >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+            if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+            return `$${v.toFixed(0)}`;
+          }
+          if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+          if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+          return v.toFixed(1);
+        };
+
+        return (
+          <div
+            style={{
+              position: "absolute",
+              left: countryTooltip.x + 16,
+              top: countryTooltip.y - 10,
+              zIndex: 60,
+              background: "rgba(8,12,28,0.94)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: 8,
+              padding: "10px 14px",
+              color: "#e2e8f0",
+              fontSize: 12,
+              fontFamily: "'JetBrains Mono', monospace, sans-serif",
+              pointerEvents: "none",
+              backdropFilter: "blur(10px)",
+              maxWidth: 330,
+              lineHeight: 1.6,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, color: "#67e8f9" }}>
+              {c.name} ({c.iso_code})
+            </div>
+            {c.region && (
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+                {c.region}{c.sub_region ? ` \u203A ${c.sub_region}` : ""}
+              </div>
+            )}
+            <div style={{
+              background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 10px", marginBottom: 6,
+            }}>
+              <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {meta.group} \u2014 {meta.label}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#f0fdf4" }}>
+                {rawValue != null ? formatVal(rawValue) : "N/A"}
+              </div>
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>
+                Source: {meta.source}
+              </div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <tbody>
+                {c.gdp != null && indicator !== "gdp" && (
+                  <tr><td style={{ color: "#94a3b8", paddingRight: 8 }}>GDP</td><td>${(c.gdp / 1e9).toFixed(1)}B</td></tr>
+                )}
+                {c.population != null && indicator !== "population" && (
+                  <tr><td style={{ color: "#94a3b8", paddingRight: 8 }}>Population</td><td>{(c.population / 1e6).toFixed(1)}M</td></tr>
+                )}
+                {c.gdp_growth != null && indicator !== "gdp_growth" && (
+                  <tr><td style={{ color: "#94a3b8", paddingRight: 8 }}>GDP Growth</td><td>{c.gdp_growth.toFixed(1)}%</td></tr>
+                )}
+                {c.export_value != null && indicator !== "export_value" && (
+                  <tr><td style={{ color: "#94a3b8", paddingRight: 8 }}>Exports</td><td>${(c.export_value / 1e9).toFixed(1)}B</td></tr>
+                )}
+                {c.import_value != null && indicator !== "import_value" && (
+                  <tr><td style={{ color: "#94a3b8", paddingRight: 8 }}>Imports</td><td>${(c.import_value / 1e9).toFixed(1)}B</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
+      {/* Vessel type color legend */}
+      {layers.vessels && vessels.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            right: 12,
+            bottom: 36,
+            zIndex: 40,
+            background: "rgba(8,12,28,0.88)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 8,
+            padding: "8px 12px",
+            backdropFilter: "blur(8px)",
+            fontSize: 11,
+            color: "#cbd5e1",
+            lineHeight: 1.8,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 11, marginBottom: 4, color: "#e2e8f0", letterSpacing: 0.5 }}>
+            VESSEL TYPES
+          </div>
+          {([
+            ["cargo",     "#22d3ee", "\u{1F6A2} Cargo"],
+            ["tanker",    "#f97316", "\u{1F6E2}\uFE0F Tanker"],
+            ["container", "#10b981", "\u{1F4E6} Container"],
+            ["bulk",      "#a78bfa", "\u26F4\uFE0F Bulk Carrier"],
+            ["lng",       "#38bdf8", "\u2744\uFE0F LNG"],
+            ["passenger", "#f472b6", "\u{1F6A4} Passenger"],
+            ["fishing",   "#84cc16", "\u{1F3A3} Fishing"],
+            ["military",  "#ef4444", "\u2693 Military"],
+            ["other",     "#94a3b8", "\u{1F539} Other"],
+          ] as [string, string, string][]).map(([key, color, label]) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", width: 10, height: 10, borderRadius: "50%",
+                background: color, boxShadow: `0 0 4px ${color}`,
+              }} />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });

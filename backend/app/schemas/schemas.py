@@ -98,6 +98,13 @@ class CountryMacro(CountryBase):
     services_pct_gdp: Optional[float] = None
     arable_land_pct: Optional[float] = None
 
+    # Transport
+    rail_freight_mtkm: Optional[float] = None
+    rail_passengers_mkm: Optional[float] = None
+    air_freight_mtkm: Optional[float] = None
+    air_passengers: Optional[float] = None
+    container_port_traffic: Optional[float] = None
+
     # Misc
     exchange_rate: Optional[float] = None
     tariff_rate_weighted: Optional[float] = None

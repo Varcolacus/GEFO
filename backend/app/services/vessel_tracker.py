@@ -62,6 +62,9 @@ class VesselPosition:
     flag_iso: str = ""
     length_m: float = 0
     draught_m: float = 0
+    imo: str = ""
+    callsign: str = ""
+    eta: str = ""
     last_update: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
@@ -77,6 +80,9 @@ class VesselPosition:
             "flag_iso": self.flag_iso,
             "length_m": self.length_m,
             "draught_m": self.draught_m,
+            "imo": self.imo,
+            "callsign": self.callsign,
+            "eta": self.eta,
             "last_update": self.last_update,
         }
 
@@ -435,6 +441,9 @@ class VesselTracker:
                     dim_b = int(raw.get("B", 0))
                     length = dim_a + dim_b
                     draught = float(raw.get("DRAUGHT", 0))  # already in metres (format=1)
+                    imo = str(raw.get("IMO", "") or "").strip()
+                    callsign = (raw.get("CALLSIGN", "") or "").strip()
+                    eta = (raw.get("ETA", "") or "").strip()
 
                     if mmsi in self._vessels:
                         # Update existing vessel — dedup: just refresh position
@@ -454,6 +463,12 @@ class VesselTracker:
                             v.length_m = length
                         if draught > 0:
                             v.draught_m = draught
+                        if imo:
+                            v.imo = imo
+                        if callsign:
+                            v.callsign = callsign
+                        if eta:
+                            v.eta = eta
                         self._vessel_source[mmsi] = "aishub"
                         updated_count += 1
                     else:
@@ -470,6 +485,9 @@ class VesselTracker:
                             flag_iso=self._mmsi_to_flag(mmsi),
                             length_m=length,
                             draught_m=draught,
+                            imo=imo,
+                            callsign=callsign,
+                            eta=eta,
                             last_update=now,
                         )
                         self._vessel_source[mmsi] = "aishub"

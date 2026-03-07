@@ -33,6 +33,7 @@ import {
   fetchConflictZones,
   fetchVessels,
   fetchAirports,
+  fetchRailFreight,
   type CountryMacro,
   type TradeFlowAggregated,
   type TradeFlowStats,
@@ -44,6 +45,7 @@ import {
   type CommodityFlowEdge,
   type VesselPosition,
   type AircraftPosition,
+  type RailFreightFlow,
   fetchAircraft,
 } from "@/lib/api";
 
@@ -84,7 +86,7 @@ export default function Home() {
   });
   const [indicator, setIndicator] = useState("gdp");
   const [tradeMode, setTradeMode] = useState<TradeMode>("balance");
-  const [year, setYear] = useState(2023);
+  const [year, setYear] = useState<number | null>(null);
   const [yearRange, setYearRange] = useState<YearRangeInfo | null>(null);
 
   const [countries, setCountries] = useState<CountryMacro[]>([]);
@@ -112,6 +114,7 @@ export default function Home() {
   const [vessels, setVessels] = useState<VesselPosition[]>([]);
 
   const [aircraftList, setAircraftList] = useState<AircraftPosition[]>([]);
+  const [railFreight, setRailFreight] = useState<RailFreightFlow[]>([]);
   const [commodityFlows, setCommodityFlows] = useState<CommodityFlowEdge[]>([]);
   const [conflictZones, setConflictZones] = useState<ConflictZone[]>([]);
   const [alertCount, setAlertCount] = useState(0);
@@ -162,6 +165,22 @@ export default function Home() {
 
   useEffect(() => {
     async function loadLiveData() {
+      // On first load, fetch available years to determine the latest year
+      if (year === null) {
+        try {
+          const yearsData = await fetchAvailableYears();
+          if (yearsData) {
+            setYearRange(yearsData);
+            setYear(yearsData.max_year || new Date().getFullYear());
+          } else {
+            setYear(new Date().getFullYear());
+          }
+        } catch {
+          setYear(new Date().getFullYear());
+        }
+        return; // will re-run with the resolved year
+      }
+
       setIsLoadingYear(true);
       try {
         const [countriesData, flowsData, portsData, densityData, statsData, yearsData] = await Promise.all([
@@ -182,6 +201,7 @@ export default function Home() {
         fetchAircraft().then((snap) => {
           setAircraftList(snap.aircraft);
         }).catch(() => {});
+        fetchRailFreight(year ?? 2000).then(setRailFreight).catch(() => {});
 
         setCountries(countriesData);
         setTradeFlows(flowsData);
@@ -190,10 +210,6 @@ export default function Home() {
         setShippingDensity(densityData.data);
         if (yearsData) {
           setYearRange(yearsData);
-          if (yearsData.max_year && yearsData.max_year !== year) {
-            setYear(yearsData.max_year);
-            return; // will re-run with correct year
-          }
         }
       } catch {
         console.log("Backend not available — no data to display");
@@ -238,8 +254,10 @@ export default function Home() {
         vessels={vessels}
         aircraftList={aircraftList}
         airports={airportsData}
+        railFreight={railFreight}
         layers={layers}
         indicator={indicator}
+        year={year}
         onCountryClick={(country) => {
           setSelectedCountry(country);
           setFlyToCountry(country);
@@ -425,14 +443,16 @@ export default function Home() {
         onTradeModeChange={setTradeMode}
       />
 
-      <TimeSlider
-        year={year}
-        onYearChange={setYear}
-        minYear={yearRange?.min_year ?? 2023}
-        maxYear={yearRange?.max_year ?? 2023}
-        availableYears={yearRange?.years.map((y) => y.year)}
-        isLoading={isLoadingYear}
-      />
+      {year !== null && (
+        <TimeSlider
+          year={year}
+          onYearChange={setYear}
+          minYear={yearRange?.min_year ?? year}
+          maxYear={yearRange?.max_year ?? year}
+          availableYears={yearRange?.years.map((y) => y.year)}
+          isLoading={isLoadingYear}
+        />
+      )}
 
       {/* Global Stats Summary */}
       <div className="absolute bottom-20 left-12 z-50 bg-gray-900/80 backdrop-blur-sm

@@ -120,6 +120,13 @@ export interface CountryMacro {
   services_pct_gdp?: number;
   arable_land_pct?: number;
 
+  // Transport
+  rail_freight_mtkm?: number;
+  rail_passengers_mkm?: number;
+  air_freight_mtkm?: number;
+  air_passengers?: number;
+  container_port_traffic?: number;
+
   // Misc
   exchange_rate?: number;
   tariff_rate_weighted?: number;
@@ -134,6 +141,19 @@ export interface TradeFlowAggregated {
   exporter_lon?: number;
   importer_lat?: number;
   importer_lon?: number;
+}
+
+export interface RailFreightFlow {
+  origin_iso: string;
+  destination_iso: string;
+  origin_name: string;
+  destination_name: string;
+  origin_lat: number;
+  origin_lon: number;
+  dest_lat: number;
+  dest_lon: number;
+  year: number;
+  tonnes: number;
 }
 
 export interface PortData {
@@ -213,10 +233,13 @@ export async function fetchCountries(region?: string): Promise<CountryMacro[]> {
 }
 
 export async function fetchCountriesGeoJSON(
-  indicator: string = "gdp"
+  indicator: string = "gdp",
+  year?: number | null
 ): Promise<Record<string, unknown>> {
+  const params: Record<string, string | number> = { indicator };
+  if (year != null) params.year = year;
   const response = await api.get("/api/countries/geojson", {
-    params: { indicator },
+    params,
   });
   return response.data;
 }
@@ -227,6 +250,16 @@ export async function fetchTradeFlows(
 ): Promise<TradeFlowAggregated[]> {
   const response = await api.get("/api/trade_flows/aggregated", {
     params: { year, top_n: topN },
+  });
+  return response.data;
+}
+
+export async function fetchRailFreight(
+  year: number,
+  minTonnes: number = 100
+): Promise<RailFreightFlow[]> {
+  const response = await api.get("/api/rail_freight/", {
+    params: { year, min_tonnes: minTonnes },
   });
   return response.data;
 }
@@ -1514,6 +1547,9 @@ export interface VesselPosition {
   flag_iso: string;
   length_m: number;
   draught_m: number;
+  imo: string;
+  callsign: string;
+  eta: string;
   last_update: number;
 }
 

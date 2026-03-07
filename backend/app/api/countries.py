@@ -14,6 +14,8 @@ from app.models.trade_flow import TradeFlow
 from app.models.port import Port
 from app.schemas.schemas import CountryMacro, CountryProfile, TradePartner, TradeYearSummary, PortResponse
 
+from app.models.country_indicator import CountryIndicator
+
 router = APIRouter(prefix="/api/countries", tags=["Countries"])
 
 
@@ -31,9 +33,22 @@ def get_countries(
     return countries
 
 
+@router.get("/indicator-years")
+def get_indicator_years(db: Session = Depends(get_db)):
+    """Get available years in the country_indicators table."""
+    rows = (
+        db.query(CountryIndicator.year)
+        .distinct()
+        .order_by(CountryIndicator.year)
+        .all()
+    )
+    return [r.year for r in rows]
+
+
 @router.get("/geojson")
 def get_countries_geojson(
-    indicator: str = Query("gdp", description="Indicator for coloring: gdp, trade_balance, current_account, export_value"),
+    indicator: str = Query("gdp", description="Indicator for coloring"),
+    year: Optional[int] = Query(None, description="Year for indicator data (uses latest snapshot if omitted)"),
     db: Session = Depends(get_db),
 ):
     """Get countries as GeoJSON with selected indicator for choropleth."""
@@ -46,23 +61,53 @@ def get_countries_geojson(
         .all()
     )
 
+    # If year is specified, fetch indicator values from the historical table
+    indicator_map: dict[str, float] = {}
+    context_indicators = ["gdp", "trade_balance", "current_account", "export_value", "import_value", "population"]
+    context_maps: dict[str, dict[str, float]] = {k: {} for k in context_indicators}
+
+    if year is not None:
+        # Fetch the selected indicator for this year
+        ind_rows = (
+            db.query(CountryIndicator.iso_code, CountryIndicator.value)
+            .filter(CountryIndicator.indicator == indicator, CountryIndicator.year == year)
+            .all()
+        )
+        indicator_map = {r.iso_code: r.value for r in ind_rows}
+
+        # Fetch context indicators for the tooltip
+        for ctx_ind in context_indicators:
+            ctx_rows = (
+                db.query(CountryIndicator.iso_code, CountryIndicator.value)
+                .filter(CountryIndicator.indicator == ctx_ind, CountryIndicator.year == year)
+                .all()
+            )
+            context_maps[ctx_ind] = {r.iso_code: r.value for r in ctx_rows}
+
     features = []
     for c, geojson_str in rows:
+        if year is not None and indicator_map:
+            value = indicator_map.get(c.iso_code)
+        else:
+            value = getattr(c, indicator, None)
+
+        props = {
+            "iso_code": c.iso_code,
+            "name": c.name,
+            "region": c.region,
+            "value": value,
+            "indicator": indicator,
+        }
+        # Add context values
+        for ctx_ind in context_indicators:
+            if year is not None and context_maps[ctx_ind]:
+                props[ctx_ind] = context_maps[ctx_ind].get(c.iso_code)
+            else:
+                props[ctx_ind] = getattr(c, ctx_ind, None)
+
         feature = {
             "type": "Feature",
-            "properties": {
-                "iso_code": c.iso_code,
-                "name": c.name,
-                "region": c.region,
-                "value": getattr(c, indicator, None),
-                "indicator": indicator,
-                "gdp": c.gdp,
-                "trade_balance": c.trade_balance,
-                "current_account": c.current_account,
-                "export_value": c.export_value,
-                "import_value": c.import_value,
-                "population": c.population,
-            },
+            "properties": props,
             "geometry": json.loads(geojson_str) if geojson_str else None,
         }
         features.append(feature)
