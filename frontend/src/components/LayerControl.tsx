@@ -11,6 +11,7 @@ interface LayerControlProps {
     shippingDensity: boolean;
     vessels: boolean;
     railroads: boolean;
+    railroadFreight: boolean;
     airports: boolean;
     aircraft: boolean;
   };
@@ -308,11 +309,34 @@ export default function LayerControl({
 
           <ToggleSwitch
             label="Railroads"
-            description="Railway network"
+            description="Railway network & freight"
             active={layers.railroads}
             color="bg-red-400"
             onToggle={() => onToggle("railroads")}
           />
+
+          {layers.railroads && (
+            <div className="ml-4 mb-1 flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={layers.railroads}
+                  onChange={() => onToggle("railroads")}
+                  className="accent-red-400 w-3.5 h-3.5"
+                />
+                Rail Network
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={layers.railroadFreight}
+                  onChange={() => onToggle("railroadFreight")}
+                  className="accent-orange-400 w-3.5 h-3.5"
+                />
+                Freight Flows
+              </label>
+            </div>
+          )}
 
           <ToggleSwitch
             label="Airports"

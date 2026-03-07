@@ -254,13 +254,35 @@ export async function fetchTradeFlows(
   return response.data;
 }
 
+export async function fetchRailFreightYears(): Promise<number[]> {
+  const response = await api.get("/api/rail_freight/years");
+  return response.data;
+}
+
 export async function fetchRailFreight(
-  year: number,
+  year?: number,
   minTonnes: number = 100
 ): Promise<RailFreightFlow[]> {
+  // If no year specified (or no data for requested year), use latest available
+  let targetYear = year;
+  if (!targetYear) {
+    const years = await fetchRailFreightYears();
+    targetYear = years.length > 0 ? years[years.length - 1] : 2000;
+  }
   const response = await api.get("/api/rail_freight/", {
-    params: { year, min_tonnes: minTonnes },
+    params: { year: targetYear, min_tonnes: minTonnes },
   });
+  // If empty, try latest available year
+  if (response.data.length === 0 && year) {
+    const years = await fetchRailFreightYears();
+    if (years.length > 0) {
+      const fallback = years[years.length - 1];
+      const retry = await api.get("/api/rail_freight/", {
+        params: { year: fallback, min_tonnes: minTonnes },
+      });
+      return retry.data;
+    }
+  }
   return response.data;
 }
 

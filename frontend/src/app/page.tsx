@@ -82,6 +82,7 @@ export default function Home() {
     vessels: false,
     aircraft: false,
     railroads: false,
+    railroadFreight: false,
     airports: false,
   });
   const [indicator, setIndicator] = useState("gdp");
@@ -201,7 +202,7 @@ export default function Home() {
         fetchAircraft().then((snap) => {
           setAircraftList(snap.aircraft);
         }).catch(() => {});
-        fetchRailFreight(year ?? 2000).then(setRailFreight).catch(() => {});
+        fetchRailFreight(year ?? undefined).then(setRailFreight).catch(() => {});
 
         setCountries(countriesData);
         setTradeFlows(flowsData);

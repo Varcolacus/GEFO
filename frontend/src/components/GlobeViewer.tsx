@@ -1956,7 +1956,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
 
-    if (!layers.railroads || railFreight.length === 0) {
+    if (!layers.railroadFreight || railFreight.length === 0) {
       viewer.entities.resumeEvents();
       return;
     }
@@ -2011,7 +2011,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
 
     viewer.entities.resumeEvents();
-  }, [railFreight, layers.railroads]);
+  }, [railFreight, layers.railroadFreight]);
 
   // ── Zoom helpers ──
   const zoomIn = useCallback(() => {
