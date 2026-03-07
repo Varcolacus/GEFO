@@ -87,6 +87,7 @@ export default function Home() {
   });
   const [indicator, setIndicator] = useState("gdp");
   const [tradeMode, setTradeMode] = useState<TradeMode>("balance");
+  const [portCategory, setPortCategory] = useState<string>("all");
   const [year, setYear] = useState<number | null>(null);
   const [yearRange, setYearRange] = useState<YearRangeInfo | null>(null);
 
@@ -249,6 +250,7 @@ export default function Home() {
         countries={countries}
         tradeFlows={tradeFlows}
         ports={ports}
+        portCategory={portCategory}
         shippingDensity={shippingDensity}
         conflictZones={showGeopolitical ? conflictZones : []}
         commodityFlows={commodityFlows}
@@ -442,6 +444,8 @@ export default function Home() {
         onIndicatorChange={setIndicator}
         tradeMode={tradeMode}
         onTradeModeChange={setTradeMode}
+        portCategory={portCategory}
+        onPortCategoryChange={setPortCategory}
       />
 
       {year !== null && (

@@ -16,6 +16,7 @@ import {
   Math as CesiumMath,
   PolylineGlowMaterialProperty,
   PolylineArrowMaterialProperty,
+  PolylineDashMaterialProperty,
   ColorMaterialProperty,
   CallbackProperty,
   VerticalOrigin,
@@ -109,6 +110,7 @@ interface GlobeViewerProps {
   vessels?: VesselPosition[];
   aircraftList?: AircraftPosition[];
   airports?: AirportData[];
+  portCategory?: string;
   railFreight?: RailFreightFlow[];
   layers: {
     countries: boolean;
@@ -143,6 +145,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   vessels = [],
   aircraftList = [],
   airports: airportsProp = [],
+  portCategory = "all",
   railFreight = [],
   layers,
   indicator,
@@ -171,6 +174,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   const [countryTooltip, setCountryTooltip] = useState<{
     x: number; y: number; iso: string;
   } | null>(null);
+  const [railFreightTooltip, setRailFreightTooltip] = useState<{
+    x: number; y: number; origin: string; destination: string; tonnes: number; year: number; color: string;
+  } | null>(null);
+  const railFreightFlowsRef = useRef<typeof railFreight>([]);
+  const railFreightColorsRef = useRef<string[]>([]);
+  const [selectedRailFlow, setSelectedRailFlow] = useState<number | null>(null);
+  const railFlowOriginalColors = useRef<Map<string, Color>>(new Map());
+  const railFlowOriginalWidths = useRef<Map<string, number>>(new Map());
 
   // Fetch GeoJSON (with year-aware indicator values) on mount and when year changes
   const geoJsonYearRef = useRef<number | null | undefined>(undefined);
@@ -465,8 +476,18 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           const iso = entityName.replace(/^country_/, "").replace(/_\d+$/, "");
           const country = countries.find((c) => c.iso_code === iso);
           if (country) onCountryClick(country);
+          setSelectedRailFlow(null);
+          return;
+        }
+        // Rail freight flow click — toggle selection
+        if (entityName.startsWith("rail_freight_") && !entityName.startsWith("rail_freight_flash_")) {
+          const idx = parseInt(entityName.replace("rail_freight_", ""), 10);
+          setSelectedRailFlow((prev) => (prev === idx ? null : idx));
+          return;
         }
       }
+      // Clicked on empty space — deselect
+      setSelectedRailFlow(null);
     }, ScreenSpaceEventType.LEFT_CLICK);
 
     return () => handler.destroy();
@@ -534,11 +555,29 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           const iso = eName.replace(/^country_/, "").replace(/_\d+$/, "");
           setCountryTooltip({ x: movement.endPosition.x, y: movement.endPosition.y, iso });
           setVesselTooltip(null);
+          setRailFreightTooltip(null);
           return;
+        }
+        // Rail freight hover
+        if (eName.startsWith("rail_freight_") && !eName.startsWith("rail_freight_flash_")) {
+          const idx = parseInt(eName.replace("rail_freight_", ""), 10);
+          const rf = railFreightFlowsRef.current[idx];
+          if (rf) {
+            setRailFreightTooltip({
+              x: movement.endPosition.x, y: movement.endPosition.y,
+              origin: rf.origin_name, destination: rf.destination_name,
+              tonnes: rf.tonnes, year: rf.year,
+              color: railFreightColorsRef.current[idx] || '#f59e0b',
+            });
+            setVesselTooltip(null);
+            setCountryTooltip(null);
+            return;
+          }
         }
       }
       setVesselTooltip(null);
       setCountryTooltip(null);
+      setRailFreightTooltip(null);
     }, ScreenSpaceEventType.MOUSE_MOVE);
 
     return () => handler.destroy();
@@ -1365,7 +1404,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     if (!layers.ports || ports.length === 0) { viewer.entities.resumeEvents(); return; }
 
     // ── Database ports (44 major ports with 3D pillars & info) ──
-    ports.forEach((port) => {
+    const filteredPorts = portCategory === "all" ? ports : ports.filter(p => p.port_type === portCategory);
+    filteredPorts.forEach((port) => {
       const throughput = port.throughput_teu || port.throughput_tons || 0;
       const size = Math.min(10 + Math.log10(Math.max(throughput, 1)) * 2.5, 24);
       const glowRadius = 25000 + Math.log10(Math.max(throughput, 1)) * 8000;
@@ -1444,7 +1484,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
 
     viewer.entities.resumeEvents();
-  }, [ports, layers.ports, findOverlayLayer]);
+  }, [ports, layers.ports, portCategory, findOverlayLayer]);
 
   // ─── Render Shipping Density — Real Corridor Polygons ───
   useEffect(() => {
@@ -1944,7 +1984,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.resumeEvents();
   }, [commodityFlows]);
 
-  // ─── Render Rail Freight Arcs (Orange/Amber) ───
+  // ─── Render Rail Freight — Real Rail Corridor Routing ───
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -1952,66 +1992,422 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.suspendEvents();
 
     const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("rail_freight_")
+      (e) => e.name?.startsWith("rail_freight_") || e.name?.startsWith("rail_freight_flash_")
     );
     toRemove.forEach((e) => viewer.entities.remove(e));
+    railFlowOriginalColors.current.clear();
+    railFlowOriginalWidths.current.clear();
+    setSelectedRailFlow(null);
 
     if (!layers.railroadFreight || railFreight.length === 0) {
       viewer.entities.resumeEvents();
       return;
     }
 
-    const maxTonnes = Math.max(...railFreight.map((f) => f.tonnes), 1);
+    // ── European rail junction graph (real cities) ──
+    const J: Record<string, [number, number]> = {
+      // Iberian Peninsula
+      lisbon:[-9.14,38.74], badajoz:[-6.97,38.88], madrid:[-3.70,40.42],
+      valladolid:[-4.72,41.65], burgos:[-3.70,42.34], vitoria:[-2.67,42.85],
+      bilbao:[-2.93,43.26], san_sebastian:[-1.98,43.32],
+      zaragoza:[-0.88,41.65], barcelona:[2.17,41.39],
+      porto:[-8.61,41.15], salamanca:[-5.66,40.97],
+      // France
+      hendaye:[-1.77,43.35], toulouse:[1.44,43.60], perpignan:[2.89,42.70],
+      montpellier:[3.88,43.61], marseille:[5.37,43.30], nice:[7.26,43.71],
+      lyon:[4.83,45.76], grenoble:[5.72,45.19],
+      bordeaux:[0.00,44.84], poitiers:[0.34,46.58], tours:[0.68,47.39],
+      paris:[2.35,48.86], lille:[3.07,50.63], strasbourg:[7.75,48.58],
+      dijon:[5.04,47.32], metz:[6.18,49.12],
+      // Benelux
+      calais:[1.86,50.95], brussels:[4.35,50.85],
+      amsterdam:[4.90,52.37], rotterdam:[4.47,51.92],
+      luxembourg:[6.13,49.61], liege:[5.57,50.63],
+      // Germany
+      cologne:[6.96,50.94], dusseldorf:[6.77,51.23],
+      frankfurt:[8.68,50.11], stuttgart:[9.18,48.78],
+      munich:[11.58,48.14], nuremberg:[11.08,49.45],
+      hamburg:[10.00,53.55], hannover:[9.74,52.37],
+      berlin:[13.40,52.52], leipzig:[12.37,51.34],
+      dresden:[13.74,51.05], dortmund:[7.47,51.51],
+      // Switzerland & Austria
+      zurich:[8.54,47.38], bern:[7.45,46.95], basel:[7.59,47.56],
+      innsbruck:[11.39,47.26], salzburg:[13.05,47.80],
+      vienna:[16.37,48.21], graz:[15.44,47.07], linz:[14.29,48.31],
+      // Italy
+      milan:[9.19,45.46], turin:[7.69,45.07], genoa:[8.93,44.41],
+      bologna:[11.34,44.49], florence:[11.25,43.77],
+      rome:[12.50,41.89], naples:[14.27,40.85],
+      venice:[12.34,45.44], verona:[10.99,45.44],
+      // Central Europe
+      prague:[14.42,50.08], brno:[16.61,49.20],
+      bratislava:[17.11,48.15], budapest:[19.04,47.50],
+      // Poland
+      warsaw:[21.01,52.23], poznan:[16.93,52.41],
+      wroclaw:[17.04,51.10], krakow:[19.94,50.06],
+      katowice:[19.02,50.26], gdansk:[18.65,54.35],
+      // Balkans
+      zagreb:[15.97,45.81], ljubljana:[14.51,46.05],
+      belgrade:[20.46,44.79], sarajevo:[18.41,43.86],
+      sofia:[23.32,42.70], skopje:[21.43,41.99],
+      thessaloniki:[22.94,40.64], bucharest:[26.10,44.43],
+      nis:[21.90,43.32], craiova:[23.80,44.32],
+      // Nordics
+      copenhagen:[12.57,55.68], malmo:[13.00,55.60],
+      stockholm:[18.07,59.33], gothenburg:[11.97,57.71],
+      oslo:[10.75,59.91],
+      gavle:[17.14,60.67], sundsvall:[17.31,62.39], umea:[20.26,63.83], boden:[21.69,65.82],
+      // Finland
+      helsinki:[24.94,60.17], tampere:[23.79,61.50],
+      oulu:[25.47,65.01], tornio:[24.14,65.85],
+      // Baltics
+      tallinn:[24.75,59.44], riga:[24.11,56.95],
+      vilnius:[25.28,54.69], kaunas:[23.90,54.90],
+      // East
+      minsk:[27.57,53.90],
+      // UK
+      london:[-0.12,51.51],
+    };
 
-    railFreight.forEach((rf, i) => {
-      if (!rf.origin_lat || !rf.origin_lon || !rf.dest_lat || !rf.dest_lon) return;
+    // Adjacency — tracing real major rail corridors
+    const EDGES: [string, string][] = [
+      // UK-Continent (Channel Tunnel)
+      ["london","calais"],
+      // Belgium-France-Netherlands
+      ["calais","lille"],["lille","paris"],["lille","brussels"],
+      ["paris","brussels"],["brussels","liege"],["liege","luxembourg"],
+      ["brussels","amsterdam"],["amsterdam","rotterdam"],["rotterdam","brussels"],
+      ["liege","cologne"],
+      // France inland
+      ["paris","metz"],["metz","strasbourg"],["paris","dijon"],
+      ["dijon","lyon"],["paris","tours"],["tours","poitiers"],
+      ["poitiers","bordeaux"],["paris","strasbourg"],
+      ["metz","luxembourg"],
+      // France south-west → Spain
+      ["bordeaux","toulouse"],["bordeaux","hendaye"],
+      ["hendaye","san_sebastian"],["san_sebastian","bilbao"],
+      ["bilbao","vitoria"],["vitoria","burgos"],["burgos","madrid"],
+      ["toulouse","montpellier"],["montpellier","perpignan"],
+      ["perpignan","barcelona"],["barcelona","zaragoza"],["zaragoza","madrid"],
+      // Iberian internal
+      ["madrid","valladolid"],["valladolid","burgos"],
+      ["madrid","badajoz"],["badajoz","lisbon"],
+      ["valladolid","salamanca"],["salamanca","porto"],["porto","lisbon"],
+      // France south-east
+      ["lyon","marseille"],["marseille","montpellier"],
+      ["lyon","grenoble"],["grenoble","marseille"],
+      ["marseille","nice"],["nice","genoa"],
+      // France-Switzerland-Germany
+      ["lyon","zurich"],
+      ["strasbourg","basel"],["basel","zurich"],["basel","bern"],
+      ["zurich","bern"],["strasbourg","frankfurt"],
+      // Germany Rhine corridor
+      ["cologne","frankfurt"],["cologne","dusseldorf"],
+      ["dusseldorf","dortmund"],["dortmund","hannover"],
+      ["hannover","hamburg"],["hamburg","berlin"],
+      ["hannover","berlin"],["frankfurt","nuremberg"],
+      ["nuremberg","munich"],["frankfurt","stuttgart"],
+      ["stuttgart","munich"],["stuttgart","zurich"],
+      // Germany east
+      ["berlin","leipzig"],["leipzig","dresden"],["leipzig","nuremberg"],
+      ["berlin","gdansk"],["berlin","poznan"],["poznan","warsaw"],
+      // Switzerland-Italy
+      ["zurich","milan"],["bern","milan"],
+      ["milan","turin"],["turin","lyon"],["turin","genoa"],
+      ["milan","genoa"],["milan","verona"],["verona","venice"],
+      ["milan","bologna"],["bologna","florence"],["florence","rome"],
+      ["rome","naples"],["bologna","venice"],
+      // Austria
+      ["munich","innsbruck"],["innsbruck","salzburg"],["salzburg","linz"],
+      ["linz","vienna"],["munich","salzburg"],
+      ["vienna","graz"],["graz","ljubljana"],
+      ["innsbruck","verona"],
+      // Czechia-Slovakia
+      ["berlin","dresden"],["dresden","prague"],["prague","brno"],
+      ["brno","bratislava"],["brno","vienna"],
+      ["prague","nuremberg"],
+      // Poland
+      ["poznan","wroclaw"],["wroclaw","katowice"],["katowice","krakow"],
+      ["krakow","vienna"],["katowice","vienna"],
+      ["warsaw","krakow"],["warsaw","gdansk"],
+      ["warsaw","vilnius"],["warsaw","minsk"],
+      // Hungary-Balkans
+      ["vienna","bratislava"],["bratislava","budapest"],
+      ["budapest","zagreb"],["budapest","belgrade"],
+      ["budapest","bucharest"],
+      ["zagreb","ljubljana"],["zagreb","belgrade"],
+      ["belgrade","nis"],["nis","sofia"],["nis","skopje"],
+      ["belgrade","bucharest"],["bucharest","craiova"],["craiova","sofia"],
+      ["sofia","thessaloniki"],["skopje","thessaloniki"],
+      ["sarajevo","belgrade"],["sarajevo","zagreb"],
+      // Nordics  
+      ["hamburg","copenhagen"],["copenhagen","malmo"],
+      ["malmo","gothenburg"],["gothenburg","oslo"],
+      ["malmo","stockholm"],["stockholm","oslo"],
+      ["stockholm","gavle"],["gavle","sundsvall"],["sundsvall","umea"],["umea","boden"],["boden","tornio"],["tornio","oulu"],
+      ["oulu","tampere"],["tampere","helsinki"],
+      // Baltics
+      ["tallinn","riga"],["riga","vilnius"],
+      ["vilnius","kaunas"],["kaunas","warsaw"],
+      // East
+      ["minsk","vilnius"],
+    ];
 
-      const logNorm = Math.log10(1 + rf.tonnes) / Math.log10(1 + maxTonnes);
-      const width = 1.5 + logNorm * 5;
-      const alpha = 0.4 + logNorm * 0.5;
+    // Build adjacency map
+    const adj: Record<string, Set<string>> = {};
+    for (const k of Object.keys(J)) adj[k] = new Set();
+    for (const [a, b] of EDGES) {
+      if (adj[a]) adj[a].add(b);
+      if (adj[b]) adj[b].add(a);
+    }
 
-      const arcPoints = computeArcPositions(
-        rf.origin_lon, rf.origin_lat,
-        rf.dest_lon, rf.dest_lat,
-        40, 0.06 + logNorm * 0.12
-      );
-      const arcCartesian = Cartesian3.fromDegreesArrayHeights(arcPoints);
+    // Map country ISO3 → nearest junction
+    const ISO_JUNCTION: Record<string, string> = {
+      AUT: "vienna",    BEL: "brussels",  BGR: "sofia",
+      CHE: "zurich",    CZE: "prague",    DEU: "frankfurt",
+      DNK: "copenhagen", EST: "tallinn",   ESP: "madrid",
+      FIN: "helsinki",   FRA: "paris",     GBR: "london",
+      GRC: "thessaloniki", HRV: "zagreb",  HUN: "budapest",
+      IRL: "london",    ITA: "milan",     LTU: "vilnius",
+      LUX: "luxembourg", LVA: "riga",     MKD: "skopje",
+      NLD: "amsterdam", NOR: "oslo",      POL: "warsaw",
+      PRT: "lisbon",    ROU: "bucharest", SWE: "stockholm",
+      SVN: "ljubljana", SVK: "bratislava", SRB: "belgrade",
+      BIH: "sarajevo",  BLR: "minsk",
+    };
 
-      // Core line
-      viewer.entities.add({
-        name: `rail_freight_${i}`,
-        polyline: {
-          positions: arcCartesian,
-          width: width,
-          material: new PolylineArrowMaterialProperty(
-            new Color(255 / 255, 160 / 255, 40 / 255, alpha)
-          ),
-          arcType: ArcType.NONE,
-        },
-        description: `
-          <h3>Rail Freight: ${rf.origin_name} → ${rf.destination_name}</h3>
-          <p>Volume: ${(rf.tonnes / 1000).toFixed(0)} thousand tonnes</p>
-          <p>Year: ${rf.year}</p>
-        `,
+    // BFS shortest path
+    function bfsPath(start: string, end: string): string[] | null {
+      if (start === end) return [start];
+      const visited = new Set<string>([start]);
+      const queue: [string, string[]][] = [[start, [start]]];
+      while (queue.length > 0) {
+        const [node, path] = queue.shift()!;
+        for (const neighbor of adj[node] || []) {
+          if (visited.has(neighbor)) continue;
+          const newPath = [...path, neighbor];
+          if (neighbor === end) return newPath;
+          visited.add(neighbor);
+          queue.push([neighbor, newPath]);
+        }
+      }
+      return null;
+    }
+
+    // Cardinal spline — very tight tension to stay close to land
+    function cardinalSpline(
+      points: [number, number][], segsPerSpan: number = 6, tension: number = 0.15
+    ): number[] {
+      if (points.length <= 2) return points.flatMap(([lon, lat]) => [lon, lat]);
+      const P = [points[0], ...points, points[points.length - 1]];
+      const s = tension;
+      const out: number[] = [];
+      for (let i = 1; i < P.length - 2; i++) {
+        const [x0, y0] = P[i - 1];
+        const [x1, y1] = P[i];
+        const [x2, y2] = P[i + 1];
+        const [x3, y3] = P[i + 2];
+        const startJ = i === 1 ? 0 : 1;
+        for (let j = startJ; j <= segsPerSpan; j++) {
+          const t = j / segsPerSpan;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const h1 = 2 * t3 - 3 * t2 + 1;
+          const h2 = -2 * t3 + 3 * t2;
+          const h3 = t3 - 2 * t2 + t;
+          const h4 = t3 - t2;
+          out.push(
+            h1 * x1 + h2 * x2 + h3 * s * (x2 - x0) + h4 * s * (x3 - x1),
+            h1 * y1 + h2 * y2 + h3 * s * (y2 - y0) + h4 * s * (y3 - y1)
+          );
+        }
+      }
+      return out;
+    }
+
+    // Route between two ISO3 countries through real rail junctions
+    function railRoute(iso1: string, iso2: string): string[] | null {
+      const j1 = ISO_JUNCTION[iso1];
+      const j2 = ISO_JUNCTION[iso2];
+      if (!j1 || !j2 || !J[j1] || !J[j2]) return null;
+      return bfsPath(j1, j2);
+    }
+
+    // ── Per-flow directional arrows — thickness = magnitude, unique color per flow ──
+    const maxTonnes = Math.max(...railFreight.map((rf) => rf.tonnes), 1);
+
+    // HSL-to-RGB helper for generating distinct colors
+    function hslToColor(h: number, s: number, l: number, a: number): Color {
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (h < 60)      { r = c; g = x; }
+      else if (h < 120) { r = x; g = c; }
+      else if (h < 180) { g = c; b = x; }
+      else if (h < 240) { g = x; b = c; }
+      else if (h < 300) { r = x; b = c; }
+      else              { r = c; b = x; }
+      return new Color(r + m, g + m, b + m, a);
+    }
+
+    // Offset a waypoint perpendicular to the segment direction
+    function offsetPoint(
+      lon: number, lat: number, nextLon: number, nextLat: number, dist: number
+    ): [number, number] {
+      const dx = nextLon - lon;
+      const dy = nextLat - lat;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      return [lon + (-dy / len) * dist, lat + (dx / len) * dist];
+    }
+
+    // Group flows by sorted corridor key and assign lane indices
+    const validFlows = railFreight.filter((rf) => {
+      const p = railRoute(rf.origin_iso, rf.destination_iso);
+      return p && p.length >= 2;
+    });
+    const totalFlows = validFlows.length;
+
+    // Build corridor groups: sorted ISO pair → list of flow indices
+    const corridorMap = new Map<string, number[]>();
+    validFlows.forEach((rf, i) => {
+      const key = [rf.origin_iso, rf.destination_iso].sort().join('-');
+      if (!corridorMap.has(key)) corridorMap.set(key, []);
+      corridorMap.get(key)!.push(i);
+    });
+
+    // Assign each flow a lane offset within its corridor
+    const flowLaneOffset = new Float64Array(validFlows.length);
+    const laneSpacing = 0.35; // degrees between lane centers
+    corridorMap.forEach((indices) => {
+      const n = indices.length;
+      indices.forEach((fi, laneIdx) => {
+        // Center lanes around 0: e.g. for 3 flows → -1, 0, +1
+        flowLaneOffset[fi] = (laneIdx - (n - 1) / 2) * laneSpacing;
+      });
+    });
+
+    const flowColorsCss: string[] = [];
+    let flowIdx = 0;
+    validFlows.forEach((rf, vi) => {
+      const path = railRoute(rf.origin_iso, rf.destination_iso);
+      if (!path || path.length < 2) return;
+
+      const norm = Math.sqrt(rf.tonnes / maxTonnes);
+      const width = 2 + norm * 57;
+
+      // Lane-based lateral offset so flows in the same corridor don't overlap
+      const side = flowLaneOffset[vi];
+
+      // Unique color per flow — evenly spaced hues, warm saturation
+      const hue = (flowIdx / totalFlows) * 360;
+      const flowColor = hslToColor(hue, 0.85, 0.55, 0.8);
+      flowColorsCss.push(`hsl(${hue.toFixed(0)}, 85%, 55%)`);
+
+      // Build waypoints from junction path with offset
+      const waypoints: [number, number][] = path.map((jName, i) => {
+        const [lon, lat] = J[jName];
+        if (path.length < 2) return [lon, lat] as [number, number];
+        const nextIdx = Math.min(i + 1, path.length - 1);
+        const prevIdx = Math.max(i - 1, 0);
+        const refIdx = i < path.length - 1 ? nextIdx : prevIdx;
+        const [refLon, refLat] = J[path[refIdx]];
+        return offsetPoint(lon, lat, refLon, refLat, side);
       });
 
-      // Glow underlay
+      const smoothPts = cardinalSpline(waypoints, 6, 0.6);
+      const positions = Cartesian3.fromDegreesArray(smoothPts);
+
       viewer.entities.add({
-        name: `rail_freight_glow_${i}`,
+        name: `rail_freight_${flowIdx}`,
         polyline: {
-          positions: arcCartesian,
-          width: width + 6,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.3,
-            color: new Color(255 / 255, 140 / 255, 20 / 255, alpha * 0.3),
-          }),
-          arcType: ArcType.NONE,
+          positions,
+          width,
+          material: new PolylineArrowMaterialProperty(flowColor),
+          clampToGround: true,
         },
       });
+      railFlowOriginalColors.current.set(`rail_freight_${flowIdx}`, flowColor);
+      railFlowOriginalWidths.current.set(`rail_freight_${flowIdx}`, width);
+      flowIdx++;
+    });
+
+    // Store flow data and colors for hover tooltips
+    railFreightFlowsRef.current = validFlows;
+    railFreightColorsRef.current = flowColorsCss;
+
+    // Junction dots at active nodes
+    const activeJunctions = new Set<string>();
+    railFreight.forEach((rf) => {
+      const path = railRoute(rf.origin_iso, rf.destination_iso);
+      if (path) path.forEach((j) => activeJunctions.add(j));
+    });
+    let dotIdx = 0;
+    activeJunctions.forEach((jName) => {
+      if (!J[jName]) return;
+      const [lon, lat] = J[jName];
+      viewer.entities.add({
+        name: `rail_freight_flash_${dotIdx}`,
+        position: Cartesian3.fromDegrees(lon, lat),
+        point: {
+          pixelSize: 4,
+          color: new Color(1.0, 0.6, 0.1, 0.7),
+          outlineColor: new Color(0.4, 0.2, 0.0, 0.4),
+          outlineWidth: 1.5,
+        },
+      });
+      dotIdx++;
     });
 
     viewer.entities.resumeEvents();
   }, [railFreight, layers.railroadFreight]);
+
+  // ── Rail freight: highlight selected flow, dim others ──
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const dimColor = new Color(0.4, 0.4, 0.4, 0.25);
+
+    viewer.entities.values.forEach((entity) => {
+      const n = entity.name;
+      if (!n || !n.startsWith("rail_freight_") || n.startsWith("rail_freight_flash_")) return;
+      if (!entity.polyline) return;
+
+      const origColor = railFlowOriginalColors.current.get(n);
+      const origWidth = railFlowOriginalWidths.current.get(n);
+      if (!origColor || origWidth == null) return;
+
+      if (selectedRailFlow === null) {
+        // No selection — restore all to original
+        entity.polyline.material = new PolylineArrowMaterialProperty(origColor) as any;
+        entity.polyline.width = origWidth as any;
+      } else {
+        const idx = parseInt(n.replace("rail_freight_", ""), 10);
+        if (idx === selectedRailFlow) {
+          // Selected flow — brighten and widen
+          const bright = new Color(
+            Math.min(origColor.red * 1.3, 1),
+            Math.min(origColor.green * 1.3, 1),
+            Math.min(origColor.blue * 1.3, 1),
+            1.0
+          );
+          entity.polyline.material = new PolylineArrowMaterialProperty(bright) as any;
+          entity.polyline.width = (origWidth * 1.4) as any;
+        } else {
+          // Other flows — keep their color but slightly faded
+          const faded = new Color(
+            origColor.red * 0.6 + 0.15,
+            origColor.green * 0.6 + 0.15,
+            origColor.blue * 0.6 + 0.15,
+            0.45
+          );
+          entity.polyline.material = new PolylineArrowMaterialProperty(faded) as any;
+          entity.polyline.width = (origWidth * 0.85) as any;
+        }
+      }
+    });
+  }, [selectedRailFlow]);
 
   // ── Zoom helpers ──
   const zoomIn = useCallback(() => {
@@ -2195,6 +2591,43 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* Rail freight hover tooltip */}
+      {railFreightTooltip && (
+        <div
+          style={{
+            position: "absolute",
+            left: railFreightTooltip.x + 16,
+            top: railFreightTooltip.y - 10,
+            zIndex: 60,
+            background: "rgba(8,12,28,0.94)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            color: "#e2e8f0",
+            fontSize: 12,
+            fontFamily: "'JetBrains Mono', monospace, sans-serif",
+            pointerEvents: "none",
+            backdropFilter: "blur(10px)",
+            maxWidth: 320,
+            lineHeight: 1.5,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, color: "#f59e0b", display: "flex", alignItems: "center", gap: 8 }}>
+            {"\u{1F682}"} Rail Freight
+            <span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 3, background: railFreightTooltip.color, border: "1px solid rgba(255,255,255,0.3)", flexShrink: 0 }} />
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Origin</td><td>{railFreightTooltip.origin}</td></tr>
+              <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Destination</td><td>{railFreightTooltip.destination}</td></tr>
+              <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Volume</td><td style={{ fontWeight: 700, color: "#fbbf24" }}>{railFreightTooltip.tonnes >= 1000 ? `${(railFreightTooltip.tonnes / 1000).toFixed(1)}K` : railFreightTooltip.tonnes.toLocaleString()} tonnes</td></tr>
+              <tr><td style={{ color: "#94a3b8", paddingRight: 10 }}>Year</td><td>{railFreightTooltip.year}</td></tr>
+            </tbody>
+          </table>
         </div>
       )}
 

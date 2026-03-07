@@ -21,6 +21,8 @@ interface LayerControlProps {
   onIndicatorChange: (indicator: string) => void;
   tradeMode?: TradeMode;
   onTradeModeChange?: (mode: TradeMode) => void;
+  portCategory?: string;
+  onPortCategoryChange?: (cat: string) => void;
 }
 
 const INDICATOR_GROUPS = [
@@ -168,6 +170,8 @@ export default function LayerControl({
   onIndicatorChange,
   tradeMode = "balance",
   onTradeModeChange,
+  portCategory = "all",
+  onPortCategoryChange,
 }: LayerControlProps) {
   const allOn = Object.values(layers).every(Boolean);
 
@@ -207,10 +211,6 @@ export default function LayerControl({
 
       {/* Layer Toggles */}
       <div className="p-4 space-y-3">
-        <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider">
-          Data Layers
-        </h3>
-
         <ToggleSwitch
           label="Country Indicators"
           description="GDP, trade metrics"
@@ -278,6 +278,31 @@ export default function LayerControl({
           onToggle={() => onToggle("ports")}
         />
 
+        {layers.ports && (
+          <div className="ml-4 mb-1 flex flex-wrap gap-1">
+            {[
+              { value: "all", label: "All", color: "bg-gray-400" },
+              { value: "container", label: "Container", color: "bg-green-400" },
+              { value: "oil", label: "Oil/Energy", color: "bg-orange-500" },
+              { value: "bulk", label: "Bulk", color: "bg-yellow-400" },
+              { value: "transit", label: "Transit", color: "bg-purple-400" },
+            ].map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => onPortCategoryChange?.(cat.value)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                  portCategory === cat.value
+                    ? "bg-white/20 text-white font-medium"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${cat.color}`} />
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <ToggleSwitch
           label="Shipping Density"
           description="Maritime traffic heatmap"
@@ -302,66 +327,45 @@ export default function LayerControl({
           onToggle={() => onToggle("aircraft")}
         />
 
-        <div className="mt-2 pt-2 border-t border-gray-700">
-          <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
-            Map Overlays
-          </h3>
+        <ToggleSwitch
+          label="Railroads"
+          description="Railway network & freight"
+          active={layers.railroads}
+          color="bg-red-400"
+          onToggle={() => onToggle("railroads")}
+        />
 
-          <ToggleSwitch
-            label="Railroads"
-            description="Railway network & freight"
-            active={layers.railroads}
-            color="bg-red-400"
-            onToggle={() => onToggle("railroads")}
-          />
+        {layers.railroads && (
+          <div className="ml-4 mb-1 flex flex-col gap-1">
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layers.railroads}
+                onChange={() => onToggle("railroads")}
+                className="accent-red-400 w-3.5 h-3.5"
+              />
+              Rail Network
+            </label>
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={layers.railroadFreight}
+                onChange={() => onToggle("railroadFreight")}
+                className="accent-orange-400 w-3.5 h-3.5"
+              />
+              Freight Flows
+            </label>
+          </div>
+        )}
 
-          {layers.railroads && (
-            <div className="ml-4 mb-1 flex flex-col gap-1">
-              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layers.railroads}
-                  onChange={() => onToggle("railroads")}
-                  className="accent-red-400 w-3.5 h-3.5"
-                />
-                Rail Network
-              </label>
-              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layers.railroadFreight}
-                  onChange={() => onToggle("railroadFreight")}
-                  className="accent-orange-400 w-3.5 h-3.5"
-                />
-                Freight Flows
-              </label>
-            </div>
-          )}
-
-          <ToggleSwitch
-            label="Airports"
-            description="Airfields & aerodromes"
-            active={layers.airports}
-            color="bg-violet-400"
-            onToggle={() => onToggle("airports")}
-          />
-        </div>
+        <ToggleSwitch
+          label="Airports"
+          description="Airfields & aerodromes"
+          active={layers.airports}
+          color="bg-violet-400"
+          onToggle={() => onToggle("airports")}
+        />
       </div>
-
-      {/* Legend */}
-      <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-        <h3 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-2">
-          Port Legend
-        </h3>
-        <div className="grid grid-cols-2 gap-1 text-xs">
-          <LegendItem color="bg-green-400" label="Container" />
-          <LegendItem color="bg-orange-500" label="Oil/Energy" />
-          <LegendItem color="bg-yellow-400" label="Bulk" />
-          <LegendItem color="bg-purple-400" label="Transit" />
-        </div>
-      </div>
-
-
 
       {/* Status */}
       <div className="px-4 pb-3 text-xs text-gray-500">
@@ -416,14 +420,5 @@ function ToggleSwitch({
         />
       </div>
     </button>
-  );
-}
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="text-gray-400">{label}</span>
-    </div>
   );
 }
