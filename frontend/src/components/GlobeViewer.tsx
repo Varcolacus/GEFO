@@ -2067,6 +2067,51 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       minsk:[27.57,53.90],
       // UK
       london:[-0.12,51.51],
+
+      // ── US rail junction graph (major rail hubs) ──
+      seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
+      sacramento:[-121.49,38.58], san_francisco:[-122.42,37.77],
+      los_angeles:[-118.24,34.05], san_diego:[-117.16,32.72],
+      reno:[-119.81,39.53], salt_lake:[-111.89,40.76],
+      boise:[-116.20,43.62], spokane:[-117.43,47.66],
+      billings:[-108.50,45.78], cheyenne:[-104.82,41.14],
+      denver:[-104.99,39.74], albuquerque:[-106.65,35.08],
+      el_paso:[-106.44,31.76], tucson:[-110.97,32.22],
+      phoenix:[-112.07,33.45],
+      fargo:[-96.79,46.88], minneapolis:[-93.27,44.98],
+      duluth:[-92.10,46.79], sioux_falls:[-96.73,43.55],
+      omaha:[-95.93,41.26], kansas_city:[-94.58,39.10],
+      des_moines:[-93.61,41.59], lincoln:[-96.70,40.81],
+      chicago:[-87.63,41.88], milwaukee:[-87.91,43.04],
+      st_louis:[-90.20,38.63], springfield_il:[-89.64,39.78],
+      indianapolis:[-86.16,39.77], cincinnati:[-84.51,39.10],
+      columbus:[-82.99,39.96], cleveland:[-81.69,41.50],
+      detroit:[-83.05,42.33], toledo:[-83.54,41.65],
+      buffalo:[-78.88,42.89], albany:[-73.76,42.65],
+      new_york:[-74.01,40.71], philadelphia:[-75.17,39.95],
+      pittsburgh:[-80.00,40.44], baltimore:[-76.61,39.29],
+      washington_dc:[-77.04,38.91], richmond:[-77.44,37.54],
+      raleigh:[-78.64,35.78], charlotte:[-80.84,35.23],
+      columbia_sc:[-81.03,34.00], charleston_sc:[-79.93,32.78],
+      atlanta:[-84.39,33.75], savannah:[-81.10,32.08],
+      jacksonville:[-81.66,30.33], orlando:[-81.38,28.54],
+      tampa:[-82.46,27.95], miami:[-80.19,25.76],
+      birmingham:[-86.80,33.52], mobile:[-88.04,30.69],
+      nashville:[-86.78,36.16], memphis:[-90.05,35.15],
+      chattanooga:[-85.31,35.05], knoxville:[-83.92,35.96],
+      little_rock:[-92.29,34.75], shreveport:[-93.75,32.52],
+      dallas:[-96.80,32.78], houston:[-95.36,29.76],
+      san_antonio:[-98.49,29.42], laredo:[-99.51,27.51],
+      oklahoma_city:[-97.52,35.47], tulsa:[-95.99,36.15],
+      wichita:[-97.34,37.69],
+      new_orleans:[-90.07,29.95], baton_rouge:[-91.15,30.45],
+      jackson_ms:[-90.18,32.30],
+      boston:[-71.06,42.36], providence:[-71.41,41.82],
+      hartford:[-72.68,41.76], new_haven:[-72.93,41.31],
+      portland_me:[-70.25,43.66],
+      charleston_wv:[-81.63,38.35],
+      louisville:[-85.76,38.25],
+      green_bay:[-88.01,44.51],
     };
 
     // Adjacency — tracing real major rail corridors
@@ -2151,6 +2196,76 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["vilnius","kaunas"],["kaunas","warsaw"],
       // East
       ["minsk","vilnius"],
+
+      // ── US major rail corridors ──
+      // Pacific Northwest
+      ["seattle","portland_or"],["portland_or","sacramento"],
+      ["seattle","spokane"],["spokane","boise"],["boise","portland_or"],
+      ["sacramento","san_francisco"],["sacramento","reno"],
+      // California
+      ["san_francisco","los_angeles"],["los_angeles","san_diego"],
+      ["los_angeles","tucson"],["los_angeles","phoenix"],
+      // Mountain West
+      ["reno","salt_lake"],["salt_lake","boise"],
+      ["spokane","billings"],["billings","cheyenne"],
+      ["salt_lake","cheyenne"],["salt_lake","denver"],
+      ["denver","cheyenne"],["denver","albuquerque"],
+      ["albuquerque","el_paso"],["el_paso","tucson"],["tucson","phoenix"],["phoenix","albuquerque"],
+      // Northern Plains
+      ["billings","fargo"],["fargo","minneapolis"],["fargo","duluth"],
+      ["duluth","minneapolis"],["minneapolis","milwaukee"],
+      ["minneapolis","sioux_falls"],["sioux_falls","omaha"],
+      // Central corridor
+      ["cheyenne","lincoln"],["lincoln","omaha"],["omaha","des_moines"],
+      ["des_moines","chicago"],["omaha","kansas_city"],
+      ["lincoln","kansas_city"],["kansas_city","st_louis"],
+      ["kansas_city","oklahoma_city"],["kansas_city","wichita"],
+      ["wichita","oklahoma_city"],
+      // Chicago hub
+      ["chicago","milwaukee"],["chicago","springfield_il"],
+      ["springfield_il","st_louis"],["chicago","indianapolis"],
+      ["chicago","detroit"],["chicago","toledo"],
+      ["chicago","green_bay"],["green_bay","milwaukee"],
+      // Great Lakes / Ohio Valley
+      ["detroit","toledo"],["toledo","cleveland"],["cleveland","buffalo"],
+      ["cleveland","columbus"],["columbus","indianapolis"],
+      ["columbus","pittsburgh"],["indianapolis","cincinnati"],
+      ["cincinnati","louisville"],["louisville","nashville"],
+      ["indianapolis","st_louis"],
+      // Northeast
+      ["buffalo","albany"],["albany","new_york"],["albany","boston"],
+      ["new_york","new_haven"],["new_haven","hartford"],["hartford","boston"],
+      ["boston","providence"],["providence","new_haven"],
+      ["boston","portland_me"],
+      ["new_york","philadelphia"],["philadelphia","baltimore"],
+      ["baltimore","washington_dc"],["pittsburgh","philadelphia"],
+      ["pittsburgh","buffalo"],
+      // Southeast
+      ["washington_dc","richmond"],["richmond","raleigh"],
+      ["raleigh","charlotte"],["charlotte","columbia_sc"],
+      ["columbia_sc","charleston_sc"],["columbia_sc","savannah"],
+      ["charlotte","atlanta"],["atlanta","savannah"],
+      ["savannah","jacksonville"],["jacksonville","orlando"],
+      ["orlando","tampa"],["orlando","miami"],
+      ["atlanta","birmingham"],["birmingham","nashville"],
+      ["atlanta","chattanooga"],["chattanooga","nashville"],
+      ["chattanooga","knoxville"],["knoxville","richmond"],
+      ["birmingham","mobile"],["mobile","new_orleans"],
+      // South Central
+      ["nashville","memphis"],["memphis","little_rock"],
+      ["little_rock","dallas"],["memphis","jackson_ms"],
+      ["jackson_ms","new_orleans"],
+      ["new_orleans","baton_rouge"],["baton_rouge","houston"],
+      ["houston","dallas"],["dallas","san_antonio"],
+      ["san_antonio","laredo"],["san_antonio","el_paso"],
+      ["houston","new_orleans"],
+      ["dallas","oklahoma_city"],["oklahoma_city","tulsa"],
+      ["dallas","shreveport"],["shreveport","little_rock"],
+      // Cross-connections
+      ["st_louis","memphis"],["st_louis","nashville"],
+      ["st_louis","little_rock"],
+      ["charleston_wv","richmond"],["charleston_wv","columbus"],
+      ["charleston_wv","louisville"],
     ];
 
     // Build adjacency map
@@ -2174,6 +2289,24 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       PRT: "lisbon",    ROU: "bucharest", SWE: "stockholm",
       SVN: "ljubljana", SVK: "bratislava", SRB: "belgrade",
       BIH: "sarajevo",  BLR: "minsk",
+      // US states
+      "US-AL": "birmingham",                              "US-AZ": "phoenix",
+      "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",
+      "US-CT": "hartford",     "US-DE": "philadelphia", "US-FL": "jacksonville",
+      "US-GA": "atlanta",                                  "US-ID": "boise",
+      "US-IL": "chicago",      "US-IN": "indianapolis", "US-IA": "des_moines",
+      "US-KS": "wichita",      "US-KY": "louisville",   "US-LA": "new_orleans",
+      "US-ME": "portland_me",  "US-MD": "baltimore",    "US-MA": "boston",
+      "US-MI": "detroit",      "US-MN": "minneapolis",  "US-MS": "jackson_ms",
+      "US-MO": "st_louis",     "US-MT": "billings",     "US-NE": "lincoln",
+      "US-NV": "reno",         "US-NH": "boston",        "US-NJ": "new_york",
+      "US-NM": "albuquerque",  "US-NY": "albany",       "US-NC": "raleigh",
+      "US-ND": "fargo",        "US-OH": "columbus",     "US-OK": "oklahoma_city",
+      "US-OR": "portland_or",  "US-PA": "pittsburgh",   "US-RI": "providence",
+      "US-SC": "columbia_sc",  "US-SD": "sioux_falls",  "US-TN": "nashville",
+      "US-TX": "dallas",       "US-UT": "salt_lake",    "US-VT": "albany",
+      "US-VA": "richmond",     "US-WA": "seattle",      "US-WV": "charleston_wv",
+      "US-WI": "milwaukee",    "US-WY": "cheyenne",     "US-DC": "washington_dc",
     };
 
     // BFS shortest path

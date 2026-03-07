@@ -6,8 +6,8 @@ class RailFreight(Base):
     __tablename__ = "rail_freight"
 
     id = Column(Integer, primary_key=True, index=True)
-    origin_iso = Column(String(3), nullable=False, index=True)
-    destination_iso = Column(String(3), nullable=False, index=True)
+    origin_iso = Column(String(10), nullable=False, index=True)
+    destination_iso = Column(String(10), nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)
     tonnes = Column(Float, nullable=True)          # thousand tonnes
     tonne_km = Column(Float, nullable=True)         # million tonne-km (if available)
