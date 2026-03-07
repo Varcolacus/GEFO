@@ -1,23 +1,33 @@
 # ─── Backend ───
 FROM python:3.11-slim AS backend
 
-WORKDIR /app/backend
+WORKDIR /app
 
 # System deps for psycopg2, GDAL/Fiona, and PostGIS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev libgdal-dev libgeos-dev libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-COPY backend/ .
+COPY backend/ backend/
+COPY data/ data/
+COPY setup.py setup.py
 
 EXPOSE 8000
+WORKDIR /app/backend
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
 
 
-# ─── Frontend ───
+# ─── Seed (runs setup.py then exits) ───
+FROM backend AS seed
+
+WORKDIR /app
+CMD ["python", "setup.py"]
+
+
+# ─── Frontend build ───
 FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
