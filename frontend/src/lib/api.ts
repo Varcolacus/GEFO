@@ -261,7 +261,7 @@ export async function fetchRailFreightYears(): Promise<number[]> {
 
 export async function fetchRailFreight(
   year?: number,
-  minTonnes: number = 100
+  minTonnes: number = 5
 ): Promise<RailFreightFlow[]> {
   // If no year specified (or no data for requested year), use latest available
   let targetYear = year;

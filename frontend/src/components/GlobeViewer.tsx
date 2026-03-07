@@ -2131,6 +2131,49 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ottawa:[-75.70,45.42], montreal:[-73.57,45.50],
       quebec_city:[-71.21,46.81], halifax:[-63.57,44.65],
       moncton:[-64.77,46.09],
+
+      // ── Mexican rail junction cities ──
+      mexico_city:[-99.13,19.43], monterrey:[-100.31,25.67],
+      guadalajara:[-103.35,20.66], san_luis_potosi:[-100.99,22.15],
+      chihuahua:[-106.09,28.63], ciudad_juarez:[-106.44,31.69],
+      nuevo_laredo:[-99.55,27.48], nogales:[-110.94,31.34],
+      tijuana:[-117.04,32.53], aguascalientes:[-102.29,21.88],
+      queretaro:[-100.39,20.59], veracruz:[-96.13,19.18],
+      lazaro_cardenas:[-102.20,17.96], manzanillo:[-104.34,19.05],
+
+      // ── Russia (extended Trans-Siberian) ──
+      yekaterinburg:[60.60,56.84], novosibirsk:[82.92,55.03],
+      omsk_ru:[73.37,54.99], krasnoyarsk:[92.87,56.01],
+      irkutsk:[104.30,52.30], ulan_ude:[107.59,51.83],
+      chita:[113.50,52.03], khabarovsk:[135.07,48.48],
+      vladivostok:[131.89,43.12],
+
+      // ── Kazakhstan ──
+      almaty:[76.95,43.24], astana:[71.43,51.13],
+      khorgos:[80.34,43.35], dostyk:[78.23,45.12],
+      aktau:[51.15,43.65], aktobe:[57.21,50.28],
+      shymkent:[69.60,42.32],
+
+      // ── Mongolia ──
+      ulaanbaatar:[106.91,47.92], zamiin_uud:[111.90,43.72],
+      sukhbaatar:[106.21,50.24],
+
+      // ── Caucasus ──
+      baku:[49.87,40.41], tbilisi:[44.83,41.72],
+      kars:[43.09,40.60],
+
+      // ── China (main rail hubs) ──
+      beijing:[116.40,39.90], xian:[108.94,34.26],
+      chongqing:[106.55,29.56], chengdu:[104.07,30.57],
+      zhengzhou:[113.65,34.76], wuhan:[114.31,30.59],
+      lanzhou:[103.83,36.06], urumqi:[87.62,43.83],
+      yiwu:[120.08,29.31], shanghai:[121.47,31.23],
+      harbin:[126.65,45.75], shenyang:[123.43,41.80],
+      guangzhou:[113.26,23.13], shenzhen:[114.06,22.54],
+      manzhouli:[117.38,49.60],
+
+      // ── Uzbekistan / Turkmenistan ──
+      tashkent:[69.28,41.30],
     };
 
     // Adjacency — tracing real major rail corridors
@@ -2320,6 +2363,66 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["thunder_bay","duluth"],
       ["toronto","buffalo"],["toronto","detroit"],
       ["montreal","albany"],["montreal","portland_me"],
+
+      // ── Mexican rail corridors ──
+      // Main trunk lines
+      ["mexico_city","queretaro"],["queretaro","san_luis_potosi"],
+      ["san_luis_potosi","monterrey"],["monterrey","nuevo_laredo"],
+      ["san_luis_potosi","aguascalientes"],["aguascalientes","guadalajara"],
+      ["guadalajara","manzanillo"],["guadalajara","mexico_city"],
+      ["mexico_city","veracruz"],["mexico_city","lazaro_cardenas"],
+      ["monterrey","chihuahua"],["chihuahua","ciudad_juarez"],
+      ["chihuahua","nogales"],["nogales","tijuana"],
+      // US-Mexico cross-border connections
+      ["nuevo_laredo","san_antonio"],["ciudad_juarez","el_paso"],
+      ["nogales","tucson"],["tijuana","los_angeles"],
+      ["nuevo_laredo","dallas"],
+
+      // ── Russia — Trans-Siberian Railway ──
+      ["moscow","yekaterinburg"],["yekaterinburg","omsk_ru"],
+      ["omsk_ru","novosibirsk"],["novosibirsk","krasnoyarsk"],
+      ["krasnoyarsk","irkutsk"],["irkutsk","ulan_ude"],
+      ["ulan_ude","chita"],["chita","khabarovsk"],
+      ["khabarovsk","vladivostok"],
+      // Moscow — St Petersburg & Belarus
+      ["moscow","st_petersburg"],["moscow","minsk"],
+
+      // ── Kazakhstan rail corridors ──
+      ["khorgos","almaty"],["dostyk","almaty"],
+      ["almaty","shymkent"],["shymkent","tashkent"],
+      ["almaty","astana"],["astana","aktobe"],
+      ["aktobe","aktau"],["astana","yekaterinburg"],
+      ["astana","omsk_ru"],
+
+      // ── Mongolia (Trans-Mongolian) ──
+      ["zamiin_uud","ulaanbaatar"],["ulaanbaatar","sukhbaatar"],
+      ["sukhbaatar","ulan_ude"],
+
+      // ── Caucasus / Middle Corridor ──
+      ["aktau","baku"],  // Caspian crossing
+      ["baku","tbilisi"],["tbilisi","kars"],
+      ["kars","ankara"],["kars","istanbul"],
+
+      // ── China rail corridors ──
+      // East-West trunk
+      ["shanghai","zhengzhou"],["zhengzhou","xian"],
+      ["xian","lanzhou"],["lanzhou","urumqi"],
+      ["urumqi","khorgos"],["urumqi","dostyk"],
+      // Beijing connections
+      ["beijing","zhengzhou"],["beijing","xian"],
+      ["beijing","shenyang"],["beijing","harbin"],
+      // Southwest
+      ["chengdu","xian"],["chongqing","xian"],
+      ["chengdu","chongqing"],["chongqing","wuhan"],
+      ["wuhan","zhengzhou"],["wuhan","guangzhou"],
+      ["guangzhou","shenzhen"],
+      // Yiwu (small commodity city)
+      ["yiwu","shanghai"],["yiwu","zhengzhou"],
+      // Northeast (Trans-Manchurian)
+      ["harbin","manzhouli"],["manzhouli","chita"],
+      ["shenyang","harbin"],
+      // Zamiin-Uud (China-Mongolia border)
+      ["beijing","zamiin_uud"],
     ];
 
     // Build adjacency map
@@ -2345,6 +2448,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       BIH: "sarajevo",  BLR: "minsk",
       // Turkey, Russia, Ukraine
       TUR: "istanbul",  RUS: "moscow",   UKR: "kyiv",
+      // Central Asia, Caucasus, China, Mongolia
+      CHN: "zhengzhou",  KAZ: "astana",  MNG: "ulaanbaatar",
+      AZE: "baku",       GEO: "tbilisi", UZB: "tashkent",
       // US states
       "US-AL": "birmingham",                              "US-AZ": "phoenix",
       "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",
@@ -2365,6 +2471,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       "US-WI": "milwaukee",    "US-WY": "cheyenne",     "US-DC": "washington_dc",
       // Canada (single entity for cross-border flows)
       "CA": "toronto",
+      // Mexico (single entity for cross-border flows)
+      "MX": "mexico_city",
     };
 
     // BFS shortest path
@@ -2425,11 +2533,21 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     }
 
     // ── Per-flow directional arrows — thickness = magnitude, unique color per flow ──
-    // Normalize width separately for EU vs US so each region uses its own scale
-    const euFlows = railFreight.filter((rf) => !rf.origin_iso.startsWith('US-') && rf.origin_iso !== 'CA');
-    const usFlows = railFreight.filter((rf) => rf.origin_iso.startsWith('US-') || rf.origin_iso === 'CA');
-    const maxTonnesEU = Math.max(...euFlows.map((rf) => rf.tonnes), 1);
+    // Region classification for normalization and color distribution
+    const ASIA_ISOS = new Set(['CHN','KAZ','MNG','AZE','GEO','UZB','TKM','KGZ','TJK','RUS','BLR']);
+    function flowRegion(orig: string, dest: string): 'us' | 'eu' | 'asia' {
+      if (orig.startsWith('US-') || orig === 'CA' || orig === 'MX') return 'us';
+      if (ASIA_ISOS.has(orig) || ASIA_ISOS.has(dest)) return 'asia';
+      return 'eu';
+    }
+
+    // Normalize width separately per region so each uses its own scale
+    const usFlows = railFreight.filter((rf) => flowRegion(rf.origin_iso, rf.destination_iso) === 'us');
+    const euFlows = railFreight.filter((rf) => flowRegion(rf.origin_iso, rf.destination_iso) === 'eu');
+    const asiaFlows = railFreight.filter((rf) => flowRegion(rf.origin_iso, rf.destination_iso) === 'asia');
     const maxTonnesUS = Math.max(...usFlows.map((rf) => rf.tonnes), 1);
+    const maxTonnesEU = Math.max(...euFlows.map((rf) => rf.tonnes), 1);
+    const maxTonnesAsia = Math.max(...asiaFlows.map((rf) => rf.tonnes), 1);
 
     // HSL-to-RGB helper for generating distinct colors
     function hslToColor(h: number, s: number, l: number, a: number): Color {
@@ -2482,22 +2600,30 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       });
     });
 
+    // Split valid flows into region groups for independent color indexing
+    const regionValidIndices: Record<string, number[]> = { us: [], eu: [], asia: [] };
+    validFlows.forEach((rf, i) => {
+      regionValidIndices[flowRegion(rf.origin_iso, rf.destination_iso)].push(i);
+    });
+
     const flowColorsCss: string[] = [];
     let flowIdx = 0;
     validFlows.forEach((rf, vi) => {
       const path = railRoute(rf.origin_iso, rf.destination_iso);
       if (!path || path.length < 2) return;
 
-      const isUS = rf.origin_iso.startsWith('US-') || rf.origin_iso === 'CA';
-      const regionMax = isUS ? maxTonnesUS : maxTonnesEU;
+      const reg = flowRegion(rf.origin_iso, rf.destination_iso);
+      const regionMax = reg === 'us' ? maxTonnesUS : reg === 'asia' ? maxTonnesAsia : maxTonnesEU;
       const norm = Math.sqrt(rf.tonnes / regionMax);
       const width = 2 + norm * 12;
 
       // Lane-based lateral offset so flows in the same corridor don't overlap
       const side = flowLaneOffset[vi];
 
-      // Unique color per flow — evenly spaced hues, warm saturation
-      const hue = (flowIdx / totalFlows) * 360;
+      // Unique color per flow — hues distributed independently per region
+      const regionIndices = regionValidIndices[reg];
+      const regionIdx = regionIndices.indexOf(vi);
+      const hue = (regionIdx / regionIndices.length) * 360;
       const flowColor = hslToColor(hue, 0.85, 0.55, 0.8);
       flowColorsCss.push(`hsl(${hue.toFixed(0)}, 85%, 55%)`);
 

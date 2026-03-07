@@ -40,6 +40,8 @@ US_STATE_INFO: dict[str, tuple[str, float, float]] = {
     "US-WY": ("Wyoming", 43.08, -107.29),
     # Canada (single entity for cross-border flows)
     "CA": ("Canada", 56.13, -106.35),
+    # Mexico (single entity for cross-border flows)
+    "MX": ("Mexico", 23.63, -102.55),
 }
 
 
@@ -59,7 +61,7 @@ class RailFreightFlow(BaseModel):
 @router.get("/", response_model=List[RailFreightFlow])
 def get_rail_freight(
     year: int = Query(2022, description="Year"),
-    min_tonnes: float = Query(100, description="Minimum thousand tonnes to include"),
+    min_tonnes: float = Query(5, description="Minimum thousand tonnes to include"),
     region: Optional[str] = Query(None, description="Region filter: 'eu', 'us', or None for all"),
     db: Session = Depends(get_db),
 ):
@@ -67,35 +69,50 @@ def get_rail_freight(
     
     When fetching all regions (region=None), each region falls back to its
     latest available year if no data exists for the requested year.
+    Regions: 'us' (US+Canada+Mexico), 'eu' (European), 'asia' (China/Central Asia/Caucasus).
     """
-    def _query_region(is_us: bool, yr: int):
+    # ISO codes that belong to the Asia/Silk Road region
+    ASIA_ISOS = {"CHN", "KAZ", "MNG", "AZE", "GEO", "UZB", "TKM", "KGZ", "TJK", "RUS", "BLR"}
+
+    def _region_filter(region_key: str):
+        """Return a SQLAlchemy filter for the given region key.
+        
+        Asia region includes any flow where EITHER origin or destination is
+        an Asia ISO, so CHN→DEU and DEU→CHN both belong to 'asia'.
+        """
+        if region_key == "us":
+            return (
+                RailFreight.origin_iso.like("US-%")
+                | (RailFreight.origin_iso == "CA")
+                | (RailFreight.origin_iso == "MX")
+            )
+        elif region_key == "asia":
+            return (
+                RailFreight.origin_iso.in_(ASIA_ISOS)
+                | RailFreight.destination_iso.in_(ASIA_ISOS)
+            )
+        else:  # eu — exclude US/CA/MX and exclude any flow touching Asia
+            return (
+                ~RailFreight.origin_iso.like("US-%")
+                & (RailFreight.origin_iso != "CA")
+                & (RailFreight.origin_iso != "MX")
+                & ~RailFreight.origin_iso.in_(ASIA_ISOS)
+                & ~RailFreight.destination_iso.in_(ASIA_ISOS)
+            )
+
+    def _query_region(region_key: str, yr: int):
         q = db.query(RailFreight).filter(
-            RailFreight.year == yr, RailFreight.tonnes >= min_tonnes
+            RailFreight.year == yr,
+            RailFreight.tonnes >= min_tonnes,
+            _region_filter(region_key),
         )
-        if is_us:
-            # US domestic + US-Canada cross-border
-            q = q.filter(
-                RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA")
-            )
-        else:
-            # EU: neither US nor CA
-            q = q.filter(
-                ~RailFreight.origin_iso.like("US-%"),
-                RailFreight.origin_iso != "CA",
-            )
         return q.order_by(RailFreight.tonnes.desc()).all()
 
-    def _latest_year(is_us: bool) -> Optional[int]:
+    def _latest_year(region_key: str) -> Optional[int]:
         """Find the best fallback year — the one with the most flows."""
-        region_filter = (
-            (RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA"))
-            if is_us
-            else (~RailFreight.origin_iso.like("US-%") & (RailFreight.origin_iso != "CA"))
-        )
-        # Pick year with most flows above the threshold
         row = (
             db.query(RailFreight.year, func.count(RailFreight.id).label("cnt"))
-            .filter(region_filter, RailFreight.tonnes >= min_tonnes)
+            .filter(_region_filter(region_key), RailFreight.tonnes >= min_tonnes)
             .group_by(RailFreight.year)
             .order_by(func.count(RailFreight.id).desc())
             .first()
@@ -103,30 +120,32 @@ def get_rail_freight(
         return row[0] if row else None
 
     # Determine which regions to fetch
-    regions_to_fetch: list[bool] = []  # True = US, False = EU
+    regions_to_fetch: list[str] = []
     if region == "us":
-        regions_to_fetch = [True]
+        regions_to_fetch = ["us"]
     elif region == "eu":
-        regions_to_fetch = [False]
+        regions_to_fetch = ["eu"]
+    elif region == "asia":
+        regions_to_fetch = ["asia"]
     else:
-        regions_to_fetch = [False, True]  # both
+        regions_to_fetch = ["eu", "asia", "us"]
 
     flows = []
-    for is_us in regions_to_fetch:
-        region_flows = _query_region(is_us, year)
+    for rkey in regions_to_fetch:
+        region_flows = _query_region(rkey, year)
         if not region_flows:
             # Fallback to latest available year for this region
-            latest = _latest_year(is_us)
+            latest = _latest_year(rkey)
             if latest and latest != year:
-                region_flows = _query_region(is_us, latest)
+                region_flows = _query_region(rkey, latest)
         flows.extend(region_flows)
 
-    # Build country lookup for EU flows
+    # Build country lookup for EU/Asia flows
     countries = {c.iso_code: c for c in db.query(Country).all()}
 
     results = []
     for f in flows:
-        if f.origin_iso.startswith("US-") or f.origin_iso == "CA":
+        if f.origin_iso.startswith("US-") or f.origin_iso in ("CA", "MX"):
             # US state or US-Canada cross-border flow
             oi = US_STATE_INFO.get(f.origin_iso)
             di = US_STATE_INFO.get(f.destination_iso)

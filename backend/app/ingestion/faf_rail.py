@@ -73,6 +73,7 @@ DOMESTIC_TRADE = "1"  # trade_type 1 = domestic
 IMPORT_TRADE = "2"    # trade_type 2 = imports
 EXPORT_TRADE = "3"    # trade_type 3 = exports
 CANADA_ZONE = "801"   # FAF foreign zone for Canada
+MEXICO_ZONE = "802"   # FAF foreign zone for Mexico
 
 
 def fetch_and_ingest():
@@ -156,6 +157,36 @@ def fetch_and_ingest():
                     tons = float(val)
                     if tons > 0:
                         agg[(f"US-{orig_abbr}", "CA", yr)] += tons
+                rows_xborder += 1
+
+            elif tt == IMPORT_TRADE and row["fr_orig"] == MEXICO_ZONE:
+                # Import from Mexico → US state
+                dest_fips = row["dms_destst"]
+                dest_abbr = FIPS_TO_ABBR.get(dest_fips)
+                if not dest_abbr:
+                    continue
+                for yr in FAF_YEARS:
+                    val = row.get(f"tons_{yr}", "")
+                    if not val:
+                        continue
+                    tons = float(val)
+                    if tons > 0:
+                        agg[("MX", f"US-{dest_abbr}", yr)] += tons
+                rows_xborder += 1
+
+            elif tt == EXPORT_TRADE and row["fr_dest"] == MEXICO_ZONE:
+                # Export from US state → Mexico
+                orig_fips = row["dms_origst"]
+                orig_abbr = FIPS_TO_ABBR.get(orig_fips)
+                if not orig_abbr:
+                    continue
+                for yr in FAF_YEARS:
+                    val = row.get(f"tons_{yr}", "")
+                    if not val:
+                        continue
+                    tons = float(val)
+                    if tons > 0:
+                        agg[(f"US-{orig_abbr}", "MX", yr)] += tons
                 rows_xborder += 1
 
     log.info("Parsed %d domestic + %d cross-border rail rows → %d aggregated OD-year pairs",
