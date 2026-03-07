@@ -2112,6 +2112,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       charleston_wv:[-81.63,38.35],
       louisville:[-85.76,38.25],
       green_bay:[-88.01,44.51],
+
+      // ── Canadian rail junction cities ──
+      vancouver:[-123.12,49.28], calgary:[-114.07,51.05],
+      edmonton:[-113.49,53.55], saskatoon:[-106.67,52.13],
+      winnipeg:[-97.14,49.90], thunder_bay:[-89.25,48.38],
+      sudbury:[-80.99,46.49], toronto:[-79.38,43.65],
+      ottawa:[-75.70,45.42], montreal:[-73.57,45.50],
+      quebec_city:[-71.21,46.81], halifax:[-63.57,44.65],
+      moncton:[-64.77,46.09],
     };
 
     // Adjacency — tracing real major rail corridors
@@ -2266,6 +2275,23 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["st_louis","little_rock"],
       ["charleston_wv","richmond"],["charleston_wv","columbus"],
       ["charleston_wv","louisville"],
+
+      // ── Canadian rail corridors ──
+      // Transcontinental
+      ["vancouver","calgary"],["calgary","edmonton"],
+      ["calgary","saskatoon"],["saskatoon","winnipeg"],
+      ["edmonton","saskatoon"],
+      ["winnipeg","thunder_bay"],["thunder_bay","sudbury"],
+      ["sudbury","toronto"],["toronto","ottawa"],
+      ["ottawa","montreal"],["montreal","quebec_city"],
+      ["quebec_city","moncton"],["moncton","halifax"],
+      ["montreal","moncton"],
+      // US-Canada cross-border connections
+      ["vancouver","seattle"],
+      ["winnipeg","fargo"],["winnipeg","duluth"],
+      ["thunder_bay","duluth"],
+      ["toronto","buffalo"],["toronto","detroit"],
+      ["montreal","albany"],["montreal","portland_me"],
     ];
 
     // Build adjacency map
@@ -2307,6 +2333,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       "US-TX": "dallas",       "US-UT": "salt_lake",    "US-VT": "albany",
       "US-VA": "richmond",     "US-WA": "seattle",      "US-WV": "charleston_wv",
       "US-WI": "milwaukee",    "US-WY": "cheyenne",     "US-DC": "washington_dc",
+      // Canada (single entity for cross-border flows)
+      "CA": "toronto",
     };
 
     // BFS shortest path

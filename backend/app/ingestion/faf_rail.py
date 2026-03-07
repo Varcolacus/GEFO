@@ -70,19 +70,32 @@ FAF_YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 
 RAIL_MODE = "2"      # FAF mode code for Rail
 DOMESTIC_TRADE = "1"  # trade_type 1 = domestic
+IMPORT_TRADE = "2"    # trade_type 2 = imports
+EXPORT_TRADE = "3"    # trade_type 3 = exports
+CANADA_ZONE = "801"   # FAF foreign zone for Canada
 
 
 def fetch_and_ingest():
     """Download FAF5 state CSV, extract rail freight, and upsert into DB."""
     RailFreight.__table__.create(engine, checkfirst=True)
 
-    log.info("Downloading FAF5.7.1 State Database (%s)...", FAF_STATE_URL)
-    with httpx.Client(timeout=180, follow_redirects=True) as client:
-        resp = client.get(FAF_STATE_URL)
-        resp.raise_for_status()
-
-    log.info("Downloaded %d KB. Extracting CSV...", len(resp.content) // 1024)
-    z = zipfile.ZipFile(io.BytesIO(resp.content))
+    # Use cached ZIP if available, otherwise download
+    cache_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "raw", "FAF5.7.1_State.zip")
+    cache_path = os.path.normpath(cache_path)
+    if os.path.exists(cache_path):
+        log.info("Using cached FAF5 ZIP: %s", cache_path)
+        z = zipfile.ZipFile(cache_path)
+    else:
+        log.info("Downloading FAF5.7.1 State Database (%s)...", FAF_STATE_URL)
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        with httpx.Client(timeout=httpx.Timeout(300, connect=30)) as client:
+            with client.stream("GET", FAF_STATE_URL, follow_redirects=True) as resp:
+                resp.raise_for_status()
+                with open(cache_path, "wb") as f:
+                    for chunk in resp.iter_bytes(chunk_size=65536):
+                        f.write(chunk)
+        log.info("Downloaded to %s", cache_path)
+        z = zipfile.ZipFile(cache_path)
     csv_name = next(n for n in z.namelist() if n.endswith(".csv"))
 
     # Aggregate: for each (origin_state, dest_state, year), sum rail tonnage across commodities
@@ -91,34 +104,62 @@ def fetch_and_ingest():
 
     with z.open(csv_name) as f:
         reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8"))
-        rows_read = 0
+        rows_domestic = 0
+        rows_xborder = 0
         for row in reader:
             if row["dms_mode"] != RAIL_MODE:
                 continue
-            if row["trade_type"] != DOMESTIC_TRADE:
-                continue
+            tt = row["trade_type"]
 
-            orig_fips = row["dms_origst"]
-            dest_fips = row["dms_destst"]
-            orig_abbr = FIPS_TO_ABBR.get(orig_fips)
-            dest_abbr = FIPS_TO_ABBR.get(dest_fips)
-            if not orig_abbr or not dest_abbr:
-                continue
-
-            for yr in FAF_YEARS:
-                col = f"tons_{yr}"
-                val = row.get(col, "")
-                if not val:
+            if tt == DOMESTIC_TRADE:
+                # Domestic US state-to-state
+                orig_fips = row["dms_origst"]
+                dest_fips = row["dms_destst"]
+                orig_abbr = FIPS_TO_ABBR.get(orig_fips)
+                dest_abbr = FIPS_TO_ABBR.get(dest_fips)
+                if not orig_abbr or not dest_abbr:
                     continue
-                tons = float(val)
-                if tons <= 0:
+                for yr in FAF_YEARS:
+                    val = row.get(f"tons_{yr}", "")
+                    if not val:
+                        continue
+                    tons = float(val)
+                    if tons > 0:
+                        agg[(f"US-{orig_abbr}", f"US-{dest_abbr}", yr)] += tons
+                rows_domestic += 1
+
+            elif tt == IMPORT_TRADE and row["fr_orig"] == CANADA_ZONE:
+                # Import from Canada → US state
+                dest_fips = row["dms_destst"]
+                dest_abbr = FIPS_TO_ABBR.get(dest_fips)
+                if not dest_abbr:
                     continue
-                # Store with "US-" prefix to distinguish from country ISO codes
-                agg[(f"US-{orig_abbr}", f"US-{dest_abbr}", yr)] += tons
+                for yr in FAF_YEARS:
+                    val = row.get(f"tons_{yr}", "")
+                    if not val:
+                        continue
+                    tons = float(val)
+                    if tons > 0:
+                        agg[("CA", f"US-{dest_abbr}", yr)] += tons
+                rows_xborder += 1
 
-            rows_read += 1
+            elif tt == EXPORT_TRADE and row["fr_dest"] == CANADA_ZONE:
+                # Export from US state → Canada
+                orig_fips = row["dms_origst"]
+                orig_abbr = FIPS_TO_ABBR.get(orig_fips)
+                if not orig_abbr:
+                    continue
+                for yr in FAF_YEARS:
+                    val = row.get(f"tons_{yr}", "")
+                    if not val:
+                        continue
+                    tons = float(val)
+                    if tons > 0:
+                        agg[(f"US-{orig_abbr}", "CA", yr)] += tons
+                rows_xborder += 1
 
-    log.info("Parsed %d rail CSV rows → %d aggregated OD-year pairs", rows_read, len(agg))
+    log.info("Parsed %d domestic + %d cross-border rail rows → %d aggregated OD-year pairs",
+             rows_domestic, rows_xborder, len(agg))
 
     # Filter: only keep pairs with >= 10 thousand tons (skip noise)
     MIN_TONS = 10.0
@@ -143,9 +184,13 @@ def fetch_and_ingest():
             batch = records[i : i + batch_size]
             _upsert_batch(batch)
 
-        count = db.query(RailFreight).filter(RailFreight.origin_iso.like("US-%")).count()
+        us_count = db.query(RailFreight).filter(RailFreight.origin_iso.like("US-%")).count()
+        ca_count = db.query(RailFreight).filter(
+            (RailFreight.origin_iso == "CA") | (RailFreight.destination_iso == "CA")
+        ).count()
         log.info("FAF rail freight ingestion complete.")
-        log.info("  Total US rail_freight records in DB: %d", count)
+        log.info("  US domestic records: %d", us_count)
+        log.info("  US-Canada cross-border records: %d", ca_count)
     finally:
         db.close()
 

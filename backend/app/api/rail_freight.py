@@ -38,6 +38,8 @@ US_STATE_INFO: dict[str, tuple[str, float, float]] = {
     "US-VA": ("Virginia", 37.77, -78.17), "US-WA": ("Washington", 47.75, -120.74),
     "US-WV": ("West Virginia", 38.60, -80.62), "US-WI": ("Wisconsin", 44.50, -89.50),
     "US-WY": ("Wyoming", 43.08, -107.29),
+    # Canada (single entity for cross-border flows)
+    "CA": ("Canada", 56.13, -106.35),
 }
 
 
@@ -61,25 +63,68 @@ def get_rail_freight(
     region: Optional[str] = Query(None, description="Region filter: 'eu', 'us', or None for all"),
     db: Session = Depends(get_db),
 ):
-    """Get bilateral rail freight flows for a given year."""
-    query = db.query(RailFreight).filter(
-        RailFreight.year == year, RailFreight.tonnes >= min_tonnes
-    )
+    """Get bilateral rail freight flows for a given year.
+    
+    When fetching all regions (region=None), each region falls back to its
+    latest available year if no data exists for the requested year.
+    """
+    def _query_region(is_us: bool, yr: int):
+        q = db.query(RailFreight).filter(
+            RailFreight.year == yr, RailFreight.tonnes >= min_tonnes
+        )
+        if is_us:
+            # US domestic + US-Canada cross-border
+            q = q.filter(
+                RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA")
+            )
+        else:
+            # EU: neither US nor CA
+            q = q.filter(
+                ~RailFreight.origin_iso.like("US-%"),
+                RailFreight.origin_iso != "CA",
+            )
+        return q.order_by(RailFreight.tonnes.desc()).all()
 
-    if region == "eu":
-        query = query.filter(~RailFreight.origin_iso.like("US-%"))
-    elif region == "us":
-        query = query.filter(RailFreight.origin_iso.like("US-%"))
+    def _latest_year(is_us: bool) -> Optional[int]:
+        q = db.query(func.max(RailFreight.year))
+        if is_us:
+            q = q.filter(
+                RailFreight.origin_iso.like("US-%") | (RailFreight.origin_iso == "CA")
+            )
+        else:
+            q = q.filter(
+                ~RailFreight.origin_iso.like("US-%"),
+                RailFreight.origin_iso != "CA",
+            )
+        row = q.scalar()
+        return row
 
-    flows = query.order_by(RailFreight.tonnes.desc()).all()
+    # Determine which regions to fetch
+    regions_to_fetch: list[bool] = []  # True = US, False = EU
+    if region == "us":
+        regions_to_fetch = [True]
+    elif region == "eu":
+        regions_to_fetch = [False]
+    else:
+        regions_to_fetch = [False, True]  # both
+
+    flows = []
+    for is_us in regions_to_fetch:
+        region_flows = _query_region(is_us, year)
+        if not region_flows:
+            # Fallback to latest available year for this region
+            latest = _latest_year(is_us)
+            if latest and latest != year:
+                region_flows = _query_region(is_us, latest)
+        flows.extend(region_flows)
 
     # Build country lookup for EU flows
     countries = {c.iso_code: c for c in db.query(Country).all()}
 
     results = []
     for f in flows:
-        if f.origin_iso.startswith("US-"):
-            # US state flow
+        if f.origin_iso.startswith("US-") or f.origin_iso == "CA":
+            # US state or US-Canada cross-border flow
             oi = US_STATE_INFO.get(f.origin_iso)
             di = US_STATE_INFO.get(f.destination_iso)
             if not oi or not di:

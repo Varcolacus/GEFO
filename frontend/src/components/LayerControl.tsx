@@ -330,31 +330,39 @@ export default function LayerControl({
         <ToggleSwitch
           label="Railroads"
           description="Railway network & freight"
-          active={layers.railroads}
+          active={layers.railroads || layers.railroadFreight}
           color="bg-red-400"
-          onToggle={() => onToggle("railroads")}
+          onToggle={() => {
+            const anyOn = layers.railroads || layers.railroadFreight;
+            if (anyOn) {
+              if (layers.railroads) onToggle("railroads");
+              if (layers.railroadFreight) onToggle("railroadFreight");
+            } else {
+              if (!layers.railroads) onToggle("railroads");
+              if (!layers.railroadFreight) onToggle("railroadFreight");
+            }
+          }}
         />
 
-        {layers.railroads && (
-          <div className="ml-4 mb-1 flex flex-col gap-1">
-            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={layers.railroads}
-                onChange={() => onToggle("railroads")}
-                className="accent-red-400 w-3.5 h-3.5"
-              />
-              Rail Network
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={layers.railroadFreight}
-                onChange={() => onToggle("railroadFreight")}
-                className="accent-orange-400 w-3.5 h-3.5"
-              />
-              Freight Flows
-            </label>
+        {(layers.railroads || layers.railroadFreight) && (
+          <div className="ml-4 mb-1 flex flex-wrap gap-1">
+            {[
+              { key: "railroads" as const, label: "Rail Network", color: "bg-red-400" },
+              { key: "railroadFreight" as const, label: "Freight Flows", color: "bg-orange-400" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => onToggle(item.key)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                  layers[item.key]
+                    ? "bg-white/20 text-white font-medium"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${item.color}`} />
+                {item.label}
+              </button>
+            ))}
           </div>
         )}
 
