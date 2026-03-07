@@ -138,17 +138,55 @@ def parse_and_ingest(csv_text: str):
                 # Sum monthly values
                 monthly_agg[key] += tonnes
 
-        # Merge: prefer annual, fall back to summed monthly
+        # Merge: prefer annual, fall back to summed monthly.
+        # Some reporters (SE, DK 1997-1999) have values in TONNES rather than
+        # THS_T — 1000x too high.  Two-step detection:
+        # 1) Compare annual vs monthly sums when both exist
+        # 2) Detect inflated origin-years by comparing per-year averages with
+        #    the origin's overall median; if a year's avg is >10x the median
+        #    across other years, divide all flows for that origin-year by 1000.
         agg: dict[tuple[str, str, int], float] = {}
         all_keys = set(annual_agg.keys()) | set(monthly_agg.keys())
         for key in all_keys:
-            if key in annual_agg and annual_agg[key] > 0:
-                agg[key] = annual_agg[key]
-            elif key in monthly_agg:
-                agg[key] = monthly_agg[key]
+            ann = annual_agg.get(key, 0)
+            mon = monthly_agg.get(key, 0)
+            if ann > 0:
+                agg[key] = ann
+            elif mon > 0:
+                agg[key] = mon
+
+        # Detect inflated origin-years by cross-year comparison
+        from statistics import median as stat_median
+        origin_year_vals: dict[str, dict[int, list[float]]] = {}
+        for (o, d, y), t in agg.items():
+            origin_year_vals.setdefault(o, {}).setdefault(y, []).append(t)
+
+        inflated_origin_years: set[tuple[str, int]] = set()
+        for origin, years_dict in origin_year_vals.items():
+            if len(years_dict) < 3:
+                continue  # need enough years to compare
+            year_avgs = {yr: sum(vals) / len(vals) for yr, vals in years_dict.items()}
+            all_avgs = list(year_avgs.values())
+            med = stat_median(all_avgs)
+            if med <= 0:
+                continue
+            for yr, avg in year_avgs.items():
+                if avg > med * 10:
+                    inflated_origin_years.add((origin, yr))
+
+        corrected = 0
+        if inflated_origin_years:
+            log.info(f"  Detected inflated origin-years: {sorted(inflated_origin_years)}")
+            for key in list(agg.keys()):
+                o, d, y = key
+                if (o, y) in inflated_origin_years:
+                    agg[key] = round(agg[key] / 1000, 2)
+                    corrected += 1
 
         log.info(f"Parsed {total:,} rows, skipped {skipped:,}")
-        log.info(f"  Annual OD-year pairs: {len(annual_agg):,}, monthly-only: {len(agg) - len(annual_agg):,}, total: {len(agg):,}")
+        log.info(f"  Annual: {len(annual_agg):,}, monthly-only: {len(agg) - len([k for k in agg if k in annual_agg]):,}, total: {len(agg):,}")
+        if corrected:
+            log.info(f"  Corrected {corrected} inflated values (÷1000)")
 
         # Log TUR/RUS coverage
         tur_flows = {k: v for k, v in agg.items() if 'TUR' in k[:2]}

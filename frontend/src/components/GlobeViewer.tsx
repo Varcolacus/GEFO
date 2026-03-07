@@ -2425,7 +2425,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     }
 
     // ── Per-flow directional arrows — thickness = magnitude, unique color per flow ──
-    const maxTonnes = Math.max(...railFreight.map((rf) => rf.tonnes), 1);
+    // Normalize width separately for EU vs US so each region uses its own scale
+    const euFlows = railFreight.filter((rf) => !rf.origin_iso.startsWith('US-') && rf.origin_iso !== 'CA');
+    const usFlows = railFreight.filter((rf) => rf.origin_iso.startsWith('US-') || rf.origin_iso === 'CA');
+    const maxTonnesEU = Math.max(...euFlows.map((rf) => rf.tonnes), 1);
+    const maxTonnesUS = Math.max(...usFlows.map((rf) => rf.tonnes), 1);
 
     // HSL-to-RGB helper for generating distinct colors
     function hslToColor(h: number, s: number, l: number, a: number): Color {
@@ -2484,8 +2488,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const path = railRoute(rf.origin_iso, rf.destination_iso);
       if (!path || path.length < 2) return;
 
-      const norm = Math.sqrt(rf.tonnes / maxTonnes);
-      const width = 2 + norm * 57;
+      const isUS = rf.origin_iso.startsWith('US-') || rf.origin_iso === 'CA';
+      const regionMax = isUS ? maxTonnesUS : maxTonnesEU;
+      const norm = Math.sqrt(rf.tonnes / regionMax);
+      const width = 2 + norm * 12;
 
       // Lane-based lateral offset so flows in the same corridor don't overlap
       const side = flowLaneOffset[vi];
