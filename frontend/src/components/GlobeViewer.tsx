@@ -2068,6 +2068,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // UK
       london:[-0.12,51.51],
 
+      // ── Turkey ──
+      istanbul:[28.98,41.01], ankara:[32.87,39.93],
+      eskisehir:[30.52,39.78], konya:[32.49,37.87],
+      kayseri:[35.48,38.73], edirne:[26.56,41.68],
+      // ── Russia (west) ──
+      moscow:[37.62,55.76], st_petersburg:[30.32,59.93],
+      // ── Ukraine ──
+      kyiv:[30.52,50.45], lviv:[24.03,49.84],
+      odesa:[30.73,46.48], kharkiv:[36.23,49.99],
+
       // ── US rail junction graph (major rail hubs) ──
       seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
       sacramento:[-121.49,38.58], san_francisco:[-122.42,37.77],
@@ -2194,6 +2204,24 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["belgrade","bucharest"],["bucharest","craiova"],["craiova","sofia"],
       ["sofia","thessaloniki"],["skopje","thessaloniki"],
       ["sarajevo","belgrade"],["sarajevo","zagreb"],
+
+      // Turkey
+      ["edirne","istanbul"],["istanbul","eskisehir"],
+      ["eskisehir","ankara"],["ankara","konya"],
+      ["ankara","kayseri"],["eskisehir","konya"],
+      // Turkey cross-border
+      ["edirne","sofia"],["edirne","thessaloniki"],
+
+      // Russia (west)
+      ["st_petersburg","moscow"],
+      // Russia cross-border
+      ["st_petersburg","helsinki"],
+
+      // Ukraine
+      ["lviv","kyiv"],["kyiv","kharkiv"],["kyiv","odesa"],
+      // Ukraine cross-border
+      ["lviv","krakow"],["lviv","budapest"],
+      ["kyiv","minsk"],
       // Nordics  
       ["hamburg","copenhagen"],["copenhagen","malmo"],
       ["malmo","gothenburg"],["gothenburg","oslo"],
@@ -2315,6 +2343,8 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       PRT: "lisbon",    ROU: "bucharest", SWE: "stockholm",
       SVN: "ljubljana", SVK: "bratislava", SRB: "belgrade",
       BIH: "sarajevo",  BLR: "minsk",
+      // Turkey, Russia, Ukraine
+      TUR: "istanbul",  RUS: "moscow",   UKR: "kyiv",
       // US states
       "US-AL": "birmingham",                              "US-AZ": "phoenix",
       "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",

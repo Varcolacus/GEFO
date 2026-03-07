@@ -77,7 +77,8 @@ def parse_and_ingest(csv_text: str):
         # Columns: DATAFLOW, LAST UPDATE, freq, unit, c_unload, geo, TIME_PERIOD, OBS_VALUE, OBS_FLAG, CONF_STATUS
         # geo = reporting country (origin/loader), c_unload = destination
 
-        batch = []
+        from collections import defaultdict
+        agg: dict[tuple[str, str, int], float] = defaultdict(float)
         skipped = 0
         total = 0
 
@@ -119,25 +120,34 @@ def parse_and_ingest(csv_text: str):
             if tonnes <= 0:
                 continue
 
-            batch.append({
-                "origin_iso": origin_iso,
-                "destination_iso": dest_iso,
-                "year": year,
-                "tonnes": tonnes,
-            })
+            # Aggregate: dataset may have multiple rows per OD-year (transport coverage etc.)
+            # Keep the max value per OD-year to avoid double-counting
+            key = (origin_iso, dest_iso, year)
+            if tonnes > agg[key]:
+                agg[key] = tonnes
 
-            # Commit in chunks
-            if len(batch) >= 1000:
-                _upsert_batch(db, batch)
-                batch = []
+        log.info(f"Parsed {total:,} rows, skipped {skipped:,}, aggregated to {len(agg):,} OD-year pairs")
 
-        if batch:
-            _upsert_batch(db, batch)
+        # Log TUR/RUS coverage
+        tur_flows = {k: v for k, v in agg.items() if 'TUR' in k[:2]}
+        rus_flows = {k: v for k, v in agg.items() if 'RUS' in k[:2]}
+        log.info(f"  Turkey (TUR) flows: {len(tur_flows)}")
+        log.info(f"  Russia (RUS) flows: {len(rus_flows)}")
+
+        # Convert to records and batch upsert
+        records = [
+            {"origin_iso": o, "destination_iso": d, "year": y, "tonnes": round(t, 2)}
+            for (o, d, y), t in agg.items()
+            if t > 0
+        ]
+
+        batch_size = 500
+        for i in range(0, len(records), batch_size):
+            _upsert_batch(db, records[i : i + batch_size])
 
         # Count what we have
         count = db.query(RailFreight).count()
         log.info(f"Eurostat rail freight ingestion complete.")
-        log.info(f"  Rows processed: {total:,}, skipped: {skipped:,}")
         log.info(f"  Total rail_freight records in DB: {count:,}")
 
     finally:
