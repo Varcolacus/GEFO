@@ -2140,11 +2140,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       nacala:[40.69,-14.54], lilongwe:[33.79,-13.96], blantyre:[35.01,-15.79],
 
       // ── Australia ──
-      sydney:[-151.21,-33.87], melbourne:[-144.96,-37.81],
-      brisbane:[-153.03,-27.47], adelaide:[-138.60,-34.93],
-      perth:[-115.86,-31.95], darwin:[-130.84,-12.46],
-      broken_hill:[-141.47,-31.95], kalgoorlie:[-121.47,-30.75],
-      alice_springs:[-133.88,-23.70],
+      sydney:[151.21,-33.87], melbourne:[144.96,-37.81],
+      brisbane:[153.03,-27.47], adelaide:[138.60,-34.93],
+      perth:[115.86,-31.95], darwin:[130.84,-12.46],
+      broken_hill:[141.47,-31.95], kalgoorlie:[121.47,-30.75],
+      alice_springs:[133.88,-23.70],
 
       // ── US rail junction graph (major rail hubs) ──
       seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
