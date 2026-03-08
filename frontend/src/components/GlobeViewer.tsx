@@ -2123,6 +2123,29 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       mandalay:[96.08,21.97], yangon:[96.15,16.87],
       kuala_lumpur:[101.69,3.14], singapore_city:[103.85,1.29],
 
+      // ── Africa ──
+      // Southern Africa
+      johannesburg:[28.05,-26.20], pretoria:[28.19,-25.75],
+      durban:[31.02,-29.86], cape_town:[18.42,-33.93],
+      maputo:[32.57,-25.97], beira:[34.87,-19.84],
+      harare:[31.05,-17.83], bulawayo:[28.58,-20.15],
+      gaborone:[25.91,-24.66], lusaka:[28.28,-15.39],
+      livingstone:[25.86,-17.84], lubumbashi:[27.47,-11.66],
+      // East Africa
+      dar_es_salaam:[39.27,-6.79], kapiri_mposhi:[28.68,-14.97],
+      nairobi:[36.82,-1.29], mombasa:[39.66,-4.04], malaba:[34.28,0.64],
+      kampala:[32.58,0.31],
+      addis_ababa:[38.75,9.02], djibouti_city:[43.15,11.59], dire_dawa:[42.00,9.60],
+      // Nacala corridor
+      nacala:[40.69,-14.54], lilongwe:[33.79,-13.96], blantyre:[35.01,-15.79],
+
+      // ── Australia ──
+      sydney:[-151.21,-33.87], melbourne:[-144.96,-37.81],
+      brisbane:[-153.03,-27.47], adelaide:[-138.60,-34.93],
+      perth:[-115.86,-31.95], darwin:[-130.84,-12.46],
+      broken_hill:[-141.47,-31.95], kalgoorlie:[-121.47,-30.75],
+      alice_springs:[-133.88,-23.70],
+
       // ── US rail junction graph (major rail hubs) ──
       seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
       sacramento:[-121.49,38.58], san_francisco:[-122.42,37.77],
@@ -2519,6 +2542,42 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["dammam","al_batha"],["al_batha","abu_dhabi"],["abu_dhabi","dubai"],
       // Turkey-Iraq
       ["istanbul","ankara"],["ankara","kayseri"],["kayseri","mosul"],
+
+      // ── African rail corridors ──
+      // South Africa internal trunk
+      ["johannesburg","pretoria"],["johannesburg","durban"],
+      ["johannesburg","cape_town"],["pretoria","johannesburg"],
+      // Maputo corridor (ZAF ↔ MOZ)
+      ["johannesburg","maputo"],["pretoria","maputo"],
+      // Beira corridor
+      ["harare","beira"],
+      // Beitbridge corridor (ZAF ↔ ZWE)
+      ["johannesburg","bulawayo"],["bulawayo","harare"],
+      // ZAF ↔ BWA
+      ["johannesburg","gaborone"],
+      // ZWE ↔ ZMB (Victoria Falls)
+      ["bulawayo","livingstone"],["livingstone","lusaka"],
+      // ZMB ↔ COD (Copperbelt)
+      ["lusaka","lubumbashi"],
+      // TAZARA (ZMB ↔ TZA)
+      ["kapiri_mposhi","dar_es_salaam"],["lusaka","kapiri_mposhi"],
+      // ETH ↔ DJI (Addis Ababa – Djibouti SGR)
+      ["addis_ababa","dire_dawa"],["dire_dawa","djibouti_city"],
+      // KEN ↔ UGA
+      ["mombasa","nairobi"],["nairobi","malaba"],["malaba","kampala"],
+      // Nacala corridor (MOZ ↔ MWI)
+      ["nacala","lilongwe"],["lilongwe","blantyre"],
+      ["blantyre","beira"],
+
+      // ── Australian interstate corridors ──
+      ["sydney","melbourne"],              // NSW ↔ VIC
+      ["sydney","brisbane"],               // NSW ↔ QLD
+      ["melbourne","adelaide"],            // VIC ↔ SA
+      ["adelaide","broken_hill"],["broken_hill","sydney"], // SA ↔ NSW via Broken Hill
+      ["adelaide","perth"],                // SA ↔ WA (via Nullarbor — simplified, goes overland)
+      ["adelaide","alice_springs"],["alice_springs","darwin"], // SA ↔ NT (The Ghan)
+      ["brisbane","melbourne"],            // QLD ↔ VIC (via NSW inland)
+      ["perth","kalgoorlie"],["kalgoorlie","adelaide"], // WA ↔ SA detail
     ];
 
     // Build adjacency map
@@ -2556,6 +2615,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Southeast Asia
       LAO: "vientiane",  VNM: "hanoi",    THA: "bangkok",
       MMR: "mandalay",   MYS: "kuala_lumpur", SGP: "singapore_city",
+      // Africa
+      ZAF: "johannesburg", MOZ: "maputo",   ZWE: "harare",
+      BWA: "gaborone",     ZMB: "lusaka",   COD: "lubumbashi",
+      TZA: "dar_es_salaam", ETH: "addis_ababa", DJI: "djibouti_city",
+      MWI: "lilongwe",     KEN: "nairobi",  UGA: "kampala",
+      // Australia (state codes)
+      "AU-NSW": "sydney",    "AU-VIC": "melbourne",
+      "AU-QLD": "brisbane",  "AU-SA": "adelaide",
+      "AU-WA": "perth",      "AU-NT": "darwin",
       // US states
       "US-AL": "birmingham",                              "US-AZ": "phoenix",
       "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",

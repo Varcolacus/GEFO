@@ -7,6 +7,9 @@ Seed estimated rail freight data for additional global corridors:
   - Iran corridors (Iran-Turkey, Iran-Turkmenistan, Iran-Pakistan, Iran-Afghanistan)
   - Gulf/Middle East (Saudi Arabia-UAE, Iraq)
   - Southeast Asia (Thailand-Laos, Thailand-Malaysia-Singapore, Myanmar)
+  - African cross-border (ZAF-MOZ, ZAF-ZWE, ZAF-BWA, ZWE-ZMB, ZMB-COD, ZMB-TZA,
+    ETH-DJI, MOZ-MWI, KEN-UGA)
+  - Australian interstate (NSW-VIC, NSW-QLD, SA-WA, SA-VIC, SA-NSW, SA-NT, QLD-VIC)
 
 Sources & methodology:
   - INSTC: UNCTAD/IRU published corridor volume reports, Iran Railways (RAI)
@@ -284,6 +287,275 @@ CHN_MMR_FLOWS = [
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 8. AFRICAN CROSS-BORDER CORRIDORS
+# ═══════════════════════════════════════════════════════════════════════
+
+# South Africa ↔ Mozambique  (Maputo corridor — coal, chrome, magnetite)
+# Source: Transnet Freight Rail annual results, Grindrod/MPDC Maputo corridor stats
+ZAF_MOZ: dict[int, float] = {
+    2017: 12000,
+    2018: 13000,
+    2019: 14000,
+    2020: 11000,
+    2021: 13500,
+    2022: 15000,
+    2023: 16000,
+    2024: 17000,
+}
+ZAF_MOZ_FLOWS = [
+    ("ZAF", "MOZ", 0.75),   # Coal/chrome to Maputo port
+    ("MOZ", "ZAF", 0.25),   # Return flows
+]
+
+# South Africa ↔ Zimbabwe  (Beitbridge corridor — general cargo, chrome)
+ZAF_ZWE: dict[int, float] = {
+    2017: 2500,
+    2018: 2800,
+    2019: 3000,
+    2020: 2000,
+    2021: 2600,
+    2022: 3000,
+    2023: 3200,
+    2024: 3500,
+}
+ZAF_ZWE_FLOWS = [
+    ("ZAF", "ZWE", 0.60),   # Fuel, manufactured goods northbound
+    ("ZWE", "ZAF", 0.40),   # Chrome, nickel, ferrochrome
+]
+
+# South Africa ↔ Botswana  (soda ash, coal)
+ZAF_BWA: dict[int, float] = {
+    2017: 1500,
+    2018: 1700,
+    2019: 1800,
+    2020: 1400,
+    2021: 1800,
+    2022: 2000,
+    2023: 2200,
+    2024: 2400,
+}
+ZAF_BWA_FLOWS = [
+    ("ZAF", "BWA", 0.55),
+    ("BWA", "ZAF", 0.45),   # Soda ash, coal exports via SA ports
+]
+
+# Zimbabwe ↔ Zambia  (Victoria Falls / Livingstone bridge — copper, general)
+ZWE_ZMB: dict[int, float] = {
+    2017: 800,
+    2018: 900,
+    2019: 1000,
+    2020: 600,
+    2021: 900,
+    2022: 1100,
+    2023: 1200,
+    2024: 1300,
+}
+ZWE_ZMB_FLOWS = [
+    ("ZMB", "ZWE", 0.55),   # Copper southbound
+    ("ZWE", "ZMB", 0.45),   # Fuel, general cargo
+]
+
+# Zambia ↔ DRC (Copperbelt — copper/cobalt)
+ZMB_COD: dict[int, float] = {
+    2017: 1500,
+    2018: 1800,
+    2019: 2000,
+    2020: 1600,
+    2021: 2200,
+    2022: 2500,
+    2023: 2800,
+    2024: 3000,
+}
+ZMB_COD_FLOWS = [
+    ("COD", "ZMB", 0.65),   # Copper/cobalt from Katanga to Zambia rail
+    ("ZMB", "COD", 0.35),   # Fuel, supplies northbound
+]
+
+# Zambia ↔ Tanzania (TAZARA railway)
+ZMB_TZA: dict[int, float] = {
+    2017: 500,
+    2018: 600,
+    2019: 700,
+    2020: 400,
+    2021: 650,
+    2022: 800,
+    2023: 900,
+    2024: 1000,
+}
+ZMB_TZA_FLOWS = [
+    ("ZMB", "TZA", 0.55),   # Copper to Dar port
+    ("TZA", "ZMB", 0.45),   # Imports from Dar
+]
+
+# Ethiopia ↔ Djibouti (Addis Ababa–Djibouti SGR, opened Jan 2018)
+ETH_DJI: dict[int, float] = {
+    2018: 500,
+    2019: 1200,
+    2020: 1500,
+    2021: 2000,
+    2022: 2500,
+    2023: 3000,
+    2024: 3500,
+}
+ETH_DJI_FLOWS = [
+    ("DJI", "ETH", 0.70),   # Imports via Djibouti port to landlocked Ethiopia
+    ("ETH", "DJI", 0.30),   # Ethiopian exports (coffee, oilseeds)
+]
+
+# Mozambique ↔ Malawi (Nacala corridor — coal, general)
+MOZ_MWI: dict[int, float] = {
+    2017: 2000,
+    2018: 3000,
+    2019: 4000,
+    2020: 3500,
+    2021: 4500,
+    2022: 5000,
+    2023: 5500,
+    2024: 6000,
+}
+MOZ_MWI_FLOWS = [
+    ("MWI", "MOZ", 0.60),   # Coal + general cargo to Nacala port
+    ("MOZ", "MWI", 0.40),   # Imports from Nacala port to Malawi
+]
+
+# Kenya ↔ Uganda (old metre gauge, Mombasa-Nairobi-Malaba-Kampala)
+KEN_UGA: dict[int, float] = {
+    2017: 400,
+    2018: 350,
+    2019: 300,
+    2020: 200,
+    2021: 250,
+    2022: 300,
+    2023: 350,
+    2024: 400,
+}
+KEN_UGA_FLOWS = [
+    ("KEN", "UGA", 0.55),   # Mombasa port → Uganda imports
+    ("UGA", "KEN", 0.45),   # Ugandan exports to Mombasa
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 9. AUSTRALIAN INTERSTATE RAIL FREIGHT
+#    Source: BITRE (Bureau of Infrastructure and Transport Research
+#    Economics) "Trainline" annual statistical reports, ARTC annual reports
+#    Volumes in thousand tonnes (THS_T) — interstate intermodal + bulk
+# ═══════════════════════════════════════════════════════════════════════
+
+# NSW ↔ Victoria (Sydney–Melbourne corridor, busiest intermodal)
+AU_NSW_VIC: dict[int, float] = {
+    2017: 12000,
+    2018: 12500,
+    2019: 13000,
+    2020: 11000,
+    2021: 13500,
+    2022: 14000,
+    2023: 14500,
+    2024: 15000,
+}
+AU_NSW_VIC_FLOWS = [
+    ("AU-NSW", "AU-VIC", 0.55),
+    ("AU-VIC", "AU-NSW", 0.45),
+]
+
+# NSW ↔ Queensland (Sydney–Brisbane)
+AU_NSW_QLD: dict[int, float] = {
+    2017: 7000,
+    2018: 7500,
+    2019: 8000,
+    2020: 6500,
+    2021: 7800,
+    2022: 8500,
+    2023: 9000,
+    2024: 9500,
+}
+AU_NSW_QLD_FLOWS = [
+    ("AU-NSW", "AU-QLD", 0.50),
+    ("AU-QLD", "AU-NSW", 0.50),
+]
+
+# SA ↔ WA (Adelaide–Perth transcontinental, Indian Pacific corridor)
+AU_SA_WA: dict[int, float] = {
+    2017: 4000,
+    2018: 4200,
+    2019: 4500,
+    2020: 3800,
+    2021: 4600,
+    2022: 5000,
+    2023: 5300,
+    2024: 5500,
+}
+AU_SA_WA_FLOWS = [
+    ("AU-SA", "AU-WA", 0.50),
+    ("AU-WA", "AU-SA", 0.50),
+]
+
+# SA ↔ Victoria (Adelaide–Melbourne)
+AU_SA_VIC: dict[int, float] = {
+    2017: 2500,
+    2018: 2700,
+    2019: 2800,
+    2020: 2200,
+    2021: 2700,
+    2022: 3000,
+    2023: 3200,
+    2024: 3400,
+}
+AU_SA_VIC_FLOWS = [
+    ("AU-SA", "AU-VIC", 0.50),
+    ("AU-VIC", "AU-SA", 0.50),
+]
+
+# SA ↔ NSW (Adelaide–Sydney via Broken Hill)
+AU_SA_NSW: dict[int, float] = {
+    2017: 2000,
+    2018: 2100,
+    2019: 2200,
+    2020: 1800,
+    2021: 2200,
+    2022: 2500,
+    2023: 2600,
+    2024: 2800,
+}
+AU_SA_NSW_FLOWS = [
+    ("AU-SA", "AU-NSW", 0.50),
+    ("AU-NSW", "AU-SA", 0.50),
+]
+
+# SA ↔ NT (Adelaide–Darwin, The Ghan corridor)
+AU_SA_NT: dict[int, float] = {
+    2017: 600,
+    2018: 650,
+    2019: 700,
+    2020: 550,
+    2021: 700,
+    2022: 800,
+    2023: 850,
+    2024: 900,
+}
+AU_SA_NT_FLOWS = [
+    ("AU-SA", "AU-NT", 0.60),   # More freight northbound (supplies)
+    ("AU-NT", "AU-SA", 0.40),   # Minerals, livestock southbound
+]
+
+# QLD ↔ Victoria (Brisbane–Melbourne inland rail, limited before inland rail)
+AU_QLD_VIC: dict[int, float] = {
+    2017: 1500,
+    2018: 1600,
+    2019: 1700,
+    2020: 1300,
+    2021: 1700,
+    2022: 1800,
+    2023: 1900,
+    2024: 2000,
+}
+AU_QLD_VIC_FLOWS = [
+    ("AU-QLD", "AU-VIC", 0.50),
+    ("AU-VIC", "AU-QLD", 0.50),
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Build all records
 # ═══════════════════════════════════════════════════════════════════════
 ALL_CORRIDORS = [
@@ -301,6 +573,24 @@ ALL_CORRIDORS = [
     (SAU_ARE, SAU_ARE_FLOWS),
     (THA_MYS, THA_MYS_FLOWS),
     (CHN_MMR, CHN_MMR_FLOWS),
+    # African cross-border
+    (ZAF_MOZ, ZAF_MOZ_FLOWS),
+    (ZAF_ZWE, ZAF_ZWE_FLOWS),
+    (ZAF_BWA, ZAF_BWA_FLOWS),
+    (ZWE_ZMB, ZWE_ZMB_FLOWS),
+    (ZMB_COD, ZMB_COD_FLOWS),
+    (ZMB_TZA, ZMB_TZA_FLOWS),
+    (ETH_DJI, ETH_DJI_FLOWS),
+    (MOZ_MWI, MOZ_MWI_FLOWS),
+    (KEN_UGA, KEN_UGA_FLOWS),
+    # Australian interstate
+    (AU_NSW_VIC, AU_NSW_VIC_FLOWS),
+    (AU_NSW_QLD, AU_NSW_QLD_FLOWS),
+    (AU_SA_WA, AU_SA_WA_FLOWS),
+    (AU_SA_VIC, AU_SA_VIC_FLOWS),
+    (AU_SA_NSW, AU_SA_NSW_FLOWS),
+    (AU_SA_NT, AU_SA_NT_FLOWS),
+    (AU_QLD_VIC, AU_QLD_VIC_FLOWS),
 ]
 
 

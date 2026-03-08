@@ -42,6 +42,15 @@ US_STATE_INFO: dict[str, tuple[str, float, float]] = {
     "CA": ("Canada", 56.13, -106.35),
     # Mexico (single entity for cross-border flows)
     "MX": ("Mexico", 23.63, -102.55),
+    # Australian states
+    "AU-NSW": ("New South Wales", -33.87, 151.21),
+    "AU-VIC": ("Victoria", -37.81, 144.96),
+    "AU-QLD": ("Queensland", -27.47, 153.03),
+    "AU-SA": ("South Australia", -34.93, 138.60),
+    "AU-WA": ("Western Australia", -31.95, 115.86),
+    "AU-NT": ("Northern Territory", -12.46, 130.84),
+    "AU-TAS": ("Tasmania", -42.88, 147.33),
+    "AU-ACT": ("ACT", -35.28, 149.13),
 }
 
 
@@ -155,7 +164,7 @@ def get_rail_freight(
 
     results = []
     for f in flows:
-        if f.origin_iso.startswith("US-") or f.origin_iso in ("CA", "MX"):
+        if f.origin_iso.startswith("US-") or f.origin_iso in ("CA", "MX") or f.origin_iso.startswith("AU-"):
             # US state or US-Canada cross-border flow
             oi = US_STATE_INFO.get(f.origin_iso)
             di = US_STATE_INFO.get(f.destination_iso)
