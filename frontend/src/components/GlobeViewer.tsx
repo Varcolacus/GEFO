@@ -2145,6 +2145,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       perth:[115.86,-31.95], darwin:[130.84,-12.46],
       broken_hill:[141.47,-31.95], kalgoorlie:[121.47,-30.75],
       alice_springs:[133.88,-23.70],
+      cook_sa:[129.50,-30.61], port_augusta:[137.78,-32.49], // Nullarbor waypoints
 
       // ── US rail junction graph (major rail hubs) ──
       seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
@@ -2574,10 +2575,9 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["sydney","brisbane"],               // NSW ↔ QLD
       ["melbourne","adelaide"],            // VIC ↔ SA
       ["adelaide","broken_hill"],["broken_hill","sydney"], // SA ↔ NSW via Broken Hill
-      ["adelaide","perth"],                // SA ↔ WA (via Nullarbor — simplified, goes overland)
       ["adelaide","alice_springs"],["alice_springs","darwin"], // SA ↔ NT (The Ghan)
       ["brisbane","melbourne"],            // QLD ↔ VIC (via NSW inland)
-      ["perth","kalgoorlie"],["kalgoorlie","adelaide"], // WA ↔ SA detail
+      ["perth","kalgoorlie"],["kalgoorlie","cook_sa"],["cook_sa","port_augusta"],["port_augusta","adelaide"], // WA ↔ SA via Nullarbor
     ];
 
     // Build adjacency map
