@@ -2113,6 +2113,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       // ── Saudi Arabia & UAE ──
       riyadh:[46.68,24.71], dammam:[50.10,26.43], jeddah:[39.17,21.49],
+      al_batha:[51.58,24.27], // Saudi-UAE land border crossing
       abu_dhabi:[54.37,24.45], dubai:[55.27,25.20],
 
       // ── Southeast Asia ──
@@ -2488,7 +2489,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["delhi","lucknow"],["lucknow","varanasi"],
       ["varanasi","kolkata"],
       ["delhi","jaipur"],["jaipur","ahmedabad"],["ahmedabad","mumbai"],
-      ["mumbai","bandar_abbas"], // INSTC maritime-rail link
+      // Mumbai-Bandar Abbas is a maritime route (not rail), omitted
       ["kolkata","siliguri"],["siliguri","biratnagar"], // India-Nepal
       ["delhi","chandigarh"],
 
@@ -2515,7 +2516,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["basra","baghdad"],["baghdad","mosul"],
       // Saudi-UAE
       ["riyadh","dammam"],["riyadh","jeddah"],
-      ["dammam","abu_dhabi"],["abu_dhabi","dubai"],
+      ["dammam","al_batha"],["al_batha","abu_dhabi"],["abu_dhabi","dubai"],
       // Turkey-Iraq
       ["istanbul","ankara"],["ankara","kayseri"],["kayseri","mosul"],
     ];
