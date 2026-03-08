@@ -157,6 +157,7 @@ def _build_records() -> list[dict]:
                     "year": year,
                     "tonnes": tonnes,
                     "tonne_km": None,
+                    "estimated": True,
                 })
 
         # Eastbound: European countries → CHN
@@ -170,6 +171,7 @@ def _build_records() -> list[dict]:
                     "year": year,
                     "tonnes": tonnes,
                     "tonne_km": None,
+                    "estimated": True,
                 })
 
     # Transit corridor bilateral pairs
@@ -178,40 +180,48 @@ def _build_records() -> list[dict]:
         records.append({
             "origin_iso": "CHN", "destination_iso": "KAZ",
             "year": year, "tonnes": KAZ_TRANSIT[year], "tonne_km": None,
+                    "estimated": True,
         })
         records.append({
             "origin_iso": "KAZ", "destination_iso": "CHN",
             "year": year, "tonnes": round(KAZ_TRANSIT[year] * 0.75, 1), "tonne_km": None,
+                    "estimated": True,
         })
 
         # KAZ → RUS (Petropavl / Kostanay crossing)
         records.append({
             "origin_iso": "KAZ", "destination_iso": "RUS",
             "year": year, "tonnes": round(RUS_TRANSIT[year] * 0.7, 1), "tonne_km": None,
+                    "estimated": True,
         })
         records.append({
             "origin_iso": "RUS", "destination_iso": "KAZ",
             "year": year, "tonnes": round(RUS_TRANSIT[year] * 0.5, 1), "tonne_km": None,
+                    "estimated": True,
         })
 
         # CHN → MNG → RUS (Trans-Mongolian)
         records.append({
             "origin_iso": "CHN", "destination_iso": "MNG",
             "year": year, "tonnes": MNG_TRANSIT[year], "tonne_km": None,
+                    "estimated": True,
         })
         records.append({
             "origin_iso": "MNG", "destination_iso": "RUS",
             "year": year, "tonnes": round(MNG_TRANSIT[year] * 0.95, 1), "tonne_km": None,
+                    "estimated": True,
         })
 
         # RUS → BLR (transit to Poland)
         records.append({
             "origin_iso": "RUS", "destination_iso": "BLR",
             "year": year, "tonnes": BLR_TRANSIT[year], "tonne_km": None,
+                    "estimated": True,
         })
         records.append({
             "origin_iso": "BLR", "destination_iso": "POL",
             "year": year, "tonnes": round(BLR_TRANSIT[year] * 0.9, 1), "tonne_km": None,
+                    "estimated": True,
         })
 
         # Middle Corridor: CHN → KAZ → (Caspian) → AZE → GEO → TUR
@@ -220,37 +230,45 @@ def _build_records() -> list[dict]:
             records.append({
                 "origin_iso": "KAZ", "destination_iso": "AZE",
                 "year": year, "tonnes": mc, "tonne_km": None,
+                    "estimated": True,
             })
             records.append({
                 "origin_iso": "AZE", "destination_iso": "GEO",
                 "year": year, "tonnes": round(mc * 0.95, 1), "tonne_km": None,
+                    "estimated": True,
             })
             records.append({
                 "origin_iso": "GEO", "destination_iso": "TUR",
                 "year": year, "tonnes": round(mc * 0.9, 1), "tonne_km": None,
+                    "estimated": True,
             })
             # Reverse direction
             records.append({
                 "origin_iso": "TUR", "destination_iso": "GEO",
                 "year": year, "tonnes": round(mc * 0.3, 1), "tonne_km": None,
+                    "estimated": True,
             })
             records.append({
                 "origin_iso": "GEO", "destination_iso": "AZE",
                 "year": year, "tonnes": round(mc * 0.28, 1), "tonne_km": None,
+                    "estimated": True,
             })
             records.append({
                 "origin_iso": "AZE", "destination_iso": "KAZ",
                 "year": year, "tonnes": round(mc * 0.25, 1), "tonne_km": None,
+                    "estimated": True,
             })
 
         # CHN → RUS direct (Trans-Manchurian: Manzhouli crossing)
         records.append({
             "origin_iso": "CHN", "destination_iso": "RUS",
             "year": year, "tonnes": round(RUS_TRANSIT[year] * 0.3, 1), "tonne_km": None,
+                    "estimated": True,
         })
         records.append({
             "origin_iso": "RUS", "destination_iso": "CHN",
             "year": year, "tonnes": round(RUS_TRANSIT[year] * 0.2, 1), "tonne_km": None,
+                    "estimated": True,
         })
 
     return records
@@ -277,6 +295,7 @@ def seed():
                 set_={
                     "tonnes": stmt.excluded.tonnes,
                     "tonne_km": stmt.excluded.tonne_km,
+                    "estimated": stmt.excluded.estimated,
                 },
             )
             db.execute(stmt)

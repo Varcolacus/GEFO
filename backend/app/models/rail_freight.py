@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Float, Boolean, UniqueConstraint, Index
 from app.core.database import Base
 
 
@@ -11,6 +11,7 @@ class RailFreight(Base):
     year = Column(Integer, nullable=False, index=True)
     tonnes = Column(Float, nullable=True)          # thousand tonnes
     tonne_km = Column(Float, nullable=True)         # million tonne-km (if available)
+    estimated = Column(Boolean, nullable=False, server_default="false")  # True for estimated/seed data
 
     __table_args__ = (
         UniqueConstraint("origin_iso", "destination_iso", "year", name="uq_rail_freight_od_year"),

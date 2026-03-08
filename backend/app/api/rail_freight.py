@@ -56,6 +56,7 @@ class RailFreightFlow(BaseModel):
     dest_lon: Optional[float] = None
     year: int
     tonnes: float
+    estimated: bool = False
 
 
 @router.get("/", response_model=List[RailFreightFlow])
@@ -71,8 +72,17 @@ def get_rail_freight(
     latest available year if no data exists for the requested year.
     Regions: 'us' (US+Canada+Mexico), 'eu' (European), 'asia' (China/Central Asia/Caucasus).
     """
-    # ISO codes that belong to the Asia/Silk Road region
-    ASIA_ISOS = {"CHN", "KAZ", "MNG", "AZE", "GEO", "UZB", "TKM", "KGZ", "TJK", "RUS", "BLR"}
+    # ISO codes that belong to the Asia/global corridors region
+    ASIA_ISOS = {
+        # Central Asia / Silk Road
+        "CHN", "KAZ", "MNG", "AZE", "GEO", "UZB", "TKM", "KGZ", "TJK", "RUS", "BLR",
+        # South Asia
+        "IND", "PAK", "BGD", "NPL", "LKA",
+        # Middle East / Iran corridors
+        "IRN", "IRQ", "AFG", "SAU", "ARE",
+        # Southeast Asia
+        "LAO", "VNM", "THA", "MMR", "MYS", "SGP",
+    }
 
     def _region_filter(region_key: str):
         """Return a SQLAlchemy filter for the given region key.
@@ -162,6 +172,7 @@ def get_rail_freight(
                 dest_lon=di[2],
                 year=f.year,
                 tonnes=f.tonnes,
+                estimated=f.estimated,
             ))
         else:
             # EU country flow
@@ -180,6 +191,7 @@ def get_rail_freight(
                 dest_lon=dc.centroid_lon,
                 year=f.year,
                 tonnes=f.tonnes,
+                estimated=f.estimated,
             ))
 
     return results

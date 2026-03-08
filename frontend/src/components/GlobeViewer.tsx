@@ -182,6 +182,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   const [selectedRailFlow, setSelectedRailFlow] = useState<number | null>(null);
   const railFlowOriginalColors = useRef<Map<string, Color>>(new Map());
   const railFlowOriginalWidths = useRef<Map<string, number>>(new Map());
+  const railFlowEstimated = useRef<Map<string, boolean>>(new Map());
 
   // Fetch GeoJSON (with year-aware indicator values) on mount and when year changes
   const geoJsonYearRef = useRef<number | null | undefined>(undefined);
@@ -1997,6 +1998,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     toRemove.forEach((e) => viewer.entities.remove(e));
     railFlowOriginalColors.current.clear();
     railFlowOriginalWidths.current.clear();
+    railFlowEstimated.current.clear();
     setSelectedRailFlow(null);
 
     if (!layers.railroadFreight || railFreight.length === 0) {
@@ -2077,6 +2079,48 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // ── Ukraine ──
       kyiv:[30.52,50.45], lviv:[24.03,49.84],
       odesa:[30.73,46.48], kharkiv:[36.23,49.99],
+
+      // ── Iran ──
+      tehran:[51.39,35.69], isfahan:[51.68,32.65],
+      shiraz:[52.58,29.59], tabriz:[46.30,38.08],
+      mashhad:[59.60,36.30], bandar_abbas:[56.27,27.18],
+      chabahar:[60.64,25.29], qom:[50.88,34.64],
+      zahedan:[60.86,29.50], khorramshahr:[48.17,30.44],
+      astara_ir:[48.87,38.43], herat:[62.20,34.35],
+      sarakhs_tm:[61.16,36.54], // Turkmenistan border
+
+      // ── India ──
+      delhi:[77.21,28.61], mumbai:[72.88,19.08],
+      kolkata:[88.36,22.57], chennai:[80.27,13.08],
+      amritsar:[74.87,31.63], lucknow:[80.95,26.85],
+      varanasi:[83.00,25.32], jaipur:[75.79,26.92],
+      ahmedabad:[72.57,23.02], siliguri:[88.43,26.71],
+      chandigarh:[76.78,30.73], biratnagar:[87.28,26.45],
+
+      // ── Pakistan ──
+      lahore:[74.35,31.56], islamabad:[73.05,33.69],
+      peshawar:[71.58,34.01], multan:[71.47,30.20],
+      karachi:[67.01,24.86], quetta:[67.01,30.18],
+
+      // ── Bangladesh ──
+      dhaka:[90.41,23.81],
+
+      // ── Afghanistan ──
+      // (herat already defined above under Iran section)
+
+      // ── Iraq ──
+      baghdad:[44.37,33.31], basra:[47.78,30.51], mosul:[43.13,36.34],
+
+      // ── Saudi Arabia & UAE ──
+      riyadh:[46.68,24.71], dammam:[50.10,26.43], jeddah:[39.17,21.49],
+      abu_dhabi:[54.37,24.45], dubai:[55.27,25.20],
+
+      // ── Southeast Asia ──
+      kunming:[102.68,25.04], vientiane:[102.63,17.97],
+      bangkok:[100.50,13.76], hat_yai:[100.47,7.00],
+      hanoi:[105.85,21.03], ho_chi_minh:[106.66,10.82],
+      mandalay:[96.08,21.97], yangon:[96.15,16.87],
+      kuala_lumpur:[101.69,3.14], singapore_city:[103.85,1.29],
 
       // ── US rail junction graph (major rail hubs) ──
       seattle:[-122.33,47.61], portland_or:[-122.68,45.52],
@@ -2423,6 +2467,57 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["shenyang","harbin"],
       // Zamiin-Uud (China-Mongolia border)
       ["beijing","zamiin_uud"],
+
+      // ── Iran rail corridors ──
+      ["tehran","isfahan"],["isfahan","shiraz"],
+      ["tehran","tabriz"],["tabriz","kars"], // Turkey-Iran via Tabriz
+      ["tehran","mashhad"],["mashhad","sarakhs_tm"], // Iran-Turkmenistan
+      ["tehran","bandar_abbas"],["bandar_abbas","isfahan"],
+      ["tehran","qom"],["qom","isfahan"],
+      ["mashhad","zahedan"],["zahedan","quetta"], // Iran-Pakistan
+      ["mashhad","herat"], // Iran-Afghanistan (Khaf-Herat)
+      ["tehran","astara_ir"],["astara_ir","baku"], // INSTC Iran-Azerbaijan
+      ["bandar_abbas","chabahar"],
+      ["tehran","khorramshahr"],["khorramshahr","basra"], // Iran-Iraq
+
+      // ── India rail corridors ──
+      ["delhi","mumbai"],["delhi","kolkata"],
+      ["mumbai","chennai"],["chennai","kolkata"],
+      ["delhi","amritsar"],["amritsar","lahore"], // India-Pakistan
+      ["kolkata","dhaka"], // India-Bangladesh
+      ["delhi","lucknow"],["lucknow","varanasi"],
+      ["varanasi","kolkata"],
+      ["delhi","jaipur"],["jaipur","ahmedabad"],["ahmedabad","mumbai"],
+      ["mumbai","bandar_abbas"], // INSTC maritime-rail link
+      ["kolkata","siliguri"],["siliguri","biratnagar"], // India-Nepal
+      ["delhi","chandigarh"],
+
+      // ── Pakistan rail corridors ──
+      ["lahore","islamabad"],["islamabad","peshawar"],
+      ["lahore","multan"],["multan","quetta"],
+      ["multan","karachi"],["karachi","quetta"],
+
+      // ── Southeast Asia rail corridors ──
+      // China-Laos-Thailand
+      ["kunming","vientiane"],["vientiane","bangkok"],
+      ["kunming","hanoi"], // China-Vietnam
+      ["hanoi","ho_chi_minh"],
+      // China-Myanmar
+      ["kunming","mandalay"],["mandalay","yangon"],
+      // Thailand-Malaysia-Singapore
+      ["bangkok","hat_yai"],["hat_yai","kuala_lumpur"],
+      ["kuala_lumpur","singapore_city"],
+      // SW China connections
+      ["chengdu","kunming"],["kunming","xian"],
+
+      // ── Middle East ──
+      // Iraq
+      ["basra","baghdad"],["baghdad","mosul"],
+      // Saudi-UAE
+      ["riyadh","dammam"],["riyadh","jeddah"],
+      ["dammam","abu_dhabi"],["abu_dhabi","dubai"],
+      // Turkey-Iraq
+      ["istanbul","ankara"],["ankara","kayseri"],["kayseri","mosul"],
     ];
 
     // Build adjacency map
@@ -2451,6 +2546,15 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Central Asia, Caucasus, China, Mongolia
       CHN: "zhengzhou",  KAZ: "astana",  MNG: "ulaanbaatar",
       AZE: "baku",       GEO: "tbilisi", UZB: "tashkent",
+      // Iran & Middle East
+      IRN: "tehran",     IRQ: "baghdad",  AFG: "herat",
+      SAU: "riyadh",     ARE: "abu_dhabi",
+      // South Asia
+      IND: "delhi",      PAK: "lahore",   BGD: "dhaka",
+      NPL: "biratnagar", LKA: "chennai",
+      // Southeast Asia
+      LAO: "vientiane",  VNM: "hanoi",    THA: "bangkok",
+      MMR: "mandalay",   MYS: "kuala_lumpur", SGP: "singapore_city",
       // US states
       "US-AL": "birmingham",                              "US-AZ": "phoenix",
       "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",
@@ -2534,7 +2638,12 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     // ── Per-flow directional arrows — thickness = magnitude, unique color per flow ──
     // Region classification for normalization and color distribution
-    const ASIA_ISOS = new Set(['CHN','KAZ','MNG','AZE','GEO','UZB','TKM','KGZ','TJK','RUS','BLR']);
+    const ASIA_ISOS = new Set([
+      'CHN','KAZ','MNG','AZE','GEO','UZB','TKM','KGZ','TJK','RUS','BLR',
+      'IND','PAK','BGD','NPL','LKA',
+      'IRN','IRQ','AFG','SAU','ARE',
+      'LAO','VNM','THA','MMR','MYS','SGP',
+    ]);
     function flowRegion(orig: string, dest: string): 'us' | 'eu' | 'asia' {
       if (orig.startsWith('US-') || orig === 'CA' || orig === 'MX') return 'us';
       if (ASIA_ISOS.has(orig) || ASIA_ISOS.has(dest)) return 'asia';
@@ -2641,17 +2750,23 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       const smoothPts = cardinalSpline(waypoints, 6, 0.6);
       const positions = Cartesian3.fromDegreesArray(smoothPts);
 
+      // Estimated flows use dashed lines; real data uses solid arrows
+      const material = rf.estimated
+        ? new PolylineDashMaterialProperty({ color: flowColor, dashLength: 12, dashPattern: 255 })
+        : new PolylineArrowMaterialProperty(flowColor);
+
       viewer.entities.add({
         name: `rail_freight_${flowIdx}`,
         polyline: {
           positions,
           width,
-          material: new PolylineArrowMaterialProperty(flowColor),
+          material,
           clampToGround: true,
         },
       });
       railFlowOriginalColors.current.set(`rail_freight_${flowIdx}`, flowColor);
       railFlowOriginalWidths.current.set(`rail_freight_${flowIdx}`, width);
+      railFlowEstimated.current.set(`rail_freight_${flowIdx}`, rf.estimated);
       flowIdx++;
     });
 
@@ -2699,11 +2814,17 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       const origColor = railFlowOriginalColors.current.get(n);
       const origWidth = railFlowOriginalWidths.current.get(n);
+      const isEstimated = railFlowEstimated.current.get(n) ?? false;
       if (!origColor || origWidth == null) return;
+
+      // Helper to create the correct material type (dashed for estimated, arrow for real)
+      const makeMat = (c: Color) => isEstimated
+        ? new PolylineDashMaterialProperty({ color: c, dashLength: 12, dashPattern: 255 })
+        : new PolylineArrowMaterialProperty(c);
 
       if (selectedRailFlow === null) {
         // No selection — restore all to original
-        entity.polyline.material = new PolylineArrowMaterialProperty(origColor) as any;
+        entity.polyline.material = makeMat(origColor) as any;
         entity.polyline.width = origWidth as any;
       } else {
         const idx = parseInt(n.replace("rail_freight_", ""), 10);
@@ -2715,7 +2836,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             Math.min(origColor.blue * 1.3, 1),
             1.0
           );
-          entity.polyline.material = new PolylineArrowMaterialProperty(bright) as any;
+          entity.polyline.material = makeMat(bright) as any;
           entity.polyline.width = (origWidth * 1.4) as any;
         } else {
           // Other flows — keep their color but slightly faded
@@ -2725,7 +2846,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             origColor.blue * 0.6 + 0.15,
             0.45
           );
-          entity.polyline.material = new PolylineArrowMaterialProperty(faded) as any;
+          entity.polyline.material = makeMat(faded) as any;
           entity.polyline.width = (origWidth * 0.85) as any;
         }
       }

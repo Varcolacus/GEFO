@@ -154,6 +154,7 @@ export interface RailFreightFlow {
   dest_lon: number;
   year: number;
   tonnes: number;
+  estimated: boolean;
 }
 
 export interface PortData {
