@@ -2118,7 +2118,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       // ── Southeast Asia ──
       kunming:[102.68,25.04], vientiane:[102.63,17.97],
-      bangkok:[100.50,13.76], hat_yai:[100.47,7.00],
+      bangkok:[100.50,13.76], chumphon:[99.18,10.49], hat_yai:[100.47,7.00],
       hanoi:[105.85,21.03], ho_chi_minh:[106.66,10.82],
       mandalay:[96.08,21.97], yangon:[96.15,16.87],
       kuala_lumpur:[101.69,3.14], singapore_city:[103.85,1.29],
@@ -2506,7 +2506,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // China-Myanmar
       ["kunming","mandalay"],["mandalay","yangon"],
       // Thailand-Malaysia-Singapore
-      ["bangkok","hat_yai"],["hat_yai","kuala_lumpur"],
+      ["bangkok","chumphon"],["chumphon","hat_yai"],["hat_yai","kuala_lumpur"],
       ["kuala_lumpur","singapore_city"],
       // SW China connections
       ["chengdu","kunming"],["kunming","xian"],
