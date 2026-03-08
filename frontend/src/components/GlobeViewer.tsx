@@ -2138,6 +2138,24 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       addis_ababa:[38.75,9.02], djibouti_city:[43.15,11.59], dire_dawa:[42.00,9.60],
       // Nacala corridor
       nacala:[40.69,-14.54], lilongwe:[33.79,-13.96], blantyre:[35.01,-15.79],
+      // South African domestic
+      sishen:[22.00,-27.75], saldanha:[17.93,-33.01],
+      emalahleni:[29.24,-25.87], richards_bay:[32.04,-28.78],
+      // ── Brazil ──
+      sao_luis:[-44.28,-2.53], belem:[-48.50,-1.46],
+      belo_horizonte:[-43.94,-19.92], vitoria:[-40.34,-20.32],
+      sao_paulo:[-46.63,-23.55], santos:[-46.33,-23.96],
+      cuiaba:[-56.10,-15.60], rio_de_janeiro:[-43.17,-22.91],
+      curitiba:[-49.27,-25.43], porto_alegre:[-51.23,-30.03],
+      florianopolis:[-48.55,-27.59], campinas:[-47.06,-22.91],
+      salvador:[-38.51,-12.97],
+      // ── Colombia ──
+      cerrejon:[-72.67,10.95], puerto_bolivar:[-71.98,12.22],
+      // ── Morocco ──
+      khouribga:[-6.91,32.88], casablanca:[-7.59,33.57],
+      jorf_lasfar:[-8.64,33.12], safi:[-9.24,32.30],
+      // ── Mauritania ──
+      zouerat:[-12.47,22.73], nouadhibou:[-17.03,20.94],
 
       // ── Australia ──
       sydney:[151.21,-33.87], melbourne:[144.96,-37.81],
@@ -2243,6 +2261,139 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
       // ── Uzbekistan / Turkmenistan ──
       tashkent:[69.28,41.30],
+      andijan:[72.34,40.78], bukhara:[64.42,39.77],
+      samarkand:[66.96,39.65], navoi:[65.38,40.10],
+
+      // ── China (extra domestic hubs) ──
+      taiyuan:[112.55,37.87], hohhot:[111.65,40.82],
+      nanchang:[115.89,28.68], changsha:[112.97,28.21],
+      fuzhou_cn:[119.30,26.08], jinan:[117.00,36.67],
+      nanjing:[118.80,32.06],
+
+      // ── India (extra domestic hubs) ──
+      ranchi:[85.31,23.36], bhubaneswar:[85.83,20.30],
+      raipur:[81.63,21.25], nagpur:[79.08,21.15],
+      bhopal:[77.41,23.26], hyderabad_in:[78.47,17.39],
+      bangalore:[77.59,12.97], panaji:[73.83,15.50],
+      kochi:[76.27,9.93],
+
+      // ── Russia (extra domestic hubs) ──
+      kemerovo:[86.09,55.35], murmansk:[33.09,68.97],
+      krasnodar:[38.97,45.04], tyumen:[65.53,57.15],
+      ufa:[55.97,54.74], chelyabinsk:[61.40,55.16],
+
+      // ── Kazakhstan (extra) ──
+      karaganda:[73.10,49.80], pavlodar:[76.95,52.29],
+      kostanay:[63.63,53.21],
+
+      // ── Ukraine (extra) ──
+      dnipro:[35.05,48.46], zaporizhzhia:[35.14,47.84],
+      poltava:[34.55,49.59], cherkasy:[32.06,49.44],
+      zhytomyr:[28.66,50.25], donetsk:[37.80,48.00],
+      luhansk:[39.31,48.57],
+
+      // ── Turkey (extra) ──
+      izmir:[27.13,38.42], kocaeli:[29.92,40.77],
+      erzurum:[41.28,39.91],
+
+      // ── Japan ──
+      tokyo:[139.69,35.68], osaka:[135.50,34.69],
+      sapporo:[141.35,43.06], fukuoka:[130.40,33.59],
+      nagoya:[136.91,35.18],
+
+      // ── South Korea ──
+      seoul:[126.98,37.57], busan:[129.08,35.18],
+      incheon:[126.71,37.46], daejeon:[127.38,36.35],
+
+      // ── Indonesia (Java + Sumatra) ──
+      palembang:[104.91,-3.32], lampung_bj:[105.26,-5.45],
+      jakarta:[106.85,-6.17], bandung:[107.61,-6.92],
+      semarang:[110.14,-7.15], surabaya:[112.24,-7.54],
+
+      // ── Argentina ──
+      buenos_aires:[-58.38,-34.61], cordoba_ar:[-64.18,-31.42],
+      rosario:[-60.67,-32.94], tucuman:[-65.22,-26.81],
+      parana:[-60.52,-31.74],
+
+      // ── Chile ──
+      iquique:[-69.33,-20.21], antofagasta:[-70.40,-23.65],
+      copiapo:[-70.33,-27.37], santiago:[-70.67,-33.45],
+      valparaiso_cl:[-71.62,-33.05],
+
+      // ── Egypt ──
+      cairo:[31.24,30.04], alexandria_eg:[29.92,31.20],
+      suez_city:[32.54,29.97], aswan:[32.90,24.09],
+
+      // ── Peru ──
+      lima:[-77.04,-12.05], la_oroya:[-75.90,-11.52],
+      arequipa:[-71.54,-16.41], tacna:[-70.25,-17.60],
+
+      // ── Nigeria ──
+      lagos:[3.38,6.52], abeokuta:[3.35,7.00],
+      ilorin:[4.54,8.49], abuja:[7.49,9.06], kano:[8.52,12.00],
+
+      // ── Tunisia ──
+      tunis:[10.18,36.81], sfax:[10.76,34.74],
+      gafsa:[8.78,34.42], sousse:[10.61,35.83],
+
+      // ── Mongolia (extra) ──
+      darkhan:[106.00,49.47], erdenet:[104.15,49.07],
+
+      // ── Bangladesh (extra) ──
+      chittagong:[91.83,22.34], rangpur:[89.25,25.75],
+      sylhet:[91.87,24.90], barisal:[90.37,22.70],
+
+      // ── Thailand (extra) ──
+      nakhon_ratchasima:[102.10,14.97], khon_kaen:[102.83,16.43],
+      chiang_mai:[98.98,18.79], ratchaburi:[99.81,13.54],
+
+      // ── Vietnam (extra) ──
+      hai_phong:[106.68,20.86], da_nang:[108.22,16.07],
+
+      // ── Myanmar (extra) ──
+      bago:[96.48,17.34], taunggyi:[97.04,20.79],
+
+      // ── North Korea ──
+      pyongyang:[125.75,39.03], hamhung:[128.17,40.81],
+      wonsan:[127.56,38.84],
+
+      // ── Namibia ──
+      windhoek:[17.08,-22.57], walvis_bay:[14.53,-22.56],
+
+      // ── Ghana ──
+      accra:[-0.19,5.61], cape_coast:[-1.03,5.93],
+      takoradi:[-1.98,5.55],
+
+      // ── Cameroon ──
+      douala:[9.70,4.05], yaounde:[11.52,3.87],
+      bafoussam:[10.15,5.49], ngaoundere:[13.57,7.39],
+
+      // ── Senegal ──
+      dakar:[-17.47,14.72], thies:[-16.93,14.79],
+      kaolack:[-16.07,14.15],
+
+      // ── Jordan ──
+      maan:[35.73,30.20], aqaba:[35.01,29.53],
+
+      // ── Cuba ──
+      havana:[-82.35,23.05], camaguey:[-77.92,21.38],
+      santiago_cu:[-75.83,20.02],
+
+      // ── Taiwan ──
+      taipei:[121.57,25.03], kaohsiung:[120.31,22.62],
+      taichung:[120.67,24.15],
+
+      // ── Algeria ──
+      algiers:[3.04,36.75], oran:[-0.63,35.70],
+
+      // ── Sudan ──
+      khartoum:[32.53,15.55], port_sudan:[37.22,19.62],
+
+      // ── Cross-border extra ──
+      mbabane:[31.13,-26.30],   // eSwatini
+      abidjan:[-4.02,5.35],     // Côte d'Ivoire
+      ouagadougou:[-1.52,12.37],// Burkina Faso
+      ndjamena:[15.04,12.13],   // Chad
     };
 
     // Adjacency — tracing real major rail corridors
@@ -2578,6 +2729,186 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       ["adelaide","alice_springs"],["alice_springs","darwin"], // SA ↔ NT (The Ghan)
       ["brisbane","melbourne"],            // QLD ↔ VIC (via NSW inland)
       ["perth","kalgoorlie"],["kalgoorlie","cook_sa"],["cook_sa","port_augusta"],["port_augusta","adelaide"], // WA ↔ SA via Nullarbor
+
+      // ── Brazilian domestic rail corridors ──
+      // Carajás Railway (Vale EFC): Pará → Maranhão
+      ["belem","sao_luis"],
+      // Vitória–Minas (Vale EFVM): MG → ES
+      ["belo_horizonte","vitoria"],
+      // MRS Logística: MG → SP/RJ
+      ["belo_horizonte","sao_paulo"],["belo_horizonte","rio_de_janeiro"],
+      ["sao_paulo","campinas"],["campinas","santos"],
+      // Rumo grain corridor: MT → SP
+      ["cuiaba","campinas"],["campinas","sao_paulo"],
+      ["curitiba","sao_paulo"],
+      // FCA/VLI: MG → BA
+      ["belo_horizonte","salvador"],["sao_paulo","salvador"],
+      // Rio Grande do Sul
+      ["porto_alegre","florianopolis"],["florianopolis","curitiba"],
+
+      // ── South African domestic corridors ──
+      // Sishen–Saldanha (iron ore)
+      ["sishen","saldanha"],
+      // Richards Bay coal line
+      ["emalahleni","richards_bay"],
+      // Gauteng ↔ KZN (Natcor)
+      ["johannesburg","durban"],["johannesburg","richards_bay"],
+      // Gauteng ↔ Western Cape
+      ["johannesburg","cape_town"],
+
+      // ── Colombian domestic — Cerrejón coal ──
+      ["cerrejon","puerto_bolivar"],
+
+      // ── Moroccan domestic — OCP phosphate ──
+      ["khouribga","casablanca"],["khouribga","jorf_lasfar"],["khouribga","safi"],
+
+      // ── Mauritanian domestic — SNIM iron ore ──
+      ["zouerat","nouadhibou"],
+
+      // ── China domestic extras ──
+      ["taiyuan","beijing"],["hohhot","beijing"],["hohhot","taiyuan"],
+      ["nanchang","wuhan"],["nanchang","changsha"],
+      ["changsha","wuhan"],["changsha","guangzhou"],
+      ["fuzhou_cn","guangzhou"],["fuzhou_cn","nanchang"],
+      ["jinan","beijing"],["jinan","zhengzhou"],["jinan","nanjing"],
+      ["nanjing","shanghai"],["nanjing","zhengzhou"],
+      ["taiyuan","zhengzhou"],["taiyuan","jinan"],
+
+      // ── India domestic extras ──
+      ["ranchi","kolkata"],["ranchi","varanasi"],
+      ["bhubaneswar","kolkata"],["bhubaneswar","hyderabad_in"],
+      ["raipur","nagpur"],["raipur","bhubaneswar"],
+      ["nagpur","mumbai"],["nagpur","bhopal"],
+      ["bhopal","delhi"],["bhopal","jaipur"],
+      ["hyderabad_in","chennai"],["hyderabad_in","nagpur"],
+      ["bangalore","chennai"],["bangalore","hyderabad_in"],
+      ["panaji","mumbai"],["panaji","bangalore"],
+      ["kochi","bangalore"],["kochi","chennai"],
+
+      // ── Russia domestic extras ──
+      ["kemerovo","novosibirsk"],["kemerovo","krasnoyarsk"],
+      ["murmansk","st_petersburg"],
+      ["krasnodar","moscow"],
+      ["tyumen","yekaterinburg"],
+      ["ufa","chelyabinsk"],["ufa","yekaterinburg"],
+      ["chelyabinsk","yekaterinburg"],
+
+      // ── Kazakhstan extras ──
+      ["karaganda","astana"],["karaganda","almaty"],
+      ["pavlodar","astana"],["pavlodar","karaganda"],
+      ["kostanay","astana"],["kostanay","aktobe"],
+
+      // ── Ukraine extras ──
+      ["dnipro","kyiv"],["dnipro","zaporizhzhia"],
+      ["zaporizhzhia","odesa"],["zaporizhzhia","kharkiv"],
+      ["poltava","kyiv"],["poltava","kharkiv"],
+      ["cherkasy","kyiv"],["cherkasy","dnipro"],
+      ["zhytomyr","kyiv"],["zhytomyr","lviv"],
+      ["donetsk","dnipro"],["donetsk","luhansk"],
+      ["luhansk","kharkiv"],
+
+      // ── Turkey extras ──
+      ["kocaeli","istanbul"],["kocaeli","ankara"],
+      ["izmir","ankara"],["izmir","eskisehir"],
+      ["erzurum","kayseri"],["erzurum","kars"],
+
+      // ── Uzbekistan extras ──
+      ["tashkent","andijan"],["tashkent","samarkand"],
+      ["samarkand","bukhara"],["samarkand","navoi"],
+      ["navoi","bukhara"],
+
+      // ── Japan domestic ──
+      ["tokyo","nagoya"],["nagoya","osaka"],
+      ["osaka","fukuoka"],["tokyo","sapporo"],
+
+      // ── South Korea domestic ──
+      ["seoul","incheon"],["seoul","daejeon"],["daejeon","busan"],
+
+      // ── Indonesia (Java-Sumatra) ──
+      ["palembang","lampung_bj"],["lampung_bj","jakarta"],
+      ["jakarta","bandung"],["bandung","semarang"],
+      ["semarang","surabaya"],
+
+      // ── Argentina domestic ──
+      ["buenos_aires","rosario"],["rosario","cordoba_ar"],
+      ["cordoba_ar","tucuman"],
+      ["buenos_aires","parana"],["parana","rosario"],
+
+      // ── Chile domestic ──
+      ["iquique","antofagasta"],["antofagasta","copiapo"],
+      ["copiapo","santiago"],["santiago","valparaiso_cl"],
+
+      // ── Egypt domestic ──
+      ["cairo","alexandria_eg"],["cairo","suez_city"],["cairo","aswan"],
+
+      // ── Peru domestic ──
+      ["lima","la_oroya"],["la_oroya","arequipa"],["arequipa","tacna"],
+
+      // ── Nigeria domestic ──
+      ["lagos","abeokuta"],["abeokuta","ilorin"],
+      ["ilorin","abuja"],["abuja","kano"],
+
+      // ── Tunisia domestic ──
+      ["gafsa","sfax"],["sfax","sousse"],["sousse","tunis"],["gafsa","tunis"],
+
+      // ── Mongolia extras ──
+      ["darkhan","ulaanbaatar"],["erdenet","darkhan"],
+      ["sukhbaatar","darkhan"],
+
+      // ── Bangladesh extras ──
+      ["chittagong","dhaka"],["dhaka","rangpur"],
+      ["dhaka","sylhet"],["dhaka","barisal"],
+
+      // ── Thailand extras ──
+      ["bangkok","ratchaburi"],["bangkok","nakhon_ratchasima"],
+      ["nakhon_ratchasima","khon_kaen"],["bangkok","chiang_mai"],
+
+      // ── Vietnam extras ──
+      ["hanoi","hai_phong"],["hanoi","da_nang"],
+      ["da_nang","ho_chi_minh"],
+
+      // ── Myanmar extras ──
+      ["yangon","bago"],["bago","mandalay"],["mandalay","taunggyi"],
+
+      // ── North Korea ──
+      ["pyongyang","hamhung"],["pyongyang","wonsan"],
+
+      // ── Namibia ──
+      ["windhoek","walvis_bay"],
+
+      // ── Ghana ──
+      ["takoradi","cape_coast"],["cape_coast","accra"],
+
+      // ── Cameroon ──
+      ["douala","yaounde"],["yaounde","bafoussam"],
+      ["bafoussam","ngaoundere"],["douala","bafoussam"],
+
+      // ── Senegal ──
+      ["dakar","thies"],["thies","kaolack"],
+
+      // ── Jordan ──
+      ["maan","aqaba"],
+
+      // ── Cuba ──
+      ["havana","camaguey"],["camaguey","santiago_cu"],
+
+      // ── Taiwan ──
+      ["taipei","taichung"],["taichung","kaohsiung"],
+
+      // ── Algeria ──
+      ["algiers","oran"],
+
+      // ── Sudan ──
+      ["khartoum","port_sudan"],
+
+      // ── Cross-border extras ──
+      ["shenyang","pyongyang"],           // China-North Korea
+      ["hohhot","zamiin_uud"],            // China-Mongolia via Inner Mongolia
+      ["windhoek","sishen"],              // Namibia-South Africa
+      ["mbabane","maputo"],               // eSwatini-Mozambique
+      ["mbabane","johannesburg"],          // eSwatini connectivity
+      ["abidjan","ouagadougou"],           // Côte d'Ivoire-Burkina Faso
+      ["ngaoundere","ndjamena"],           // Cameroon-Chad
     ];
 
     // Build adjacency map
@@ -2624,6 +2955,24 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       "AU-NSW": "sydney",    "AU-VIC": "melbourne",
       "AU-QLD": "brisbane",  "AU-SA": "adelaide",
       "AU-WA": "perth",      "AU-NT": "darwin",
+      // Brazilian states
+      "BR-PA": "belem",         "BR-MA": "sao_luis",
+      "BR-MG": "belo_horizonte","BR-ES": "vitoria",
+      "BR-SP": "sao_paulo",     "BR-RJ": "rio_de_janeiro",
+      "BR-MT": "cuiaba",        "BR-PR": "curitiba",
+      "BR-BA": "salvador",      "BR-RS": "porto_alegre",
+      "BR-SC": "florianopolis",
+      // South African provinces
+      "ZA-NC": "sishen",        "ZA-WC": "saldanha",
+      "ZA-MP": "emalahleni",    "ZA-KZN": "richards_bay",
+      "ZA-GP": "johannesburg",
+      // Colombia departments
+      "CO-LAG": "cerrejon",
+      // Morocco regions
+      "MA-05": "khouribga",     "MA-06": "casablanca",
+      "MA-09": "safi",
+      // Mauritania regions
+      "MR-07": "zouerat",       "MR-08": "nouadhibou",
       // US states
       "US-AL": "birmingham",                              "US-AZ": "phoenix",
       "US-AR": "little_rock",  "US-CA": "los_angeles",  "US-CO": "denver",
@@ -2646,6 +2995,125 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       "CA": "toronto",
       // Mexico (single entity for cross-border flows)
       "MX": "mexico_city",
+      // ── Canadian provinces ──
+      "CA-SK": "saskatoon",   "CA-AB": "calgary",     "CA-BC": "vancouver",
+      "CA-ON": "toronto",     "CA-MB": "winnipeg",    "CA-QC": "montreal",
+      "CA-NB": "moncton",
+      // ── Mexican states ──
+      "MX-QUE": "queretaro",  "MX-NLE": "monterrey",  "MX-JAL": "guadalajara",
+      "MX-AGU": "aguascalientes", "MX-MEX": "mexico_city", "MX-HID": "mexico_city",
+      "MX-SIN": "manzanillo", "MX-SON": "nogales",    "MX-CHH": "chihuahua",
+      // ── China provinces ──
+      "CN-SX": "taiyuan",     "CN-HE": "beijing",     "CN-NM": "hohhot",
+      "CN-JX": "nanchang",    "CN-HN": "changsha",    "CN-GD": "guangzhou",
+      "CN-GS": "lanzhou",     "CN-XJ": "urumqi",      "CN-SC": "chengdu",
+      "CN-JS": "nanjing",     "CN-SN": "xian",        "CN-HL": "harbin",
+      "CN-LN": "shenyang",    "CN-JL": "shenyang",    "CN-SH": "shanghai",
+      "CN-HB": "wuhan",       "CN-AH": "nanjing",     "CN-YN": "kunming",
+      "CN-GZ": "chongqing",   "CN-SD": "jinan",       "CN-ZJ": "shanghai",
+      "CN-FJ": "fuzhou_cn",
+      // ── India states ──
+      "IN-JH": "ranchi",      "IN-OR": "bhubaneswar", "IN-UP": "lucknow",
+      "IN-HR": "delhi",       "IN-MH": "mumbai",      "IN-GJ": "ahmedabad",
+      "IN-RJ": "jaipur",      "IN-CT": "raipur",      "IN-TN": "chennai",
+      "IN-KA": "bangalore",   "IN-AP": "hyderabad_in","IN-WB": "kolkata",
+      "IN-BR": "varanasi",    "IN-MP": "bhopal",      "IN-GA": "panaji",
+      "IN-DL": "delhi",       "IN-PB": "chandigarh",  "IN-KL": "kochi",
+      // ── Russia regions ──
+      "RU-KEM": "kemerovo",   "RU-PRI": "vladivostok","RU-LEN": "st_petersburg",
+      "RU-MUR": "murmansk",   "RU-KDA": "krasnodar",  "RU-NVS": "novosibirsk",
+      "RU-MOW": "moscow",     "RU-SVE": "yekaterinburg","RU-IRK": "irkutsk",
+      "RU-KHA": "khabarovsk", "RU-AMU": "chita",      "RU-TYU": "tyumen",
+      "RU-BA": "ufa",         "RU-CHE": "chelyabinsk","RU-NVG": "st_petersburg",
+      // ── Kazakhstan regions ──
+      "KZ-KAR": "karaganda",  "KZ-PAV": "pavlodar",   "KZ-AKM": "astana",
+      "KZ-ALA": "almaty",     "KZ-KUS": "kostanay",   "KZ-MAN": "aktau",
+      // ── Ukraine oblasts ──
+      "UA-12": "dnipro",      "UA-65": "odesa",       "UA-23": "zaporizhzhia",
+      "UA-30": "kyiv",        "UA-14": "donetsk",     "UA-44": "luhansk",
+      "UA-53": "poltava",     "UA-71": "cherkasy",    "UA-18": "zhytomyr",
+      "UA-46": "lviv",        "UA-63": "kharkiv",
+      // ── Turkey provinces ──
+      "TR-34": "istanbul",    "TR-06": "ankara",      "TR-42": "kocaeli",
+      "TR-35": "izmir",       "TR-38": "kayseri",     "TR-25": "erzurum",
+      // ── Iran provinces ──
+      "IR-23": "isfahan",     "IR-08": "tehran",      "IR-10": "mashhad",
+      "IR-07": "bandar_abbas","IR-04": "tabriz",      "IR-06": "khorramshahr",
+      // ── Indonesia provinces ──
+      "ID-SS": "palembang",   "ID-LA": "lampung_bj",  "ID-JK": "jakarta",
+      "ID-JB": "bandung",     "ID-JT": "semarang",    "ID-JI": "surabaya",
+      // ── South Korea ──
+      "KR-11": "seoul",       "KR-26": "busan",       "KR-28": "incheon",
+      "KR-27": "busan",       "KR-30": "daejeon",
+      // ── Japan ──
+      "JP-13": "tokyo",       "JP-01": "sapporo",     "JP-27": "osaka",
+      "JP-40": "fukuoka",     "JP-23": "nagoya",
+      // ── Argentina ──
+      "AR-B": "buenos_aires", "AR-C": "buenos_aires", "AR-X": "cordoba_ar",
+      "AR-S": "rosario",      "AR-T": "tucuman",      "AR-E": "parana",
+      // ── Chile ──
+      "CL-AN": "antofagasta", "CL-AT": "copiapo",     "CL-TA": "iquique",
+      "CL-RM": "santiago",    "CL-VS": "valparaiso_cl",
+      // ── Egypt ──
+      "EG-C": "cairo",        "EG-ALX": "alexandria_eg","EG-SUZ": "suez_city",
+      "EG-ASN": "aswan",
+      // ── Uzbekistan ──
+      "UZ-TK": "tashkent",    "UZ-AN": "andijan",     "UZ-BU": "bukhara",
+      "UZ-SA": "samarkand",   "UZ-NW": "navoi",
+      // ── Peru ──
+      "PE-JUN": "la_oroya",   "PE-LIM": "lima",       "PE-TAC": "tacna",
+      "PE-ARE": "arequipa",
+      // ── Nigeria ──
+      "NG-LA": "lagos",       "NG-OG": "abeokuta",    "NG-KW": "ilorin",
+      "NG-FC": "abuja",       "NG-KN": "kano",
+      // ── Tunisia ──
+      "TN-12": "gafsa",       "TN-23": "sfax",        "TN-11": "tunis",
+      "TN-51": "sousse",
+      // ── Mongolia ──
+      "MN-1": "darkhan",      "MN-UB": "ulaanbaatar", "MN-047": "erdenet",
+      // ── Pakistan ──
+      "PK-PB": "lahore",      "PK-SD": "karachi",     "PK-KP": "peshawar",
+      "PK-BA": "quetta",
+      // ── Bangladesh ──
+      "BD-C": "chittagong",   "BD-E": "dhaka",        "BD-D": "rangpur",
+      "BD-G": "sylhet",       "BD-A": "barisal",
+      // ── Thailand ──
+      "TH-10": "bangkok",     "TH-70": "ratchaburi",  "TH-20": "nakhon_ratchasima",
+      "TH-40": "khon_kaen",   "TH-90": "hat_yai",     "TH-50": "chiang_mai",
+      // ── Vietnam ──
+      "VN-HN": "hanoi",       "VN-SG": "ho_chi_minh", "VN-HP": "hai_phong",
+      "VN-QN": "hanoi",       "VN-DN": "da_nang",
+      // ── Myanmar ──
+      "MM-06": "yangon",      "MM-07": "mandalay",    "MM-12": "bago",
+      "MM-17": "taunggyi",
+      // ── North Korea ──
+      "KP-01": "pyongyang",   "KP-06": "hamhung",
+      "KP-07": "wonsan",      "KP-04": "pyongyang",
+      // ── Namibia ──
+      "NA-KU": "windhoek",    "NA-ER": "walvis_bay",  "NA-KH": "windhoek",
+      "NAM": "windhoek",
+      // ── Ghana ──
+      "GH-WP": "takoradi",    "GH-CP": "cape_coast",  "GH-AA": "accra",
+      // ── Cameroon ──
+      "CM-LT": "douala",      "CM-CE": "yaounde",     "CM-OU": "bafoussam",
+      "CM-AD": "ngaoundere",
+      // ── Senegal ──
+      "SN-DK": "dakar",       "SN-TH": "thies",       "SN-KD": "kaolack",
+      // ── Jordan ──
+      "JO-MA": "maan",        "JO-AQ": "aqaba",
+      // ── Cuba ──
+      "CU-03": "havana",      "CU-07": "camaguey",    "CU-13": "santiago_cu",
+      // ── Taiwan ──
+      "TW-TPE": "taipei",     "TW-KHH": "kaohsiung",  "TW-TXG": "taichung",
+      // ── Country-level extras for cross-border ──
+      "JPN": "tokyo",  "KOR": "seoul",  "PRK": "pyongyang",
+      "IDN": "jakarta","TWN": "taipei",
+      "DZA": "algiers","SDN": "khartoum",
+      "CIV": "abidjan","BFA": "ouagadougou","TCD": "ndjamena",
+      "SWZ": "mbabane","NGA": "lagos",  "EGY": "cairo",
+      "GHA": "accra",  "CMR": "douala", "SEN": "dakar",
+      "JOR": "maan",   "CUB": "havana", "TUN": "tunis",
+      "PER": "lima",   "ARG": "buenos_aires", "CHL": "santiago",
     };
 
     // BFS shortest path
@@ -2712,10 +3180,14 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       'IND','PAK','BGD','NPL','LKA',
       'IRN','IRQ','AFG','SAU','ARE',
       'LAO','VNM','THA','MMR','MYS','SGP',
+      'JPN','KOR','PRK','IDN','TWN',
     ]);
+    const ASIA_PFX = ['CN-','IN-','RU-','KZ-','MN-','UZ-','PK-','BD-','IR-','VN-','TH-','MM-','KP-','JP-','KR-','ID-','TW-'];
+    const US_PFX = ['US-','CA-','MX-'];
     function flowRegion(orig: string, dest: string): 'us' | 'eu' | 'asia' {
-      if (orig.startsWith('US-') || orig === 'CA' || orig === 'MX') return 'us';
-      if (ASIA_ISOS.has(orig) || ASIA_ISOS.has(dest)) return 'asia';
+      if (US_PFX.some(p => orig.startsWith(p)) || orig === 'CA' || orig === 'MX') return 'us';
+      if (ASIA_ISOS.has(orig) || ASIA_ISOS.has(dest)
+        || ASIA_PFX.some(p => orig.startsWith(p)) || ASIA_PFX.some(p => dest.startsWith(p))) return 'asia';
       return 'eu';
     }
 

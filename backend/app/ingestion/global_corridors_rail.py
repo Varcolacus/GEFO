@@ -556,6 +556,242 @@ AU_QLD_VIC_FLOWS = [
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 10. BRAZILIAN DOMESTIC RAIL FREIGHT
+#     Source: ANTT (Agência Nacional de Transportes Terrestres) annual
+#     reports, Vale S.A. production reports, Rumo Logística results
+#     Volumes in thousand tonnes (THS_T)
+# ═══════════════════════════════════════════════════════════════════════
+
+# Carajás Railway (EFC): Pará → Maranhão (iron ore, Vale)
+BR_CARAJAS: dict[int, float] = {
+    2017: 155000,
+    2018: 170000,
+    2019: 180000,
+    2020: 185000,
+    2021: 190000,
+    2022: 195000,
+    2023: 200000,
+    2024: 210000,
+}
+BR_CARAJAS_FLOWS = [
+    ("BR-PA", "BR-MA", 0.95),   # Iron ore from Carajás mine to São Luís port
+    ("BR-MA", "BR-PA", 0.05),   # Return empty/supplies
+]
+
+# Vitória–Minas Railway (EFVM): Minas Gerais → Espírito Santo (iron ore, Vale)
+BR_EFVM: dict[int, float] = {
+    2017: 110000,
+    2018: 120000,
+    2019: 100000,   # Brumadinho dam disaster impact
+    2020: 105000,
+    2021: 115000,
+    2022: 120000,
+    2023: 125000,
+    2024: 130000,
+}
+BR_EFVM_FLOWS = [
+    ("BR-MG", "BR-ES", 0.90),   # Iron ore Minas → Vitória/Tubarão port
+    ("BR-ES", "BR-MG", 0.10),   # Return
+]
+
+# MRS Logística: Minas Gerais → São Paulo/Rio (steel, iron, general)
+BR_MRS: dict[int, float] = {
+    2017: 55000,
+    2018: 58000,
+    2019: 60000,
+    2020: 52000,
+    2021: 58000,
+    2022: 62000,
+    2023: 65000,
+    2024: 68000,
+}
+BR_MRS_FLOWS = [
+    ("BR-MG", "BR-SP", 0.50),   # Iron ore/steel to Santos
+    ("BR-MG", "BR-RJ", 0.25),   # To Rio de Janeiro/Sepetiba port
+    ("BR-SP", "BR-MG", 0.15),
+    ("BR-RJ", "BR-MG", 0.10),
+]
+
+# Rumo (ex-ALL): grain corridor Mato Grosso → São Paulo/Santos
+BR_RUMO: dict[int, float] = {
+    2017: 25000,
+    2018: 28000,
+    2019: 30000,
+    2020: 32000,
+    2021: 35000,
+    2022: 38000,
+    2023: 42000,
+    2024: 45000,
+}
+BR_RUMO_FLOWS = [
+    ("BR-MT", "BR-SP", 0.60),   # Soy/corn from Mato Grosso to Santos
+    ("BR-PR", "BR-SP", 0.25),   # Grain from Paraná
+    ("BR-SP", "BR-MT", 0.10),
+    ("BR-SP", "BR-PR", 0.05),
+]
+
+# FCA/VLI: Minas Gerais → Bahia/Sergipe (general, grain, cement)
+BR_FCA: dict[int, float] = {
+    2017: 15000,
+    2018: 16000,
+    2019: 17000,
+    2020: 14000,
+    2021: 16000,
+    2022: 18000,
+    2023: 19000,
+    2024: 20000,
+}
+BR_FCA_FLOWS = [
+    ("BR-MG", "BR-BA", 0.50),
+    ("BR-BA", "BR-MG", 0.30),
+    ("BR-SP", "BR-BA", 0.20),
+]
+
+# Rio Grande do Sul grain export (Ferrovia do Trigo / Bunge corridor)
+BR_RS: dict[int, float] = {
+    2017: 8000,
+    2018: 9000,
+    2019: 10000,
+    2020: 11000,
+    2021: 12000,
+    2022: 13000,
+    2023: 14000,
+    2024: 15000,
+}
+BR_RS_FLOWS = [
+    ("BR-RS", "BR-SC", 0.60),   # Grain to ports
+    ("BR-SC", "BR-RS", 0.40),
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 11. SOUTH AFRICAN DOMESTIC RAIL FREIGHT
+#     Source: Transnet Freight Rail annual results, DMRE statistics
+# ═══════════════════════════════════════════════════════════════════════
+
+# Sishen–Saldanha Iron Ore Export Line
+ZA_IRON_ORE: dict[int, float] = {
+    2017: 58000,
+    2018: 60000,
+    2019: 58000,
+    2020: 55000,
+    2021: 57000,
+    2022: 50000,   # Transnet infrastructure decline
+    2023: 48000,
+    2024: 45000,
+}
+ZA_IRON_ORE_FLOWS = [
+    ("ZA-NC", "ZA-WC", 0.95),   # Sishen (Northern Cape) → Saldanha (Western Cape)
+    ("ZA-WC", "ZA-NC", 0.05),
+]
+
+# Richards Bay Coal Terminal line (Mpumalanga → KwaZulu-Natal)
+ZA_COAL: dict[int, float] = {
+    2017: 72000,
+    2018: 70000,
+    2019: 68000,
+    2020: 60000,
+    2021: 58000,
+    2022: 50000,
+    2023: 48000,
+    2024: 45000,
+}
+ZA_COAL_FLOWS = [
+    ("ZA-MP", "ZA-KZN", 0.95),  # Coal export to Richards Bay
+    ("ZA-KZN", "ZA-MP", 0.05),
+]
+
+# Gauteng ↔ Durban corridor (general freight, containers)
+ZA_GP_KZN: dict[int, float] = {
+    2017: 42000,
+    2018: 43000,
+    2019: 40000,
+    2020: 35000,
+    2021: 38000,
+    2022: 36000,
+    2023: 35000,
+    2024: 34000,
+}
+ZA_GP_KZN_FLOWS = [
+    ("ZA-GP", "ZA-KZN", 0.55),  # Manufactured goods to Durban port
+    ("ZA-KZN", "ZA-GP", 0.45),  # Imports from Durban
+]
+
+# Gauteng ↔ Western Cape (Cape Town corridor)
+ZA_GP_WC: dict[int, float] = {
+    2017: 12000,
+    2018: 12500,
+    2019: 12000,
+    2020: 10000,
+    2021: 11000,
+    2022: 10500,
+    2023: 10000,
+    2024: 10000,
+}
+ZA_GP_WC_FLOWS = [
+    ("ZA-GP", "ZA-WC", 0.50),
+    ("ZA-WC", "ZA-GP", 0.50),
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 12. COLOMBIAN DOMESTIC — Cerrejón Coal
+#     Source: Cerrejón annual reports, ANI Colombia
+# ═══════════════════════════════════════════════════════════════════════
+CO_CERREJON: dict[int, float] = {
+    2017: 32000,
+    2018: 30000,
+    2019: 27000,
+    2020: 12000,   # COVID + demand crash
+    2021: 18000,
+    2022: 28000,
+    2023: 25000,
+    2024: 23000,
+}
+CO_CERREJON_FLOWS = [
+    ("CO-LAG", "CO-LAG", 1.00),  # Mine to Puerto Bolívar (both in La Guajira)
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# 13. MOROCCAN DOMESTIC — OCP Phosphate
+#     Source: OCP Group annual reports, ONCF Morocco
+# ═══════════════════════════════════════════════════════════════════════
+MA_PHOSPHATE: dict[int, float] = {
+    2017: 28000,
+    2018: 30000,
+    2019: 32000,
+    2020: 28000,
+    2021: 33000,
+    2022: 35000,
+    2023: 33000,
+    2024: 34000,
+}
+MA_PHOSPHATE_FLOWS = [
+    ("MA-05", "MA-06", 0.60),   # Khouribga → Casablanca/Jorf Lasfar
+    ("MA-05", "MA-09", 0.40),   # Khouribga → Safi
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# 14. MAURITANIAN DOMESTIC — SNIM Iron Ore Train
+#     Source: SNIM annual reports (Société Nationale Industrielle et Minière)
+# ═══════════════════════════════════════════════════════════════════════
+MR_IRON_ORE: dict[int, float] = {
+    2017: 11000,
+    2018: 12000,
+    2019: 12500,
+    2020: 11500,
+    2021: 12000,
+    2022: 13000,
+    2023: 13500,
+    2024: 14000,
+}
+MR_IRON_ORE_FLOWS = [
+    ("MR-07", "MR-08", 0.95),   # Zouérat (Tiris Zemmour) → Nouadhibou (Dakhlet)
+    ("MR-08", "MR-07", 0.05),
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Build all records
 # ═══════════════════════════════════════════════════════════════════════
 ALL_CORRIDORS = [
@@ -591,6 +827,24 @@ ALL_CORRIDORS = [
     (AU_SA_NSW, AU_SA_NSW_FLOWS),
     (AU_SA_NT, AU_SA_NT_FLOWS),
     (AU_QLD_VIC, AU_QLD_VIC_FLOWS),
+    # Brazilian domestic
+    (BR_CARAJAS, BR_CARAJAS_FLOWS),
+    (BR_EFVM, BR_EFVM_FLOWS),
+    (BR_MRS, BR_MRS_FLOWS),
+    (BR_RUMO, BR_RUMO_FLOWS),
+    (BR_FCA, BR_FCA_FLOWS),
+    (BR_RS, BR_RS_FLOWS),
+    # South African domestic
+    (ZA_IRON_ORE, ZA_IRON_ORE_FLOWS),
+    (ZA_COAL, ZA_COAL_FLOWS),
+    (ZA_GP_KZN, ZA_GP_KZN_FLOWS),
+    (ZA_GP_WC, ZA_GP_WC_FLOWS),
+    # Colombia domestic
+    (CO_CERREJON, CO_CERREJON_FLOWS),
+    # Morocco domestic
+    (MA_PHOSPHATE, MA_PHOSPHATE_FLOWS),
+    # Mauritania domestic
+    (MR_IRON_ORE, MR_IRON_ORE_FLOWS),
 ]
 
 
