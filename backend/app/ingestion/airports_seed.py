@@ -1,6 +1,6 @@
 """
 Seed data for major world airports.
-~95 busiest airports from public sources (OurAirports, Wikipedia).
+~250 airports from public sources (OurAirports, Wikipedia).
 """
 import logging
 from sqlalchemy.orm import Session
@@ -193,6 +193,89 @@ AIRPORTS_DATA = [
     {"iata": "DME", "icao": "UUDD", "name": "Moscow Domodedovo", "city": "Moscow", "country_iso": "RUS", "lat": 55.4088, "lon": 37.9063, "elevation_ft": 588, "airport_type": "large_airport", "pax_annual": 30.3, "runways": 2, "continent": "EU"},
     {"iata": "ALA", "icao": "UAAA", "name": "Almaty Intl", "city": "Almaty", "country_iso": "KAZ", "lat": 43.3521, "lon": 77.0405, "elevation_ft": 2234, "airport_type": "large_airport", "pax_annual": 7.5, "runways": 1, "continent": "AS"},
     {"iata": "TAS", "icao": "UTTT", "name": "Tashkent Intl", "city": "Tashkent", "country_iso": "UZB", "lat": 41.2579, "lon": 69.2812, "elevation_ft": 1417, "airport_type": "large_airport", "pax_annual": 5.0, "runways": 1, "continent": "AS"},
+
+    # ── Africa (expansion) ──
+    {"iata": "TUN", "icao": "DTTA", "name": "Tunis-Carthage Intl", "city": "Tunis", "country_iso": "TUN", "lat": 36.8510, "lon": 10.2272, "elevation_ft": 22, "airport_type": "large_airport", "pax_annual": 6.5, "runways": 1, "continent": "AF"},
+    {"iata": "LAD", "icao": "FNLU", "name": "Quatro de Fevereiro Intl", "city": "Luanda", "country_iso": "AGO", "lat": -8.8584, "lon": 13.2312, "elevation_ft": 243, "airport_type": "large_airport", "pax_annual": 4.5, "runways": 1, "continent": "AF"},
+    {"iata": "ABV", "icao": "DNAA", "name": "Nnamdi Azikiwe Intl", "city": "Abuja", "country_iso": "NGA", "lat": 9.0065, "lon": 7.2632, "elevation_ft": 1123, "airport_type": "large_airport", "pax_annual": 5.0, "runways": 1, "continent": "AF"},
+    {"iata": "MRU", "icao": "FIMP", "name": "Sir Seewoosagur Ramgoolam Intl", "city": "Port Louis", "country_iso": "MUS", "lat": -20.4302, "lon": 57.6836, "elevation_ft": 186, "airport_type": "large_airport", "pax_annual": 4.0, "runways": 1, "continent": "AF"},
+    {"iata": "DSS", "icao": "GOBD", "name": "Blaise Diagne Intl", "city": "Dakar", "country_iso": "SEN", "lat": 14.6700, "lon": -17.0733, "elevation_ft": 290, "airport_type": "large_airport", "pax_annual": 3.5, "runways": 1, "continent": "AF"},
+    {"iata": "ABJ", "icao": "DIAP", "name": "Felix-Houphouet-Boigny Intl", "city": "Abidjan", "country_iso": "CIV", "lat": 5.2614, "lon": -3.9262, "elevation_ft": 21, "airport_type": "large_airport", "pax_annual": 2.5, "runways": 1, "continent": "AF"},
+    {"iata": "EBB", "icao": "HUEN", "name": "Entebbe Intl", "city": "Entebbe", "country_iso": "UGA", "lat": 0.0424, "lon": 32.4435, "elevation_ft": 3782, "airport_type": "large_airport", "pax_annual": 1.9, "runways": 1, "continent": "AF"},
+    {"iata": "KGL", "icao": "HRYR", "name": "Kigali Intl", "city": "Kigali", "country_iso": "RWA", "lat": -1.9686, "lon": 30.1395, "elevation_ft": 4859, "airport_type": "medium_airport", "pax_annual": 1.2, "runways": 1, "continent": "AF"},
+    {"iata": "FIH", "icao": "FZAA", "name": "N Djili Intl", "city": "Kinshasa", "country_iso": "COD", "lat": -4.3858, "lon": 15.4446, "elevation_ft": 1027, "airport_type": "large_airport", "pax_annual": 1.5, "runways": 1, "continent": "AF"},
+    {"iata": "LUN", "icao": "FLKK", "name": "Kenneth Kaunda Intl", "city": "Lusaka", "country_iso": "ZMB", "lat": -15.3309, "lon": 28.4526, "elevation_ft": 3779, "airport_type": "large_airport", "pax_annual": 1.5, "runways": 1, "continent": "AF"},
+    {"iata": "HRE", "icao": "FVHA", "name": "Robert Gabriel Mugabe Intl", "city": "Harare", "country_iso": "ZWE", "lat": -17.9318, "lon": 31.0928, "elevation_ft": 4887, "airport_type": "large_airport", "pax_annual": 1.2, "runways": 1, "continent": "AF"},
+    {"iata": "MPM", "icao": "FQMA", "name": "Maputo Intl", "city": "Maputo", "country_iso": "MOZ", "lat": -25.9208, "lon": 32.5726, "elevation_ft": 145, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "AF"},
+    {"iata": "DLA", "icao": "FKKD", "name": "Douala Intl", "city": "Douala", "country_iso": "CMR", "lat": 4.0061, "lon": 9.7194, "elevation_ft": 33, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "AF"},
+    {"iata": "WDH", "icao": "FYWH", "name": "Hosea Kutako Intl", "city": "Windhoek", "country_iso": "NAM", "lat": -22.4799, "lon": 17.4709, "elevation_ft": 5640, "airport_type": "medium_airport", "pax_annual": 0.8, "runways": 1, "continent": "AF"},
+    {"iata": "TNR", "icao": "FMMI", "name": "Ivato Intl", "city": "Antananarivo", "country_iso": "MDG", "lat": -18.7969, "lon": 47.4789, "elevation_ft": 4198, "airport_type": "medium_airport", "pax_annual": 1.0, "runways": 1, "continent": "AF"},
+    {"iata": "SEZ", "icao": "FSIA", "name": "Seychelles Intl", "city": "Mahe", "country_iso": "SYC", "lat": -4.6743, "lon": 55.5218, "elevation_ft": 10, "airport_type": "medium_airport", "pax_annual": 0.8, "runways": 1, "continent": "AF"},
+
+    # ── South America (expansion) ──
+    {"iata": "BSB", "icao": "SBBR", "name": "Brasilia Intl", "city": "Brasilia", "country_iso": "BRA", "lat": -15.8711, "lon": -47.9186, "elevation_ft": 3479, "airport_type": "large_airport", "pax_annual": 16.3, "runways": 2, "continent": "SA"},
+    {"iata": "MDE", "icao": "SKRG", "name": "Jose Maria Cordova Intl", "city": "Medellin", "country_iso": "COL", "lat": 6.1645, "lon": -75.4231, "elevation_ft": 6955, "airport_type": "large_airport", "pax_annual": 9.0, "runways": 2, "continent": "SA"},
+    {"iata": "CNF", "icao": "SBCF", "name": "Tancredo Neves Intl", "city": "Belo Horizonte", "country_iso": "BRA", "lat": -19.6244, "lon": -43.9719, "elevation_ft": 2715, "airport_type": "large_airport", "pax_annual": 10.5, "runways": 2, "continent": "SA"},
+    {"iata": "POA", "icao": "SBPA", "name": "Salgado Filho Intl", "city": "Porto Alegre", "country_iso": "BRA", "lat": -29.9944, "lon": -51.1714, "elevation_ft": 11, "airport_type": "large_airport", "pax_annual": 8.5, "runways": 1, "continent": "SA"},
+    {"iata": "SSA", "icao": "SBSV", "name": "Deputado Luis Eduardo Magalhaes Intl", "city": "Salvador", "country_iso": "BRA", "lat": -12.9086, "lon": -38.3225, "elevation_ft": 64, "airport_type": "large_airport", "pax_annual": 8.5, "runways": 2, "continent": "SA"},
+    {"iata": "REC", "icao": "SBRF", "name": "Guararapes-Gilberto Freyre Intl", "city": "Recife", "country_iso": "BRA", "lat": -8.1264, "lon": -34.9236, "elevation_ft": 33, "airport_type": "large_airport", "pax_annual": 7.5, "runways": 1, "continent": "SA"},
+    {"iata": "FOR", "icao": "SBFZ", "name": "Pinto Martins Intl", "city": "Fortaleza", "country_iso": "BRA", "lat": -3.7763, "lon": -38.5326, "elevation_ft": 82, "airport_type": "large_airport", "pax_annual": 7.0, "runways": 1, "continent": "SA"},
+    {"iata": "CWB", "icao": "SBCT", "name": "Afonso Pena Intl", "city": "Curitiba", "country_iso": "BRA", "lat": -25.5285, "lon": -49.1758, "elevation_ft": 2988, "airport_type": "large_airport", "pax_annual": 6.5, "runways": 2, "continent": "SA"},
+    {"iata": "CCS", "icao": "SVMI", "name": "Simon Bolivar Intl", "city": "Caracas", "country_iso": "VEN", "lat": 10.6012, "lon": -66.9913, "elevation_ft": 235, "airport_type": "large_airport", "pax_annual": 6.0, "runways": 2, "continent": "SA"},
+    {"iata": "UIO", "icao": "SEQM", "name": "Mariscal Sucre Intl", "city": "Quito", "country_iso": "ECU", "lat": -0.1292, "lon": -78.3575, "elevation_ft": 7874, "airport_type": "large_airport", "pax_annual": 5.5, "runways": 1, "continent": "SA"},
+    {"iata": "GYE", "icao": "SEGU", "name": "Jose Joaquin de Olmedo Intl", "city": "Guayaquil", "country_iso": "ECU", "lat": -2.1574, "lon": -79.8837, "elevation_ft": 19, "airport_type": "large_airport", "pax_annual": 4.5, "runways": 1, "continent": "SA"},
+    {"iata": "VVI", "icao": "SLVR", "name": "Viru Viru Intl", "city": "Santa Cruz", "country_iso": "BOL", "lat": -17.6448, "lon": -63.1354, "elevation_ft": 1224, "airport_type": "large_airport", "pax_annual": 2.5, "runways": 1, "continent": "SA"},
+    {"iata": "MVD", "icao": "SUMU", "name": "Carrasco Intl", "city": "Montevideo", "country_iso": "URY", "lat": -34.8384, "lon": -56.0308, "elevation_ft": 105, "airport_type": "large_airport", "pax_annual": 2.6, "runways": 1, "continent": "SA"},
+    {"iata": "ASU", "icao": "SGAS", "name": "Silvio Pettirossi Intl", "city": "Asuncion", "country_iso": "PRY", "lat": -25.2400, "lon": -57.5191, "elevation_ft": 292, "airport_type": "large_airport", "pax_annual": 1.5, "runways": 1, "continent": "SA"},
+
+    # ── Oceania (expansion) ──
+    {"iata": "ADL", "icao": "YPAD", "name": "Adelaide", "city": "Adelaide", "country_iso": "AUS", "lat": -34.9450, "lon": 138.5306, "elevation_ft": 20, "airport_type": "large_airport", "pax_annual": 8.3, "runways": 2, "continent": "OC"},
+    {"iata": "OOL", "icao": "YBCG", "name": "Gold Coast (Coolangatta)", "city": "Gold Coast", "country_iso": "AUS", "lat": -28.1644, "lon": 153.5047, "elevation_ft": 21, "airport_type": "large_airport", "pax_annual": 6.8, "runways": 1, "continent": "OC"},
+    {"iata": "CHC", "icao": "NZCH", "name": "Christchurch Intl", "city": "Christchurch", "country_iso": "NZL", "lat": -43.4894, "lon": 172.5322, "elevation_ft": 123, "airport_type": "large_airport", "pax_annual": 6.8, "runways": 2, "continent": "OC"},
+    {"iata": "WLG", "icao": "NZWN", "name": "Wellington Intl", "city": "Wellington", "country_iso": "NZL", "lat": -41.3272, "lon": 174.8053, "elevation_ft": 41, "airport_type": "large_airport", "pax_annual": 5.9, "runways": 1, "continent": "OC"},
+    {"iata": "CNS", "icao": "YBCS", "name": "Cairns", "city": "Cairns", "country_iso": "AUS", "lat": -16.8858, "lon": 145.7554, "elevation_ft": 10, "airport_type": "large_airport", "pax_annual": 5.1, "runways": 1, "continent": "OC"},
+    {"iata": "NAN", "icao": "NFFN", "name": "Nadi Intl", "city": "Nadi", "country_iso": "FJI", "lat": -17.7554, "lon": 177.4431, "elevation_ft": 59, "airport_type": "large_airport", "pax_annual": 2.3, "runways": 1, "continent": "OC"},
+    {"iata": "POM", "icao": "AYPY", "name": "Jacksons Intl", "city": "Port Moresby", "country_iso": "PNG", "lat": -6.0228, "lon": 147.0070, "elevation_ft": 146, "airport_type": "large_airport", "pax_annual": 1.2, "runways": 1, "continent": "OC"},
+    {"iata": "PPT", "icao": "NTAA", "name": "Tahiti Faa a Intl", "city": "Papeete", "country_iso": "PYF", "lat": -17.5537, "lon": -149.6073, "elevation_ft": 5, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "OC"},
+
+    # ── Asia (expansion) ──
+    {"iata": "IKA", "icao": "OIIE", "name": "Imam Khomeini Intl", "city": "Tehran", "country_iso": "IRN", "lat": 35.4161, "lon": 51.1522, "elevation_ft": 3305, "airport_type": "large_airport", "pax_annual": 9.0, "runways": 2, "continent": "AS"},
+    {"iata": "BGW", "icao": "ORBI", "name": "Baghdad Intl", "city": "Baghdad", "country_iso": "IRQ", "lat": 33.2625, "lon": 44.2346, "elevation_ft": 114, "airport_type": "large_airport", "pax_annual": 7.0, "runways": 2, "continent": "AS"},
+    {"iata": "PNH", "icao": "VDPP", "name": "Phnom Penh Intl", "city": "Phnom Penh", "country_iso": "KHM", "lat": 11.5466, "lon": 104.8441, "elevation_ft": 40, "airport_type": "large_airport", "pax_annual": 6.5, "runways": 1, "continent": "AS"},
+    {"iata": "RGN", "icao": "VYYY", "name": "Yangon Intl", "city": "Yangon", "country_iso": "MMR", "lat": 16.9073, "lon": 96.1332, "elevation_ft": 109, "airport_type": "large_airport", "pax_annual": 6.0, "runways": 1, "continent": "AS"},
+    {"iata": "MLE", "icao": "VRMM", "name": "Velana Intl", "city": "Male", "country_iso": "MDV", "lat": 4.1918, "lon": 73.5290, "elevation_ft": 6, "airport_type": "large_airport", "pax_annual": 6.0, "runways": 1, "continent": "AS"},
+    {"iata": "KTM", "icao": "VNKT", "name": "Tribhuvan Intl", "city": "Kathmandu", "country_iso": "NPL", "lat": 27.6966, "lon": 85.3591, "elevation_ft": 4390, "airport_type": "large_airport", "pax_annual": 6.0, "runways": 1, "continent": "AS"},
+    {"iata": "GYD", "icao": "UBBB", "name": "Heydar Aliyev Intl", "city": "Baku", "country_iso": "AZE", "lat": 40.4675, "lon": 50.0467, "elevation_ft": -10, "airport_type": "large_airport", "pax_annual": 5.5, "runways": 2, "continent": "AS"},
+    {"iata": "NQZ", "icao": "UACC", "name": "Nursultan Nazarbayev Intl", "city": "Astana", "country_iso": "KAZ", "lat": 51.0222, "lon": 71.4669, "elevation_ft": 1165, "airport_type": "large_airport", "pax_annual": 5.0, "runways": 1, "continent": "AS"},
+    {"iata": "TBS", "icao": "UGTB", "name": "Shota Rustaveli Intl", "city": "Tbilisi", "country_iso": "GEO", "lat": 41.6692, "lon": 44.9547, "elevation_ft": 1624, "airport_type": "large_airport", "pax_annual": 4.0, "runways": 1, "continent": "AS"},
+    {"iata": "FRU", "icao": "UCFM", "name": "Manas Intl", "city": "Bishkek", "country_iso": "KGZ", "lat": 43.0613, "lon": 74.4776, "elevation_ft": 2058, "airport_type": "large_airport", "pax_annual": 3.5, "runways": 1, "continent": "AS"},
+    {"iata": "EVN", "icao": "UDYZ", "name": "Zvartnots Intl", "city": "Yerevan", "country_iso": "ARM", "lat": 40.1473, "lon": 44.3959, "elevation_ft": 2838, "airport_type": "large_airport", "pax_annual": 3.0, "runways": 1, "continent": "AS"},
+    {"iata": "VTE", "icao": "VLVT", "name": "Wattay Intl", "city": "Vientiane", "country_iso": "LAO", "lat": 17.9883, "lon": 102.5633, "elevation_ft": 564, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "AS"},
+    {"iata": "ULN", "icao": "ZMUB", "name": "Chinggis Khaan Intl", "city": "Ulaanbaatar", "country_iso": "MNG", "lat": 47.8431, "lon": 106.7672, "elevation_ft": 4364, "airport_type": "large_airport", "pax_annual": 1.8, "runways": 1, "continent": "AS"},
+    {"iata": "DYU", "icao": "UTDD", "name": "Dushanbe Intl", "city": "Dushanbe", "country_iso": "TJK", "lat": 38.5433, "lon": 68.8250, "elevation_ft": 2575, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "AS"},
+    {"iata": "ASB", "icao": "UTAA", "name": "Ashgabat Intl", "city": "Ashgabat", "country_iso": "TKM", "lat": 37.9868, "lon": 58.3610, "elevation_ft": 692, "airport_type": "large_airport", "pax_annual": 1.5, "runways": 1, "continent": "AS"},
+
+    # ── Europe (expansion) ──
+    {"iata": "KBP", "icao": "UKBB", "name": "Boryspil Intl", "city": "Kyiv", "country_iso": "UKR", "lat": 50.3450, "lon": 30.8947, "elevation_ft": 427, "airport_type": "large_airport", "pax_annual": 15.3, "runways": 2, "continent": "EU"},
+    {"iata": "VNO", "icao": "EYVI", "name": "Vilnius Intl", "city": "Vilnius", "country_iso": "LTU", "lat": 54.6341, "lon": 25.2858, "elevation_ft": 646, "airport_type": "large_airport", "pax_annual": 6.2, "runways": 1, "continent": "EU"},
+    {"iata": "MSQ", "icao": "UMMS", "name": "Minsk National Airport", "city": "Minsk", "country_iso": "BLR", "lat": 53.8825, "lon": 28.0307, "elevation_ft": 670, "airport_type": "large_airport", "pax_annual": 5.0, "runways": 1, "continent": "EU"},
+    {"iata": "TIA", "icao": "LATI", "name": "Tirana Mother Teresa Intl", "city": "Tirana", "country_iso": "ALB", "lat": 41.4147, "lon": 19.7206, "elevation_ft": 126, "airport_type": "large_airport", "pax_annual": 3.5, "runways": 1, "continent": "EU"},
+    {"iata": "TLL", "icao": "EETN", "name": "Tallinn Lennart Meri", "city": "Tallinn", "country_iso": "EST", "lat": 59.4133, "lon": 24.8328, "elevation_ft": 131, "airport_type": "large_airport", "pax_annual": 3.3, "runways": 1, "continent": "EU"},
+    {"iata": "SKP", "icao": "LWSK", "name": "Skopje Intl", "city": "Skopje", "country_iso": "MKD", "lat": 41.9617, "lon": 21.6214, "elevation_ft": 781, "airport_type": "medium_airport", "pax_annual": 2.5, "runways": 1, "continent": "EU"},
+    {"iata": "KIV", "icao": "LUKK", "name": "Chisinau Intl", "city": "Chisinau", "country_iso": "MDA", "lat": 46.9277, "lon": 28.9310, "elevation_ft": 399, "airport_type": "medium_airport", "pax_annual": 2.5, "runways": 1, "continent": "EU"},
+    {"iata": "LJU", "icao": "LJLJ", "name": "Ljubljana Joze Pucnik", "city": "Ljubljana", "country_iso": "SVN", "lat": 46.2237, "lon": 14.4576, "elevation_ft": 1273, "airport_type": "medium_airport", "pax_annual": 1.8, "runways": 1, "continent": "EU"},
+    {"iata": "SJJ", "icao": "LQSA", "name": "Sarajevo Intl", "city": "Sarajevo", "country_iso": "BIH", "lat": 43.8246, "lon": 18.3315, "elevation_ft": 1708, "airport_type": "medium_airport", "pax_annual": 1.1, "runways": 1, "continent": "EU"},
+
+    # ── North America – Caribbean & Central America (expansion) ──
+    {"iata": "SDQ", "icao": "MDSD", "name": "Las Americas Intl", "city": "Santo Domingo", "country_iso": "DOM", "lat": 18.4297, "lon": -69.6689, "elevation_ft": 59, "airport_type": "large_airport", "pax_annual": 6.5, "runways": 2, "continent": "NA"},
+    {"iata": "HAV", "icao": "MUHA", "name": "Jose Marti Intl", "city": "Havana", "country_iso": "CUB", "lat": 22.9892, "lon": -82.4092, "elevation_ft": 210, "airport_type": "large_airport", "pax_annual": 4.5, "runways": 2, "continent": "NA"},
+    {"iata": "NAS", "icao": "MYNN", "name": "Lynden Pindling Intl", "city": "Nassau", "country_iso": "BHS", "lat": 25.0390, "lon": -77.4662, "elevation_ft": 16, "airport_type": "large_airport", "pax_annual": 3.8, "runways": 2, "continent": "NA"},
+    {"iata": "GUA", "icao": "MGGT", "name": "La Aurora Intl", "city": "Guatemala City", "country_iso": "GTM", "lat": 14.5833, "lon": -90.5275, "elevation_ft": 4952, "airport_type": "large_airport", "pax_annual": 3.3, "runways": 1, "continent": "NA"},
+    {"iata": "SAL", "icao": "MSLP", "name": "Monsenor Oscar Arnulfo Romero Intl", "city": "San Salvador", "country_iso": "SLV", "lat": 13.4409, "lon": -89.0557, "elevation_ft": 101, "airport_type": "large_airport", "pax_annual": 2.8, "runways": 1, "continent": "NA"},
+    {"iata": "KIN", "icao": "MKJP", "name": "Norman Manley Intl", "city": "Kingston", "country_iso": "JAM", "lat": 17.9357, "lon": -76.7875, "elevation_ft": 10, "airport_type": "large_airport", "pax_annual": 2.5, "runways": 1, "continent": "NA"},
+    {"iata": "MGA", "icao": "MNMG", "name": "Augusto C. Sandino Intl", "city": "Managua", "country_iso": "NIC", "lat": 12.1415, "lon": -86.1682, "elevation_ft": 194, "airport_type": "large_airport", "pax_annual": 1.6, "runways": 1, "continent": "NA"},
+    {"iata": "TGU", "icao": "MHTG", "name": "Toncontin Intl", "city": "Tegucigalpa", "country_iso": "HND", "lat": 14.0609, "lon": -87.2172, "elevation_ft": 3294, "airport_type": "medium_airport", "pax_annual": 1.5, "runways": 1, "continent": "NA"},
+    {"iata": "BDA", "icao": "TXKF", "name": "L.F. Wade Intl", "city": "Hamilton", "country_iso": "BMU", "lat": 32.3640, "lon": -64.6787, "elevation_ft": 12, "airport_type": "medium_airport", "pax_annual": 0.9, "runways": 1, "continent": "NA"},
 ]
 
 
