@@ -6,10 +6,6 @@ When AISHUB_USERNAME is configured, polls the AISHUB HTTP API every 60 s.
 Both sources merge into one vessel dict keyed by MMSI — duplicate vessels
 from both feeds are automatically deduplicated (most-recent update wins).
 
-Falls back to a high-fidelity route-based simulator when:
-  - No API keys are configured, OR
-  - The live AIS feed fails to connect after several retries
-
 AISstream.io provides free real-time AIS data:
   - Sign up at https://aisstream.io to get an API key
   - Set env var AISSTREAM_API_KEY=<your-key>
@@ -24,12 +20,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
-
-import random
 
 import aiohttp
 
@@ -104,7 +97,6 @@ class VesselTracker:
     BROADCAST_INTERVAL = 3   # seconds between WebSocket broadcasts
     STALE_TIMEOUT = 600      # remove vessels not heard from in 10 minutes
     AISHUB_POLL_INTERVAL = 60  # AISHUB rate limit: ~1 request per minute
-    AIS_CONNECT_RETRIES = 3  # retry live AIS before falling back to simulator
 
     def __init__(self, aisstream_api_key: str = "", aishub_username: str = ""):
         self._api_key = aisstream_api_key
@@ -114,11 +106,10 @@ class VesselTracker:
         self._running = False
         self._tasks: List[asyncio.Task] = []
         self._lock = asyncio.Lock()
-        self._sim_active = False  # True when simulator fallback is running
 
     @property
     def is_live(self) -> bool:
-        return (bool(self._api_key) or bool(self._aishub_key)) and not self._sim_active
+        return bool(self._api_key) or bool(self._aishub_key)
 
     def start(self) -> None:
         """Start the tracker (called during app startup)."""
@@ -136,11 +127,8 @@ class VesselTracker:
                 self._tasks.append(asyncio.ensure_future(self._aishub_poll_loop()))
             logger.info(f"VesselTracker starting in LIVE mode ({' + '.join(sources)})")
             self._tasks.append(asyncio.ensure_future(self._cleanup_loop()))
-            # Monitor for connection failures and fall back to simulator
-            self._tasks.append(asyncio.ensure_future(self._watchdog_loop()))
         else:
-            logger.warning("VesselTracker: no API keys — starting simulator fallback")
-            self._start_simulator()
+            logger.warning("VesselTracker: no API keys configured — vessel tracking disabled")
 
         # Always run the broadcaster
         self._tasks.append(asyncio.ensure_future(self._broadcast_loop()))
@@ -171,12 +159,7 @@ class VesselTracker:
         for src in self._vessel_source.values():
             by_source[src] = by_source.get(src, 0) + 1
 
-        if self._sim_active:
-            mode = "simulator"
-        elif self.is_live:
-            mode = "live"
-        else:
-            mode = "disabled"
+        mode = "live" if self.is_live else "disabled"
 
         return {
             "mode": mode,
@@ -198,8 +181,6 @@ class VesselTracker:
             "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
         })
 
-        consecutive_failures = 0
-
         while self._running:
             try:
                 async with websockets.connect(
@@ -211,7 +192,6 @@ class VesselTracker:
                 ) as ws:
                     await ws.send(subscribe_msg)
                     logger.info("Connected to AISstream.io WebSocket")
-                    consecutive_failures = 0  # reset on successful connect
 
                     async for raw in ws:
                         if not self._running:
@@ -225,16 +205,7 @@ class VesselTracker:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                consecutive_failures += 1
-                logger.warning(
-                    f"AISstream connection error ({consecutive_failures}/{self.AIS_CONNECT_RETRIES}): {e}"
-                )
-                if consecutive_failures >= self.AIS_CONNECT_RETRIES and not self._sim_active:
-                    logger.warning(
-                        "AISstream unreachable after retries — activating simulator fallback"
-                    )
-                    self._start_simulator()
-                    return  # stop retry loop; simulator takes over
+                logger.warning(f"AISstream connection error: {e}")
                 await asyncio.sleep(10)
 
     async def _cleanup_loop(self) -> None:
@@ -659,102 +630,6 @@ class VesselTracker:
             return "bulk"
         return current_type
 
-    # ── Watchdog & Simulator Fallback ──
-
-    async def _watchdog_loop(self) -> None:
-        """Monitor vessel count; if live AIS yields 0 vessels after 45s, start simulator."""
-        await asyncio.sleep(45)  # give live feeds time to connect
-        while self._running:
-            try:
-                if not self._sim_active and len(self._vessels) == 0:
-                    logger.warning("Watchdog: 0 vessels after timeout — activating simulator")
-                    self._start_simulator()
-                    return
-                await asyncio.sleep(30)
-            except asyncio.CancelledError:
-                break
-
-    def _start_simulator(self) -> None:
-        """Activate the route-based vessel simulator."""
-        if self._sim_active:
-            return
-        self._sim_active = True
-        self._sim_routes = _build_sim_routes()
-        self._sim_vessels = _init_sim_vessels(self._sim_routes)
-        # Populate _vessels dict with initial positions
-        for sv in self._sim_vessels:
-            wp = sv["route"][sv["wp_idx"]]
-            self._vessels[sv["mmsi"]] = VesselPosition(
-                mmsi=sv["mmsi"],
-                name=sv["name"],
-                vessel_type=sv["vtype"],
-                lat=wp[0],
-                lon=wp[1],
-                speed_knots=sv["speed"],
-                heading=0,
-                destination=sv["dest"],
-                flag_iso=sv["flag"],
-            )
-            self._vessel_source[sv["mmsi"]] = "simulator"
-        logger.info(f"Simulator active with {len(self._sim_vessels)} vessels")
-        self._tasks.append(asyncio.ensure_future(self._sim_update_loop()))
-
-    async def _sim_update_loop(self) -> None:
-        """Advance simulated vessels along their routes every few seconds."""
-        while self._running and self._sim_active:
-            try:
-                now = time.time()
-                async with self._lock:
-                    for sv in self._sim_vessels:
-                        route = sv["route"]
-                        idx = sv["wp_idx"]
-                        frac = sv["frac"]
-
-                        # Current and next waypoint
-                        wp_a = route[idx]
-                        wp_b = route[(idx + 1) % len(route)]
-
-                        # Interpolate position
-                        lat = wp_a[0] + (wp_b[0] - wp_a[0]) * frac
-                        lon = wp_a[1] + (wp_b[1] - wp_a[1]) * frac
-
-                        # Compute heading toward next waypoint
-                        heading = self._compute_heading(lat, lon, wp_b[0], wp_b[1])
-
-                        # Advance fraction based on speed
-                        seg_dist = self._haversine_nm(wp_a[0], wp_a[1], wp_b[0], wp_b[1])
-                        if seg_dist > 0:
-                            # knots → nm/s, times update interval
-                            frac += (sv["speed"] / 3600 * 5) / seg_dist
-                        else:
-                            frac = 1.0
-
-                        if frac >= 1.0:
-                            frac = 0.0
-                            sv["wp_idx"] = (idx + 1) % len(route)
-                        sv["frac"] = frac
-
-                        # Add slight random jitter (±0.01°) for realism
-                        lat += random.uniform(-0.01, 0.01)
-                        lon += random.uniform(-0.01, 0.01)
-
-                        # Update vessel position
-                        mmsi = sv["mmsi"]
-                        if mmsi in self._vessels:
-                            v = self._vessels[mmsi]
-                            v.lat = lat
-                            v.lon = lon
-                            v.heading = heading
-                            v.speed_knots = sv["speed"] + random.uniform(-0.5, 0.5)
-                            v.last_update = now
-
-                await asyncio.sleep(5)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.debug(f"Sim update error: {e}")
-                await asyncio.sleep(5)
-
     # ── Broadcasting ──
 
     async def _broadcast_loop(self) -> None:
@@ -776,285 +651,6 @@ class VesselTracker:
             except Exception as e:
                 logger.debug(f"Broadcast error: {e}")
                 await asyncio.sleep(5)
-
-    # ── Helpers ──
-
-    @staticmethod
-    def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate distance in nautical miles between two points."""
-        R = 3440.065  # Earth radius in nautical miles
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = math.sin(dlat / 2) ** 2 + \
-            math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
-            math.sin(dlon / 2) ** 2
-        return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    @staticmethod
-    def _compute_heading(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Compute bearing in degrees from point 1 to point 2."""
-        dlon = math.radians(lon2 - lon1)
-        lat1r = math.radians(lat1)
-        lat2r = math.radians(lat2)
-        x = math.sin(dlon) * math.cos(lat2r)
-        y = math.cos(lat1r) * math.sin(lat2r) - \
-            math.sin(lat1r) * math.cos(lat2r) * math.cos(dlon)
-        heading = math.degrees(math.atan2(x, y))
-        return (heading + 360) % 360
-
-    @staticmethod
-    def _nearest_port_name(lat: float, lon: float) -> str:
-        """Return the name of the nearest major port to a waypoint."""
-        ports = {
-            "Shanghai": (31.2, 121.5), "Singapore": (1.3, 103.8),
-            "Rotterdam": (51.9, 4.1), "Los Angeles": (33.7, -118.3),
-            "New York": (40.5, -74.0), "Dubai": (25.3, 55.3),
-            "Hong Kong": (22.3, 114.2), "Tokyo": (35.4, 139.8),
-            "Busan": (35.1, 129.0), "Santos": (-23.9, -46.3),
-            "Port Hedland": (-20.3, 118.6), "Ras Tanura": (26.5, 50.2),
-            "Hamburg": (53.5, 8.0), "Antwerp": (51.3, 4.3),
-            "Piraeus": (37.9, 23.6), "Suez": (30.0, 32.6),
-            "Panama": (9.0, -79.5), "Gothenburg": (57.7, 12.0),
-        }
-        best = "Unknown"
-        best_dist = float("inf")
-        for name, (plat, plon) in ports.items():
-            d = (lat - plat) ** 2 + (lon - plon) ** 2
-            if d < best_dist:
-                best_dist = d
-                best = name
-        return best
-
-
-# ── Simulated Shipping Routes ──
-
-def _build_sim_routes() -> Dict[str, List[Tuple[float, float]]]:
-    """Define major shipping corridor waypoints for the simulator."""
-    return {
-        # Trans-Pacific (Shanghai → LA)
-        "trans_pacific_east": [
-            (31.2, 121.5), (33.0, 135.0), (35.0, 150.0),
-            (38.0, 165.0), (37.0, -175.0), (35.0, -155.0),
-            (34.0, -140.0), (33.7, -118.3),
-        ],
-        # Trans-Pacific (LA → Shanghai)
-        "trans_pacific_west": [
-            (33.7, -118.3), (32.0, -135.0), (30.0, -155.0),
-            (28.0, -170.0), (27.0, 175.0), (28.0, 155.0),
-            (30.0, 135.0), (31.2, 121.5),
-        ],
-        # Asia-Europe via Suez (Singapore → Suez → Rotterdam)
-        "asia_europe_west": [
-            (1.3, 103.8), (5.0, 95.0), (10.0, 78.0),
-            (12.5, 53.0), (12.0, 45.0), (15.0, 42.0),
-            (30.0, 32.6), (31.5, 32.3), (35.0, 24.0),
-            (36.5, 15.0), (36.0, 5.0), (36.0, -5.8),
-            (43.0, -9.0), (48.0, -5.0), (51.9, 4.1),
-        ],
-        # Europe-Asia via Suez (Rotterdam → Suez → Singapore)
-        "asia_europe_east": [
-            (51.9, 4.1), (48.0, -5.0), (43.0, -9.0),
-            (36.0, -5.8), (36.0, 5.0), (36.5, 15.0),
-            (35.0, 24.0), (31.5, 32.3), (30.0, 32.6),
-            (15.0, 42.0), (12.0, 45.0), (12.5, 53.0),
-            (10.0, 78.0), (5.0, 95.0), (1.3, 103.8),
-        ],
-        # Trans-Atlantic (Rotterdam → New York)
-        "trans_atlantic_west": [
-            (51.9, 4.1), (50.0, -5.0), (48.0, -20.0),
-            (45.0, -35.0), (42.0, -50.0), (40.5, -65.0),
-            (40.5, -74.0),
-        ],
-        # Trans-Atlantic (New York → Rotterdam)
-        "trans_atlantic_east": [
-            (40.5, -74.0), (41.0, -60.0), (45.0, -40.0),
-            (48.0, -25.0), (50.0, -10.0), (51.9, 4.1),
-        ],
-        # Middle East Oil Route (Ras Tanura → Singapore)
-        "persian_gulf_east": [
-            (26.5, 50.2), (25.0, 56.0), (22.0, 60.0),
-            (15.0, 65.0), (10.0, 75.0), (6.0, 80.0),
-            (3.0, 95.0), (1.3, 103.8),
-        ],
-        # Middle East → Europe (Ras Tanura → Suez → Mediterranean)
-        "persian_gulf_west": [
-            (26.5, 50.2), (25.0, 56.0), (22.0, 60.0),
-            (15.0, 55.0), (12.5, 45.0), (15.0, 42.0),
-            (30.0, 32.6), (31.5, 32.3), (35.0, 24.0),
-            (36.5, 15.0), (38.0, 10.0), (43.4, 4.9),
-        ],
-        # Intra-Asia (Shanghai → Singapore)
-        "intra_asia_south": [
-            (31.2, 121.5), (25.0, 118.0), (22.3, 114.2),
-            (18.0, 112.0), (10.0, 108.0), (5.0, 106.0),
-            (1.3, 103.8),
-        ],
-        # Intra-Asia (Busan → Shanghai → Hong Kong)
-        "intra_asia_coastal": [
-            (35.1, 129.0), (33.0, 125.0), (31.2, 121.5),
-            (27.0, 120.0), (22.3, 114.2), (18.0, 110.0),
-            (10.0, 106.8),
-        ],
-        # South America (Santos → Rotterdam via West Africa)
-        "south_america_europe": [
-            (-23.9, -46.3), (-15.0, -35.0), (-5.0, -20.0),
-            (10.0, -18.0), (25.0, -16.0), (36.0, -8.0),
-            (43.0, -9.0), (48.0, -5.0), (51.9, 4.1),
-        ],
-        # Australia Iron Ore (Port Hedland → China)
-        "australia_china": [
-            (-20.3, 118.6), (-15.0, 115.0), (-8.0, 112.0),
-            (0.0, 108.0), (8.0, 110.0), (15.0, 112.0),
-            (22.0, 114.0), (30.0, 122.0),
-        ],
-        # Panama Canal → US East Coast
-        "panama_east": [
-            (9.0, -79.5), (12.0, -78.0), (18.0, -75.0),
-            (25.0, -75.0), (30.0, -78.0), (35.0, -76.0),
-            (40.5, -74.0),
-        ],
-        # West Africa Oil (Lagos → Houston)
-        "west_africa_us": [
-            (6.4, 3.4), (5.0, -5.0), (8.0, -20.0),
-            (15.0, -40.0), (20.0, -55.0), (25.0, -70.0),
-            (27.0, -85.0), (29.3, -94.5),
-        ],
-        # Mediterranean loop (Piraeus → Algeciras → Gioia Tauro)
-        "med_loop": [
-            (37.9, 23.6), (36.0, 15.0), (38.4, 15.9),
-            (36.5, 10.0), (36.0, 5.0), (36.0, -5.3),
-            (36.5, 0.0), (36.5, 10.0), (37.9, 23.6),
-        ],
-        # East Africa (Mombasa → Djibouti → Aden)
-        "east_africa": [
-            (-4.0, 39.7), (0.0, 42.0), (5.0, 45.0),
-            (11.6, 43.1), (12.5, 45.0), (14.0, 49.0),
-        ],
-        # North Sea / Baltic
-        "north_sea_baltic": [
-            (51.9, 4.1), (54.0, 7.0), (55.5, 13.0),
-            (57.7, 12.0), (59.3, 18.1), (59.9, 30.3),
-        ],
-        # US West Coast cabotage (LA → Seattle)
-        "us_west_coast": [
-            (33.7, -118.3), (37.8, -122.4), (40.0, -124.5),
-            (44.0, -124.5), (47.6, -122.4), (48.5, -123.4),
-        ],
-        # Caribbean feeder (Colon → Kingston → Miami)
-        "caribbean": [
-            (9.4, -79.9), (12.0, -78.0), (18.0, -76.8),
-            (22.0, -78.0), (25.8, -80.2),
-        ],
-    }
-
-
-# Ship name prefixes by type for realism
-_CONTAINER_NAMES = [
-    "MSC LORENA", "MAERSK EMERALD", "CMA CGM TITAN", "COSCO GALAXY",
-    "EVER GOLDEN", "OOCL SUMMIT", "ONE HARMONY", "HMM COPENHAGEN",
-    "ZIM PACIFIC", "HAPAG BERLIN", "YANG MING UNITY", "MSC FLAMINIA",
-    "MAERSK SELETAR", "CMA CGM LIBRA", "COSCO PRIDE", "EVER SUMMIT",
-    "MSC AMBRA", "OOCL GENOA", "ONE TRUST", "HMM ALGECIRAS",
-    "ZIM SHANGHAI", "CMA CGM ORCA", "MAERSK KOTKA", "MSC LEANNE",
-    "COSCO FORTUNE", "EVER ACE", "HAPAG EXPRESS", "YANG MING WISH",
-    "MSC GULSUN", "CMA CGM MARCO POLO", "MAERSK ELBA", "COSCO UNIVERSE",
-]
-
-_TANKER_NAMES = [
-    "FRONT ALTA", "CRUDE SPIRIT", "EAGLE VANCOUVER", "NISSOS RHENIA",
-    "NEW HORIZON", "NORDIC HUNTER", "MINERVA HELEN", "SUEZMAX STAR",
-    "DELTA PIONEER", "KRITI JADE", "PACIFIC VOYAGER", "STENA CLEAR SKY",
-    "MARAN SAGITTA", "EURONAV GRACE", "TORM RHINE", "CRUDE CARRIER I",
-]
-
-_BULK_NAMES = [
-    "CAPE BUENOS AIRES", "MINERAL CHINA", "ORE BRASIL",
-    "IRON WORKER", "CAPE AZALEA", "PANAMAX STAR", "GREAT WALL",
-    "BRIGHT SKY", "GOLDEN HARVEST", "OCEAN PRIDE", "BULK JUPITER",
-    "NAVIOS STELLAR", "SAGE SAGITTARIUS", "STAR BULK EAGLE",
-]
-
-_LNG_NAMES = [
-    "LNG DELTA", "AL DAFNA", "ENERGY PROGRESS", "GAS SPIRIT",
-    "ARCTIC LADY", "METHANE PIONEER", "GOLAR TUNDRA", "FLEX RANGER",
-]
-
-_PASSENGER_NAMES = [
-    "SYMPHONY OF THE SEAS", "QUEEN MARY 2", "NORWEGIAN STAR",
-    "COSTA DIADEMA", "AIDA PRIMA", "MSC MERAVIGLIA",
-]
-
-_FLAG_POOL = [
-    "PAN", "LBR", "MHL", "HKG", "SGP", "BHS", "MLT", "GBR",
-    "GRC", "CHN", "NOR", "DEU", "JPN", "DNK", "CYP", "USA",
-]
-
-
-def _init_sim_vessels(routes: Dict[str, List[Tuple[float, float]]]) -> List[dict]:
-    """Create simulated vessels distributed across all routes."""
-    vessels: List[dict] = []
-    mmsi_counter = 100000001
-
-    # Route assignments: (route_key, vessel_type, speed_range, name_pool, count)
-    assignments = [
-        ("trans_pacific_east", "container", (16, 22), _CONTAINER_NAMES, 8),
-        ("trans_pacific_west", "container", (16, 22), _CONTAINER_NAMES, 7),
-        ("asia_europe_west", "container", (14, 20), _CONTAINER_NAMES, 10),
-        ("asia_europe_east", "container", (14, 20), _CONTAINER_NAMES, 9),
-        ("trans_atlantic_west", "container", (15, 20), _CONTAINER_NAMES, 5),
-        ("trans_atlantic_east", "container", (15, 20), _CONTAINER_NAMES, 4),
-        ("persian_gulf_east", "tanker", (12, 16), _TANKER_NAMES, 8),
-        ("persian_gulf_west", "tanker", (12, 16), _TANKER_NAMES, 6),
-        ("intra_asia_south", "container", (14, 19), _CONTAINER_NAMES, 6),
-        ("intra_asia_coastal", "container", (13, 18), _CONTAINER_NAMES, 5),
-        ("south_america_europe", "bulk", (11, 15), _BULK_NAMES, 5),
-        ("australia_china", "bulk", (11, 15), _BULK_NAMES, 7),
-        ("panama_east", "container", (14, 18), _CONTAINER_NAMES, 4),
-        ("west_africa_us", "tanker", (12, 15), _TANKER_NAMES, 4),
-        ("med_loop", "container", (13, 17), _CONTAINER_NAMES, 5),
-        ("east_africa", "tanker", (11, 14), _TANKER_NAMES, 3),
-        ("north_sea_baltic", "tanker", (10, 14), _TANKER_NAMES, 3),
-        ("us_west_coast", "container", (14, 18), _CONTAINER_NAMES, 3),
-        ("caribbean", "container", (13, 17), _CONTAINER_NAMES, 3),
-        # LNG routes
-        ("persian_gulf_east", "lng", (16, 19), _LNG_NAMES, 4),
-        ("australia_china", "lng", (16, 19), _LNG_NAMES, 3),
-        # Passenger
-        ("med_loop", "passenger", (18, 22), _PASSENGER_NAMES, 2),
-        ("caribbean", "passenger", (18, 22), _PASSENGER_NAMES, 2),
-    ]
-
-    for route_key, vtype, speed_rng, name_pool, count in assignments:
-        route = routes.get(route_key)
-        if not route:
-            continue
-        for i in range(count):
-            name = name_pool[(mmsi_counter + i) % len(name_pool)]
-            # Avoid exact duplicate names by adding a suffix
-            suffix = f" {chr(65 + (mmsi_counter % 26))}"
-            speed = random.uniform(speed_rng[0], speed_rng[1])
-            wp_idx = random.randint(0, len(route) - 1)
-            frac = random.random()
-            flag = _FLAG_POOL[mmsi_counter % len(_FLAG_POOL)]
-
-            # Determine destination from last waypoint
-            last_wp = route[-1]
-            dest = VesselTracker._nearest_port_name(last_wp[0], last_wp[1])
-
-            vessels.append({
-                "mmsi": str(mmsi_counter),
-                "name": name + suffix,
-                "vtype": vtype,
-                "speed": round(speed, 1),
-                "route": route,
-                "wp_idx": wp_idx,
-                "frac": frac,
-                "flag": flag,
-                "dest": dest,
-            })
-            mmsi_counter += 1
-
-    return vessels
 
 
 # ── Singleton ──
