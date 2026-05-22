@@ -167,7 +167,9 @@ export function CountriesLayer({
           } else {
             normalized = mMax > mMin ? (rawValue - mMin) / (mMax - mMin) : 0.5;
           }
-          const alpha = 0.12 + normalized * 0.55;
+          // Range 0.30..0.75 — visible from orbit while keeping satellite tiles
+          // legible underneath. Was 0.12..0.67 which washed out at default zoom.
+          const alpha = 0.30 + normalized * 0.45;
           return new Color(34 / 255, 211 / 255, 238 / 255, alpha);
         };
 
@@ -226,7 +228,9 @@ export function CountriesLayer({
                 style: LabelStyle.FILL_AND_OUTLINE,
                 verticalOrigin: VerticalOrigin.CENTER,
                 scaleByDistance: new NearFarScalar(1e6, 1, 8e6, 0.3),
-                translucencyByDistance: new NearFarScalar(1e6, 1, 1.5e7, 0),
+                // Stays at 30% opacity above 50,000 km instead of vanishing
+                // at 15,000 km. Default camera sits at ~22,000 km altitude.
+                translucencyByDistance: new NearFarScalar(1e6, 1, 5e7, 0.3),
               },
             });
           }
