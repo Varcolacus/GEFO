@@ -48,10 +48,10 @@ import type {
 } from "@/lib/api";
 import type { TradeMode } from "@/lib/trade-modes";
 import { MAJOR_AIRPORTS } from "@/lib/airports";
-import { SHIPPING_CORRIDORS } from "@/lib/shipping-corridors";
 import { fetchCountriesGeoJSON } from "@/lib/api";
 import { computeArcPositions } from "./globe/lib/geometry";
 import { GOOGLE_EARTH_TILES } from "./globe/lib/tile-providers";
+import { ShippingDensityLayer } from "./globe/layers/ShippingDensityLayer";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -139,6 +139,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
   const railFlowOriginalColors = useRef<Map<string, Color>>(new Map());
   const railFlowOriginalWidths = useRef<Map<string, number>>(new Map());
   const railFlowEstimated = useRef<Map<string, boolean>>(new Map());
+
+  // Signals layer-component children that viewerRef.current is non-null.
+  // Without this, layers that default-on would mount before the viewer exists
+  // and their first render would silently no-op.
+  const [viewerReady, setViewerReady] = useState(false);
 
   // Fetch GeoJSON (with year-aware indicator values) on mount and when year changes
   const geoJsonYearRef = useRef<number | null | undefined>(undefined);
@@ -253,6 +258,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
 
     viewerRef.current = viewer;
+    setViewerReady(true);
 
     // ── Block browser pinch-zoom globally ──
     // Windows precision touchpads send pinch as Ctrl+wheel at the document level;
@@ -1442,69 +1448,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     viewer.entities.resumeEvents();
   }, [ports, layers.ports, portCategory, findOverlayLayer]);
-
-  // ─── Render Shipping Density — Real Corridor Polygons ───
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-
-    viewer.entities.suspendEvents();
-
-    const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("density_")
-    );
-    toRemove.forEach((e) => viewer.entities.remove(e));
-
-    if (!layers.shippingDensity) { viewer.entities.resumeEvents(); return; }
-
-    const maxDensity = Math.max(...SHIPPING_CORRIDORS.map((c) => c.density));
-
-    SHIPPING_CORRIDORS.forEach((corridor, index) => {
-      const normalized = corridor.density / maxDensity;
-      const alpha = 0.10 + normalized * 0.30;
-
-      // Heat color: blue → cyan → yellow → orange → red
-      let r: number, g: number, b: number;
-      if (normalized < 0.33) {
-        const t = normalized / 0.33;
-        r = Math.round(30 * t);
-        g = Math.round(100 + 155 * t);
-        b = Math.round(255 - 100 * t);
-      } else if (normalized < 0.66) {
-        const t = (normalized - 0.33) / 0.33;
-        r = Math.round(30 + 225 * t);
-        g = Math.round(255 - 55 * t);
-        b = Math.round(155 - 155 * t);
-      } else {
-        const t = (normalized - 0.66) / 0.34;
-        r = 255;
-        g = Math.round(200 - 200 * t);
-        b = 0;
-      }
-
-      // Flatten [lon, lat][] to [lon, lat, lon, lat, ...]
-      const degreesFlat: number[] = [];
-      for (const [lon, lat] of corridor.coords) {
-        degreesFlat.push(lon, lat);
-      }
-
-      viewer.entities.add({
-        name: `density_${index}`,
-        polygon: {
-          hierarchy: Cartesian3.fromDegreesArray(degreesFlat),
-          height: 0,
-          material: Color.fromBytes(r, g, b, Math.round(alpha * 255)),
-          outline: false,
-        },
-        description: `
-          <h3>${corridor.name}</h3>
-          <p>Relative Traffic Density: ${corridor.density}%</p>
-        `,
-      });
-    });
-
-    viewer.entities.resumeEvents();
-  }, [layers.shippingDensity]);
 
   // ─── Render Conflict Zone Overlays ───
   useEffect(() => {
@@ -3392,6 +3335,16 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           touchAction: "none",   // prevent browser from stealing pinch/pan gestures
         }}
       />
+
+      {/* Globe data layers — each is a render-null effect component */}
+      {viewerReady && viewerRef.current && (
+        <>
+          <ShippingDensityLayer
+            viewer={viewerRef.current}
+            enabled={layers.shippingDensity}
+          />
+        </>
+      )}
 
       {/* Zoom controls — left side, vertically centered */}
       <div
