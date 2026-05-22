@@ -1,0 +1,35 @@
+# systemd service that runs the GEFO Postgres backup once.
+#
+# Install:
+#   sudo cp backup-db.{service,timer} /etc/systemd/system/
+#   sudo cp backup.env.example /etc/gefo/backup.env  # then edit
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now backup-db.timer
+#
+# Manual run:
+#   sudo systemctl start backup-db.service
+#   sudo journalctl -u backup-db.service -n 50
+
+[Unit]
+Description=GEFO Postgres database backup
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Run as a dedicated user with no shell — create it once:
+#   sudo useradd --system --no-create-home --shell /usr/sbin/nologin gefo-backup
+User=gefo-backup
+Group=gefo-backup
+
+# Env file with DATABASE_URL, BACKUP_LOCAL_DIR, optional BACKUP_REMOTE.
+EnvironmentFile=/etc/gefo/backup.env
+
+ExecStart=/usr/local/bin/backup-db.sh
+
+# Sandboxing — these are cheap and worth turning on for a backup script.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/var/backups/gefo /var/lock
