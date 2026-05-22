@@ -55,6 +55,7 @@ import { ShippingDensityLayer } from "./globe/layers/ShippingDensityLayer";
 import { CommodityFlowsLayer } from "./globe/layers/CommodityFlowsLayer";
 import { ConflictZonesLayer } from "./globe/layers/ConflictZonesLayer";
 import { AircraftLayer } from "./globe/layers/AircraftLayer";
+import { AirportsLayer } from "./globe/layers/AirportsLayer";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -326,107 +327,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
 
     // ── Airports rendered as entities (see separate effect below) ──
   }, [layers.railroads, findOverlayLayer]);
-
-  // ─── Render Airport Markers ───
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-
-    viewer.entities.suspendEvents();
-
-    // Remove existing airport entities
-    const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("airport_")
-    );
-    toRemove.forEach((e) => viewer.entities.remove(e));
-
-    if (!layers.airports) { viewer.entities.resumeEvents(); return; }
-
-    // Use API data if available, fall back to hardcoded list
-    const useApiData = airportsProp.length > 0;
-    const airportsList = useApiData
-      ? airportsProp.map((a) => ({
-          iata: a.iata || "?",
-          name: a.name,
-          city: a.city || "",
-          country: a.country_iso,
-          lat: a.lat,
-          lon: a.lon,
-          pax: a.pax_annual || 0,
-          elevation_ft: a.elevation_ft,
-          icao: a.icao,
-          runways: a.runways,
-          airport_type: a.airport_type,
-        }))
-      : MAJOR_AIRPORTS.map((a) => ({
-          ...a,
-          elevation_ft: undefined as number | undefined,
-          icao: undefined as string | undefined,
-          runways: undefined as number | undefined,
-          airport_type: undefined as string | undefined,
-        }));
-
-    const airportColor = Color.fromCssColorString("#d8b4fe"); // bright violet
-    const airportColorFaded = airportColor.withAlpha(0.35);
-
-    airportsList.forEach((apt) => {
-      const pax = apt.pax || 0;
-      const size = Math.min(8 + Math.log10(Math.max(pax, 1)) * 3, 18);
-
-      // Airport point
-      viewer.entities.add({
-        name: `airport_${apt.iata}`,
-        position: Cartesian3.fromDegrees(apt.lon, apt.lat),
-        point: {
-          pixelSize: size,
-          color: airportColor,
-          outlineColor: Color.WHITE.withAlpha(0.7),
-          outlineWidth: 1.5,
-          scaleByDistance: new NearFarScalar(5e5, 1.4, 2e7, 0.6),
-          translucencyByDistance: new NearFarScalar(1e5, 1, 3e7, 0.5),
-        },
-        label: {
-          text: apt.iata,
-          font: "bold 11px 'Segoe UI', sans-serif",
-          fillColor: Color.WHITE,
-          outlineColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
-          outlineWidth: 3,
-          style: LabelStyle.FILL_AND_OUTLINE,
-          verticalOrigin: VerticalOrigin.BOTTOM,
-          horizontalOrigin: HorizontalOrigin.LEFT,
-          pixelOffset: new Cartesian3(8, -8, 0) as any,
-          scaleByDistance: new NearFarScalar(5e5, 1, 1.5e7, 0.35),
-          translucencyByDistance: new NearFarScalar(5e5, 1, 2e7, 0.4),
-        },
-        description: `
-          <h3>✈ ${apt.name} (${apt.iata})</h3>
-          <p>${apt.city}, ${apt.country}</p>
-          ${pax > 0 ? `<p>≈ ${pax.toFixed(1)}M passengers/year</p>` : ""}
-          ${apt.icao ? `<p>ICAO: ${apt.icao}</p>` : ""}
-          ${apt.elevation_ft != null ? `<p>Elevation: ${apt.elevation_ft.toLocaleString()} ft</p>` : ""}
-          ${apt.runways ? `<p>Runways: ${apt.runways}</p>` : ""}
-          ${apt.airport_type ? `<p>Type: ${apt.airport_type.replace("_", " ")}</p>` : ""}
-        `,
-      });
-
-      // Glow ring around major hubs (pax > 50M)
-      if (pax > 50) {
-        viewer.entities.add({
-          name: `airport_glow_${apt.iata}`,
-          position: Cartesian3.fromDegrees(apt.lon, apt.lat),
-          ellipse: {
-            semiMajorAxis: 18000 + pax * 200,
-            semiMinorAxis: 18000 + pax * 200,
-            height: 0,
-            material: airportColorFaded,
-            outline: false,
-          },
-        });
-      }
-    });
-
-    viewer.entities.resumeEvents();
-  }, [layers.airports, airportsProp]);
 
   // ─── Click handler for country entities ───
   useEffect(() => {
@@ -3126,6 +3026,11 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
             viewer={viewerRef.current}
             enabled={layers.aircraft}
             aircraft={aircraftList}
+          />
+          <AirportsLayer
+            viewer={viewerRef.current}
+            enabled={layers.airports}
+            airports={airportsProp}
           />
         </>
       )}
