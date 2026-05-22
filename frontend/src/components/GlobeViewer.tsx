@@ -52,6 +52,7 @@ import { fetchCountriesGeoJSON } from "@/lib/api";
 import { computeArcPositions } from "./globe/lib/geometry";
 import { GOOGLE_EARTH_TILES } from "./globe/lib/tile-providers";
 import { ShippingDensityLayer } from "./globe/layers/ShippingDensityLayer";
+import { CommodityFlowsLayer } from "./globe/layers/CommodityFlowsLayer";
 
 // Disable Cesium Ion — uses CartoDB + OpenStreetMap
 Ion.defaultAccessToken = "";
@@ -1829,61 +1830,6 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     viewer.entities.resumeEvents();
   }, [vessels, ports, layers.vessels, layers.ports]);
 
-  // ─── Render Commodity Flow Arcs (Gold) ───
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-
-    viewer.entities.suspendEvents();
-
-    const toRemove = viewer.entities.values.filter(
-      (e) => e.name?.startsWith("commodity_flow_")
-    );
-    toRemove.forEach((e) => viewer.entities.remove(e));
-
-    if (commodityFlows.length === 0) { viewer.entities.resumeEvents(); return; }
-
-    commodityFlows.forEach((edge, i) => {
-      const width = Math.max(2, edge.weight * 8);
-
-      // 3D elevated arc
-      const arcPoints = computeArcPositions(
-        edge.exporter_lon, edge.exporter_lat,
-        edge.importer_lon, edge.importer_lat,
-        40, 0.18
-      );
-
-      // Gold/amber arc
-      viewer.entities.add({
-        name: `commodity_flow_${i}`,
-        polyline: {
-          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
-          width: width,
-          material: new PolylineArrowMaterialProperty(
-            Color.fromCssColorString("rgba(255, 180, 20, 0.9)")
-          ),
-          arcType: ArcType.NONE,
-        },
-      });
-
-      // Gold glow underlay
-      viewer.entities.add({
-        name: `commodity_flow_glow_${i}`,
-        polyline: {
-          positions: Cartesian3.fromDegreesArrayHeights(arcPoints),
-          width: width + 8,
-          material: new PolylineGlowMaterialProperty({
-            glowPower: 0.4,
-            color: Color.fromCssColorString("rgba(255, 160, 10, 0.25)"),
-          }),
-          arcType: ArcType.NONE,
-        },
-      });
-    });
-
-    viewer.entities.resumeEvents();
-  }, [commodityFlows]);
-
   // ─── Render Rail Freight — Real Rail Corridor Routing ───
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -3342,6 +3288,10 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
           <ShippingDensityLayer
             viewer={viewerRef.current}
             enabled={layers.shippingDensity}
+          />
+          <CommodityFlowsLayer
+            viewer={viewerRef.current}
+            flows={commodityFlows}
           />
         </>
       )}
