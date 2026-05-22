@@ -10,6 +10,9 @@ env/
 .env
 .env.local
 .env.production
+# But always track example files
+!.env.example
+!.env.local.example
 
 # Build
 .next/

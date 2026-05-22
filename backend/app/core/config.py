@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # App URL (for links in emails)
     app_url: str = "http://localhost:3000"
 
+    # Sentry (optional — leave blank to disable error reporting)
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1  # 10% of transactions traced
+    sentry_profiles_sample_rate: float = 0.0  # off by default
+
     @property
     def is_production(self) -> bool:
         return self.env.lower() == "production"

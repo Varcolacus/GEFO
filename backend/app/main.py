@@ -4,8 +4,18 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
+from app.core.sentry_init import init_sentry
 from app.core.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
 from app.core.rate_limit import setup_rate_limiting
+
+# Initialise Sentry BEFORE FastAPI() so the SDK can wrap the ASGI app
+# and the SQLAlchemy engine. No-op when SENTRY_DSN is unset.
+init_sentry(
+    dsn=settings.sentry_dsn,
+    environment=settings.env,
+    traces_sample_rate=settings.sentry_traces_sample_rate,
+    profiles_sample_rate=settings.sentry_profiles_sample_rate,
+)
 from app.api import countries, trade_flows, ports, airports, shipping_density, indicators, intelligence
 from app.api import auth, keys, billing, export, alerts, admin, geopolitical
 from app.api import analytics as analytics_router
