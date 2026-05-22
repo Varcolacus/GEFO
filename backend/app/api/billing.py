@@ -1,6 +1,7 @@
 """Stripe billing endpoints — checkout session, webhook, portal."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 import stripe
 import logging
@@ -9,6 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User, SubscriptionTier, SubscriptionStatus
+from app.models.stripe_event import StripeEvent
 from app.schemas.auth import (
     CreateCheckoutSession,
     CheckoutSessionResponse,
@@ -87,7 +89,7 @@ def create_portal_session(
     stripe.api_key = settings.stripe_secret_key
     session = stripe.billing_portal.Session.create(
         customer=user.stripe_customer_id,
-        return_url="http://localhost:3000/account",
+        return_url=f"{settings.app_url}/account",
     )
 
     return {"portal_url": session.url}
@@ -118,9 +120,21 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event["type"]
+    event_id = event["id"]
     data = event["data"]["object"]
 
-    logger.info(f"Stripe webhook: {event_type}")
+    # Idempotency: try to insert the event ID first. If it already exists,
+    # this is a Stripe retry of an event we've already processed — return
+    # 200 so Stripe stops retrying, but don't re-run the handler.
+    db.add(StripeEvent(stripe_event_id=event_id, event_type=event_type))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.info(f"Stripe webhook: {event_type} ({event_id}) already processed, skipping")
+        return {"status": "ok", "duplicate": True}
+
+    logger.info(f"Stripe webhook: {event_type} ({event_id})")
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data, db)
