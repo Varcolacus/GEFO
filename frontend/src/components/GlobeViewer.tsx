@@ -500,7 +500,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     railFlowEstimated.current.clear();
     setSelectedRailFlow(null);
 
-    if (!layers.railroadFreight || railFreight.length === 0) {
+    if (!layers.railroads || railFreight.length === 0) {
       viewer.entities.resumeEvents();
       return;
     }
@@ -642,7 +642,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       emalahleni:[29.24,-25.87], richards_bay:[32.04,-28.78],
       // ── Brazil ──
       sao_luis:[-44.28,-2.53], belem:[-48.50,-1.46],
-      belo_horizonte:[-43.94,-19.92], vitoria:[-40.34,-20.32],
+      belo_horizonte:[-43.94,-19.92], vitoria_br:[-40.34,-20.32],
       sao_paulo:[-46.63,-23.55], santos:[-46.33,-23.96],
       cuiaba:[-56.10,-15.60], rio_de_janeiro:[-43.17,-22.91],
       curitiba:[-49.27,-25.43], porto_alegre:[-51.23,-30.03],
@@ -1233,7 +1233,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       // Carajás Railway (Vale EFC): Pará → Maranhão
       ["belem","sao_luis"],
       // Vitória–Minas (Vale EFVM): MG → ES
-      ["belo_horizonte","vitoria"],
+      ["belo_horizonte","vitoria_br"],
       // MRS Logística: MG → SP/RJ
       ["belo_horizonte","sao_paulo"],["belo_horizonte","rio_de_janeiro"],
       ["sao_paulo","campinas"],["campinas","santos"],
@@ -1456,7 +1456,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
       "AU-WA": "perth",      "AU-NT": "darwin",
       // Brazilian states
       "BR-PA": "belem",         "BR-MA": "sao_luis",
-      "BR-MG": "belo_horizonte","BR-ES": "vitoria",
+      "BR-MG": "belo_horizonte","BR-ES": "vitoria_br",
       "BR-SP": "sao_paulo",     "BR-RJ": "rio_de_janeiro",
       "BR-MT": "cuiaba",        "BR-PR": "curitiba",
       "BR-BA": "salvador",      "BR-RS": "porto_alegre",
@@ -1838,7 +1838,7 @@ const GlobeViewer = forwardRef<GlobeViewerHandle, GlobeViewerProps>(function Glo
     });
 
     viewer.entities.resumeEvents();
-  }, [railFreight, layers.railroadFreight]);
+  }, [railFreight, layers.railroads]);
 
   // ── Rail freight: highlight selected flow, dim others ──
   useEffect(() => {

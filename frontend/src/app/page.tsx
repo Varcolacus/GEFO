@@ -499,7 +499,7 @@ export default function Home() {
 
       {showIntelligence && (
         <IntelligencePanel
-          year={year}
+          year={year ?? new Date().getFullYear()}
           onClose={() => setShowIntelligence(false)}
         />
       )}
@@ -531,7 +531,7 @@ export default function Home() {
 
       {showGeopolitical && (
         <GeopoliticalPanel
-          year={year}
+          year={year ?? new Date().getFullYear()}
           onClose={() => setShowGeopolitical(false)}
           onFlyTo={(lat, lon) => setFlyToPosition({ lon, lat, altitude: 3000000 })}
         />
@@ -549,7 +549,7 @@ export default function Home() {
 
       {showAnalytics && (
         <AnalyticsPanel
-          year={year}
+          year={year ?? new Date().getFullYear()}
           onClose={() => setShowAnalytics(false)}
         />
       )}
@@ -560,7 +560,7 @@ export default function Home() {
 
       {showCommodities && (
         <CommodityPanel
-          year={year}
+          year={year ?? new Date().getFullYear()}
           onClose={() => setShowCommodities(false)}
           onShowCommodityFlows={(flows) => setCommodityFlows(flows)}
         />
